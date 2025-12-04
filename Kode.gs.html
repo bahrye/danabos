@@ -1,0 +1,914 @@
+/**
+ * KONFIGURASI ID FILE
+ * Masukkan ID file yang sudah Anda siapkan di Google Drive
+ */
+const CONFIG = {
+  MASTER_DB_ID: '1ysd6zCjs7gE76LKG7S-PjvrbZroPh6ekGz6RB2dxTcc', 
+  TEMPLATE_DB_ID: '1I1oIcDCQTGO-fJJBTcCgWwgNC-cOKUg_ES0b9ZAKwok',
+  TEMPLATE_DOC_ID: 'MASUKKAN_ID_GOOGLE_DOC_TEMPLATE_DISINI',
+  FOLDER_PDF_ID: '' // Opsional: Jika ingin menyimpan PDF di folder tertentu
+};
+
+/* --- ROUTING HALAMAN --- */
+function doGet(e) {
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle('Aplikasi LPJ BOS Madrasah')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/* --- FUNGSI REGISTRASI & LOGIN --- */
+
+/* --- FUNGSI AUTH --- */
+function registerSchool(form) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] == form.email) return { status: 'error', message: 'Email sudah terdaftar!' };
+  }
+  try {
+    const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
+    const newFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah);
+    newFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+    ssMaster.appendRow([new Date(), form.namaSekolah, form.email, form.password, newFile.getId()]);
+    return { status: 'success', message: 'Registrasi berhasil! Silakan Login.' };
+  } catch (e) {
+    return { status: 'error', message: 'Error: ' + e.toString() };
+  }
+}
+
+// Fungsi Login
+function loginUser(form) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] == form.email && data[i][3] == form.password) {
+      return { status: 'success', token: data[i][4], namaSekolah: data[i][1] };
+    }
+  }
+  return { status: 'error', message: 'Email atau Password salah!' };
+}
+
+/* --- FUNGSI CRUD DATA (User Spesifik) --- */
+
+function simpanTransaksi(token, dataTransaksi) {
+  try {
+    const ss = SpreadsheetApp.openById(token); // Buka DB spesifik milik sekolah
+    const sheet = ss.getSheetByName('Transaksi');
+    
+    // Generate ID Unik
+    const id = Utilities.getUuid();
+    
+    sheet.appendRow([
+      id,
+      new Date(),
+      dataTransaksi.nomorSurat,
+      dataTransaksi.toko,
+      JSON.stringify(dataTransaksi.items), // Item barang disimpan sbg JSON string
+      dataTransaksi.total,
+      dataTransaksi.terbilang
+    ]);
+    
+    return { status: 'success', message: 'Data Transaksi Tersimpan!' };
+  } catch (e) {
+    return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
+  }
+}
+
+/* --- FUNGSI GENERATE PDF --- */
+
+function generateLPJ(token, dataForm) {
+  try {
+    // 1. Copy Template Google Doc
+    const docTemplate = DriveApp.getFileById(CONFIG.TEMPLATE_DOC_ID);
+    const tempDocFile = docTemplate.makeCopy('LPJ_TEMP_' + new Date().getTime());
+    const docId = tempDocFile.getId();
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    // 2. Replace Placeholders Dasar
+    // Data ini diambil dari input form di sisi client
+    body.replaceText('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
+    body.replaceText('<<Nama Toko>>', dataForm.namaToko);
+    body.replaceText('<<Nama Madrasah>>', dataForm.namaMadrasah);
+    body.replaceText('<<Total>>', formatRupiah(dataForm.total));
+    body.replaceText('<<Total Terbilang>>', terbilang(dataForm.total));
+    // ... tambahkan replaceText lain sesuai PDF Anda ...
+
+    // 3. Mengisi Tabel Item (Logic kompleks disederhanakan)
+    // Mencari placeholder tabel pertama dan mengisi baris
+    // (Ini butuh penyesuaian manual tergantung struktur Doc Anda)
+    
+    doc.saveAndClose();
+
+    // 4. Konversi ke PDF
+    const pdfBlob = tempDocFile.getAs(MimeType.PDF);
+    const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ - ' + dataForm.nomorSurat + '.pdf');
+    
+    // 5. Hapus file doc sementara
+    tempDocFile.setTrashed(true);
+
+    return { status: 'success', url: pdfFile.getUrl() };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
+  }
+}
+
+/* --- HELPER FUNCTIONS --- */
+function formatRupiah(angka) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
+}
+
+// Fungsi Terbilang sederhana
+function terbilang(nilai) {
+  var bilangan = Math.abs(nilai);
+  var angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  var temp = "";
+  
+  if (bilangan < 12) {
+    temp = " " + angka[bilangan];
+  } else if (bilangan < 20) {
+    temp = terbilang(bilangan - 10) + " Belas";
+  } else if (bilangan < 100) {
+    temp = terbilang(Math.floor(bilangan / 10)) + " Puluh" + terbilang(bilangan % 10);
+  } else if (bilangan < 200) {
+    temp = " Seratus" + terbilang(bilangan - 100);
+  } else if (bilangan < 1000) {
+    temp = terbilang(Math.floor(bilangan / 100)) + " Ratus" + terbilang(bilangan % 100);
+  } else if (bilangan < 2000) {
+    temp = " Seribu" + terbilang(bilangan - 1000);
+  } else if (bilangan < 1000000) {
+    temp = terbilang(Math.floor(bilangan / 1000)) + " Ribu" + terbilang(bilangan % 1000);
+  } else if (bilangan < 1000000000) {
+    temp = terbilang(Math.floor(bilangan / 1000000)) + " Juta" + terbilang(bilangan % 1000000);
+  }
+  return temp;
+}
+
+/* --- FUNGSI DATA SEKOLAH --- */
+
+// 1. Ambil Data Sekolah (Saat menu dibuka)
+function getDataSekolah(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataSekolah');
+    
+    if (!sheet) {
+      sheet = ss.insertSheet('DataSekolah');
+      const headers = [
+        "Nama Sekolah", "NPSN", "NSM", "Alamat Lengkap", "Provinsi", 
+        "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD", // Update Header
+        "Nama Kepala", "NIP Kepala", "Nama Bendahara", "NIP Bendahara", 
+        "No Telp", "Email", "Nama Dana BOS", "Tahun Anggaran"
+      ];
+      sheet.appendRow(headers);
+    }
+
+    const data = sheet.getRange(2, 1, 1, 17).getValues()[0];
+    
+    return {
+      status: 'success',
+      data: {
+        namaSekolah: data[0] || '',
+        npsn: data[1] || '',
+        nsm: data[2] || '',
+        alamat: data[3] || '',
+        provinsi: data[4] || '',
+        kabupaten: data[5] || '',
+        kecamatan: data[6] || '',
+        kelurahan: data[7] || '',
+        tempatTTD: data[8] || '', // Ubah key jadi tempatTTD
+        namaKepala: data[9] || '',
+        nipKepala: data[10] || '',
+        namaBendahara: data[11] || '',
+        nipBendahara: data[12] || '',
+        noTelp: data[13] || '',
+        email: data[14] || '',
+        danaBOS: data[15] || '',
+        tahunAnggaran: data[16] || ''
+      }
+    };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Simpan Data Sekolah
+function simpanDataSekolah(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataSekolah');
+    if (!sheet) return { status: 'error', message: 'Sheet DataSekolah tidak ditemukan!' };
+
+    // PERBAIKAN: Format Text untuk NPSN, NSM, dan No. Telp
+    // Menggunakan ternary operator ( ? : ) untuk NSM karena sifatnya opsional
+    // Jika ada isinya, tambahkan kutip ('). Jika kosong, biarkan kosong.
+    const npsnText = "'" + form.npsn; 
+    const nsmText = form.nsm ? "'" + form.nsm : "";  // <--- NSM diformat Text
+    const telpText = "'" + form.noTelp;
+    
+    // Format Text juga untuk NIP (Opsional)
+    const nipKepalaText = form.nipKepala ? "'" + form.nipKepala : "";
+    const nipBendaharaText = form.nipBendahara ? "'" + form.nipBendahara : "";
+
+    const rowData = [
+      form.namaSekolah,
+      npsnText,       // Save as Text
+      nsmText,        // Save as Text
+      form.alamat,
+      form.provinsi,
+      form.kabupaten,
+      form.kecamatan,
+      form.kelurahan,
+      form.tempatTTD, 
+      form.namaKepala,
+      nipKepalaText,  // Save as Text
+      form.namaBendahara,
+      nipBendaharaText, // Save as Text
+      telpText,       // Save as Text
+      form.email,
+      form.danaBOS,
+      form.tahunAnggaran
+    ];
+
+    sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
+
+    return { status: 'success', message: 'Data Sekolah berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
+  }
+}
+
+/* --- FUNGSI DATA URAIAN PEKERJAAN --- */
+
+// 1. Ambil List Uraian
+function getUraianList(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataUraian');
+    
+    // Jika belum ada, buat sheet baru
+    if (!sheet) {
+      sheet = ss.insertSheet('DataUraian');
+      sheet.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); // Header
+    }
+
+    const data = sheet.getDataRange().getValues();
+    // Hapus header (baris 1) dari hasil return
+    const result = data.slice(1).map(row => {
+      return { id: row[0], noBukti: row[1], uraian: row[2] };
+    });
+
+    return { status: 'success', data: result };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Simpan Uraian Baru
+function simpanUraianBaru(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataUraian');
+    if (!sheet) return { status: 'error', message: 'Sheet DataUraian tidak ditemukan' };
+
+    const id = Utilities.getUuid(); // ID Unik untuk keperluan hapus/edit
+    
+    // Pakai tanda kutip (') untuk No Bukti agar format terjaga
+    sheet.appendRow([id, "'" + form.noBukti, form.uraian]);
+
+    return { status: 'success', message: 'Uraian berhasil ditambahkan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Hapus Uraian
+function hapusUraianItem(token, idToDelete) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataUraian');
+    const data = sheet.getDataRange().getValues();
+    
+    // Loop cari ID (kolom ke-0)
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == idToDelete) {
+        sheet.deleteRow(i + 1); // +1 karena index sheet mulai dari 1
+        return { status: 'success', message: 'Data berhasil dihapus' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- TAMBAHAN DI FUNGSI DATA URAIAN --- */
+
+// 4. Edit / Update Uraian
+function editUraianItem(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataUraian');
+    const data = sheet.getDataRange().getValues();
+    
+    // Loop cari ID yang cocok
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == form.id) { // Kolom 0 adalah ID
+        
+        // Update Baris Tersebut (Ingat +1 karena index array mulai 0, sheet mulai 1)
+        // Kita update Kolom 2 (No Bukti) dan Kolom 3 (Uraian)
+        
+        const noBuktiText = "'" + form.noBukti; // Jaga format text
+        
+        sheet.getRange(i + 1, 2).setValue(noBuktiText);
+        sheet.getRange(i + 1, 3).setValue(form.uraian);
+        
+        return { status: 'success', message: 'Data berhasil diperbarui!' };
+      }
+    }
+    return { status: 'error', message: 'ID Data tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI DATA TOKO --- */
+
+// 1. Ambil List Toko
+function getTokoList(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataToko');
+    
+    if (!sheet) {
+      sheet = ss.insertSheet('DataToko');
+      // Header: ID, Nama, Jenis, Alamat, Telp, Pemilik, Tempat TTD
+      sheet.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    // Hapus header
+    const result = data.slice(1).map(row => {
+      return {
+        id: row[0],
+        nama: row[1],
+        jenis: row[2],
+        alamat: row[3],
+        telp: row[4],
+        pemilik: row[5],
+        tempat: row[6]
+      };
+    });
+
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Simpan Toko Baru
+function simpanTokoBaru(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataToko');
+    if (!sheet) return { status: 'error', message: 'Sheet DataToko tidak ditemukan' };
+
+    const id = Utilities.getUuid();
+    
+    // Gunakan kutip satu (') untuk No Telp agar formatnya Text
+    const telpText = "'" + form.telp;
+
+    sheet.appendRow([
+      id, 
+      form.nama, 
+      form.jenis, 
+      form.alamat, 
+      telpText, 
+      form.pemilik, 
+      form.tempat
+    ]);
+
+    return { status: 'success', message: 'Data Toko berhasil ditambahkan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Edit Data Toko
+function editTokoItem(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataToko');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == form.id) {
+        
+        // Update Baris (Index + 1)
+        const rowIdx = i + 1;
+        const telpText = "'" + form.telp;
+
+        // Update sel satu per satu sesuai kolom
+        sheet.getRange(rowIdx, 2).setValue(form.nama);
+        sheet.getRange(rowIdx, 3).setValue(form.jenis);
+        sheet.getRange(rowIdx, 4).setValue(form.alamat);
+        sheet.getRange(rowIdx, 5).setValue(telpText);
+        sheet.getRange(rowIdx, 6).setValue(form.pemilik);
+        sheet.getRange(rowIdx, 7).setValue(form.tempat);
+        
+        return { status: 'success', message: 'Data Toko berhasil diperbarui!' };
+      }
+    }
+    return { status: 'error', message: 'ID Toko tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 4. Hapus Toko
+function hapusTokoItem(token, idToDelete) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataToko');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == idToDelete) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Data Toko dihapus' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI DATA TUKANG --- */
+
+// 1. Ambil List Tukang
+function getTukangList(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataTukang');
+    
+    // Jika belum ada, buat sheet baru
+    if (!sheet) {
+      sheet = ss.insertSheet('DataTukang');
+      // Header: ID, Nama Lengkap, Alamat Lengkap
+      sheet.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    // Hapus header (baris 1) dan mapping data
+    const result = data.slice(1).map(row => {
+      return {
+        id: row[0],
+        nama: row[1],
+        alamat: row[2]
+      };
+    });
+
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Simpan Tukang Baru
+function simpanTukangBaru(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataTukang');
+    if (!sheet) return { status: 'error', message: 'Sheet DataTukang tidak ditemukan' };
+
+    const id = Utilities.getUuid();
+    
+    sheet.appendRow([
+      id, 
+      form.nama, 
+      form.alamat
+    ]);
+
+    return { status: 'success', message: 'Data Tukang berhasil ditambahkan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Edit Data Tukang
+function editTukangItem(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTukang');
+    const data = sheet.getDataRange().getValues();
+    
+    // Loop cari ID
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == form.id) {
+        const rowIdx = i + 1;
+        // Update kolom 2 (Nama) dan 3 (Alamat)
+        sheet.getRange(rowIdx, 2).setValue(form.nama);
+        sheet.getRange(rowIdx, 3).setValue(form.alamat);
+        
+        return { status: 'success', message: 'Data Tukang berhasil diperbarui!' };
+      }
+    }
+    return { status: 'error', message: 'ID Tukang tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 4. Hapus Tukang
+function hapusTukangItem(token, idToDelete) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTukang');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == idToDelete) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Data Tukang dihapus' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI DATA PEMESAN/GURU --- */
+
+// 1. Ambil List Guru
+function getGuruList(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataGuru');
+    
+    // Jika belum ada, buat sheet baru
+    if (!sheet) {
+      sheet = ss.insertSheet('DataGuru');
+      // Header: ID, Nama Lengkap, NIP
+      sheet.appendRow(["ID", "Nama Lengkap", "NIP"]);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    // Hapus header (baris 1)
+    const result = data.slice(1).map(row => {
+      return {
+        id: row[0],
+        nama: row[1],
+        nip: row[2]
+      };
+    });
+
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Simpan Guru Baru
+function simpanGuruBaru(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataGuru');
+    if (!sheet) return { status: 'error', message: 'Sheet DataGuru tidak ditemukan' };
+
+    const id = Utilities.getUuid();
+    
+    // Format NIP sebagai text (pakai kutip satu) jika diisi
+    const nipText = form.nip ? "'" + form.nip : "";
+
+    sheet.appendRow([
+      id, 
+      form.nama, 
+      nipText
+    ]);
+
+    return { status: 'success', message: 'Data Guru berhasil ditambahkan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Edit Data Guru
+function editGuruItem(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataGuru');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == form.id) {
+        const rowIdx = i + 1;
+        const nipText = form.nip ? "'" + form.nip : "";
+
+        // Update kolom 2 (Nama) dan 3 (NIP)
+        sheet.getRange(rowIdx, 2).setValue(form.nama);
+        sheet.getRange(rowIdx, 3).setValue(nipText);
+        
+        return { status: 'success', message: 'Data Guru berhasil diperbarui!' };
+      }
+    }
+    return { status: 'error', message: 'ID Guru tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 4. Hapus Guru
+function hapusGuruItem(token, idToDelete) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataGuru');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == idToDelete) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Data Guru dihapus' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI PENGATURAN KOP SURAT --- */
+
+// 1. Simpan Kop Surat (Upload ke Drive & Simpan ID ke DB)
+function simpanKopSurat(token, fileData) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    
+    // Buat sheet jika belum ada
+    if (!sheet) {
+      sheet = ss.insertSheet('DataPengaturan');
+      sheet.appendRow(['KEY', 'VALUE']); // Header
+    }
+
+    // 1. Hapus File Lama di Drive jika ada (Supaya tidak numpuk)
+    const data = sheet.getDataRange().getValues();
+    let oldFileId = null;
+    let rowIdx = -1;
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'KOP_SURAT_ID') {
+        oldFileId = data[i][1];
+        rowIdx = i + 1;
+        break;
+      }
+    }
+
+    if (oldFileId) {
+      try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
+    }
+
+    // 2. Upload File Baru ke Drive
+    // Decode Base64 string
+    const contentType = fileData.mimeType;
+    const base64Data = fileData.base64;
+    const decoded = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decoded, contentType, "KopSurat_" + Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss"));
+    
+    const file = DriveApp.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // Agar bisa dilihat di tag <img>
+    const newFileId = file.getId();
+
+    // 3. Simpan ID ke Spreadsheet
+    if (rowIdx !== -1) {
+      // Update baris yang ada
+      sheet.getRange(rowIdx, 2).setValue(newFileId);
+    } else {
+      // Buat baris baru
+      sheet.appendRow(['KOP_SURAT_ID', newFileId]);
+    }
+
+    return { status: 'success', message: 'Kop Surat berhasil diupload!', fileId: newFileId };
+
+  } catch (e) {
+    return { status: 'error', message: 'Upload gagal: ' + e.toString() };
+  }
+}
+
+// 2. Ambil Kop Surat (Untuk ditampilkan saat load)
+function getKopSurat(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return { status: 'success', fileId: null };
+
+    const data = sheet.getDataRange().getValues();
+    let fileId = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'KOP_SURAT_ID') {
+        fileId = data[i][1];
+        break;
+      }
+    }
+
+    return { status: 'success', fileId: fileId };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Hapus Kop Surat
+function hapusKopSurat(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return { status: 'error', message: 'Data tidak ditemukan' };
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'KOP_SURAT_ID') {
+        const fileId = data[i][1];
+        // Hapus file di Drive
+        try { DriveApp.getFileById(fileId).setTrashed(true); } catch(e) {}
+        
+        // Hapus data di Sheet
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Kop Surat dihapus.' };
+      }
+    }
+    return { status: 'success', message: 'Tidak ada kop surat.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI BANTUAN TRANSAKSI --- */
+
+// Ambil semua data master sekaligus untuk isi dropdown
+function getAllOptions(token) {
+  try {
+    // Reuse fungsi yang sudah ada agar tidak duplikasi kode
+    const uraian = getUraianList(token).data || [];
+    const toko = getTokoList(token).data || [];
+    const tukang = getTukangList(token).data || [];
+    const guru = getGuruList(token).data || [];
+
+    return {
+      status: 'success',
+      data: {
+        uraian: uraian,
+        toko: toko,
+        tukang: tukang,
+        guru: guru
+      }
+    };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI SIMPAN TRANSAKSI --- */
+
+function simpanTransaksiBaru(token, data) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataTransaksi');
+
+    // 1. Buat Sheet Transaksi jika belum ada
+    if (!sheet) {
+      sheet = ss.insertSheet('DataTransaksi');
+      // Header Database
+      sheet.appendRow([
+        "ID_Transaksi", 
+        "Tanggal", 
+        "Tipe",         // Toko / Tukang
+        "Uraian", 
+        "Pihak_Ketiga", // Nama Toko / Nama Tukang
+        "Pemesan",      // Nama Guru
+        "Items_JSON",   // Detail Barang (disimpan format JSON text)
+        "Total_Biaya",
+        "Waktu_Input"
+      ]);
+    }
+
+    // 2. Format Data
+    const id = Utilities.getUuid();
+    const timestamp = new Date();
+    
+    // Konversi Object Items menjadi String JSON agar masuk 1 sel
+    const itemsString = JSON.stringify(data.items);
+    
+    // Pastikan data string aman (pakai kutip satu untuk teks)
+    const rowData = [
+      id,
+      "'" + data.tanggal, // Format Text agar tanggal tidak berubah format
+      data.tipe,
+      data.uraian,
+      data.pihakKetiga,
+      data.pemesan,
+      itemsString,
+      data.total,
+      timestamp
+    ];
+
+    // 3. Simpan
+    sheet.appendRow(rowData);
+
+    return { status: 'success', message: 'Transaksi berhasil disimpan!' };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
+  }
+}
+
+/* --- FUNGSI CRUD TRANSAKSI (LANJUTAN) --- */
+
+// 1. Ambil List Transaksi (Berdasarkan Tipe)
+function getTransaksiList(token, tipe) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    if (!sheet) return { status: 'success', data: [] };
+
+    const data = sheet.getDataRange().getValues();
+    // Header: ID(0), Tanggal(1), Tipe(2), Uraian(3), Pihak(4), Pemesan(5), Items(6), Total(7)
+    
+    // Filter data berdasarkan tipe (TOKO / TUKANG) dan abaikan header
+    const result = data.slice(1).filter(r => r[2] === tipe.toUpperCase()).map(row => {
+      let items = [];
+      try { items = JSON.parse(row[6]); } catch(e) {} // Parse JSON items
+      
+      return {
+        id: row[0],
+        tanggal: String(row[1]).replace(/'/g, ''),
+        uraian: row[3],
+        pihak: row[4],
+        pemesan: row[5],
+        items: items,
+        total: row[7]
+      };
+    });
+
+    // Sort berdasarkan tanggal terbaru (Opsional)
+    // result.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Update Transaksi (Edit)
+function updateTransaksi(token, payload) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == payload.id) {
+        const rowIdx = i + 1;
+        const itemsString = JSON.stringify(payload.items);
+        
+        // Update kolom-kolom
+        sheet.getRange(rowIdx, 2).setValue("'" + payload.tanggal);
+        sheet.getRange(rowIdx, 4).setValue(payload.uraian);
+        sheet.getRange(rowIdx, 5).setValue(payload.pihakKetiga);
+        sheet.getRange(rowIdx, 6).setValue(payload.pemesan);
+        sheet.getRange(rowIdx, 7).setValue(itemsString);
+        sheet.getRange(rowIdx, 8).setValue(payload.total);
+        
+        return { status: 'success', message: 'Transaksi berhasil diupdate!' };
+      }
+    }
+    return { status: 'error', message: 'ID Transaksi tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Hapus Transaksi
+function hapusTransaksi(token, id) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] == id) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Transaksi dihapus.' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
