@@ -827,3 +827,100 @@ function simpanTransaksiBaru(token, data) {
     return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
   }
 }
+
+/* --- TAMBAHAN UPDATE: FUNGSI CRUD TRANSAKSI --- */
+
+// 1. Ambil List Transaksi berdasarkan Tipe (TOKO/TUKANG)
+function getTransaksiList(token, tipe) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    if (!sheet) return { status: 'success', data: [] }; // Return kosong jika sheet belum ada
+
+    const data = sheet.getDataRange().getValues();
+    // Filter data berdasarkan Tipe (Kolom index 2)
+    // Lewati header (baris 1)
+    const result = [];
+    
+    // Format tanggal helper
+    const formatDate = (dateObj) => {
+      if(!dateObj) return "";
+      return Utilities.formatDate(new Date(dateObj), "GMT+7", "yyyy-MM-dd");
+    };
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][2] === tipe) {
+        let items = [];
+        try {
+          items = JSON.parse(data[i][6]); // Parse JSON string kembali ke object
+        } catch (err) { items = []; }
+
+        result.push({
+          id: data[i][0],
+          tanggal: formatDate(data[i][1]),
+          tipe: data[i][2],
+          uraian: data[i][3],
+          pihakKetiga: data[i][4],
+          pemesan: data[i][5],
+          items: items,
+          total: data[i][7]
+        });
+      }
+    }
+    
+    // Urutkan dari yang terbaru (opsional)
+    result.reverse();
+
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Edit Transaksi
+function editTransaksiItem(token, data) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const allData = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < allData.length; i++) {
+      if (allData[i][0] == data.id) { // Cek ID
+        const rowIdx = i + 1;
+        const itemsString = JSON.stringify(data.items);
+
+        // Update Kolom (Sesuaikan urutan kolom di simpanTransaksiBaru)
+        sheet.getRange(rowIdx, 2).setValue("'" + data.tanggal); // Tanggal
+        sheet.getRange(rowIdx, 4).setValue(data.uraian);        // Uraian
+        sheet.getRange(rowIdx, 5).setValue(data.pihakKetiga);   // Pihak Ketiga
+        sheet.getRange(rowIdx, 6).setValue(data.pemesan);       // Pemesan
+        sheet.getRange(rowIdx, 7).setValue(itemsString);        // Items JSON
+        sheet.getRange(rowIdx, 8).setValue(data.total);         // Total
+        
+        return { status: 'success', message: 'Transaksi berhasil diperbarui!' };
+      }
+    }
+    return { status: 'error', message: 'ID Transaksi tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Hapus Transaksi
+function hapusTransaksiItem(token, idToDelete) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == idToDelete) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Transaksi berhasil dihapus.' };
+      }
+    }
+    return { status: 'error', message: 'ID tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
