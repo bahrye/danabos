@@ -475,11 +475,10 @@
             </ul>
 
             <div id="tab-content-toko" class="tab-section">
-              <div class="card shadow-sm border-0">
+              <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body p-4">
                   <form id="formBelanjaToko">
-                    
-                    <div class="row mb-3">
+                    <input type="hidden" id="trTokoId"> <div class="row mb-3">
                       <div class="col-md-3">
                         <label class="form-label">Tanggal Transaksi</label>
                         <input type="date" class="form-control" id="trTokoTanggal" required>
@@ -488,7 +487,7 @@
                         <label class="form-label">Uraian Belanja (RKAM)</label>
                         <select class="form-select" id="trTokoUraian" required>
                           <option value="">-- Pilih Uraian --</option>
-                          </select>
+                        </select>
                       </div>
                     </div>
 
@@ -520,8 +519,7 @@
                             <th width="10%"><i class="fas fa-trash"></i></th>
                           </tr>
                         </thead>
-                        <tbody>
-                          </tbody>
+                        <tbody></tbody>
                         <tfoot>
                           <tr>
                             <td colspan="4" class="text-end fw-bold">TOTAL BELANJA:</td>
@@ -538,23 +536,50 @@
                       <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('toko')">
                         <i class="fas fa-plus me-1"></i> Tambah Baris Barang
                       </button>
-                      <button type="button" class="btn btn-success" onclick="simpanTransaksi('toko')">
-                        <i class="fas fa-save me-1"></i> Simpan Transaksi Toko
-                      </button>
+                      
+                      <div>
+                        <button type="button" id="btnBatalTokoTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('toko')">
+                          <i class="fas fa-times me-1"></i> Batal
+                        </button>
+                        <button type="button" id="btnSimpanTokoTrans" class="btn btn-success" onclick="simpanTransaksi('toko')">
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                        </button>
+                      </div>
                     </div>
 
                   </form>
                 </div>
               </div>
+
+              <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Toko</div>
+                  <div class="card-body">
+                      <div class="table-responsive">
+                          <table class="table table-hover align-middle table-striped text-sm">
+                              <thead class="table-light">
+                                  <tr>
+                                      <th>Tanggal</th>
+                                      <th>Uraian</th>
+                                      <th>Toko</th>
+                                      <th>Total</th>
+                                      <th>Aksi</th>
+                                  </tr>
+                              </thead>
+                              <tbody id="listTransaksiToko">
+                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
             </div>
 
             <div id="tab-content-tukang" class="tab-section hidden">
-              <div class="card shadow-sm border-0">
+              <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body p-4">
                   <div class="alert alert-warning py-2 mb-3"><small>Mode Input: Pembayaran Upah Tukang</small></div>
                   <form id="formBelanjaTukang">
-                    
-                    <div class="row mb-3">
+                    <input type="hidden" id="trTukangId"> <div class="row mb-3">
                       <div class="col-md-3">
                         <label class="form-label">Tanggal Transaksi</label>
                         <input type="date" class="form-control" id="trTukangTanggal" required>
@@ -575,7 +600,7 @@
                         </select>
                       </div>
                       <div class="col-md-6">
-                        <label class="form-label">Pilih Data Pemesan/Penanggung Jawab</label>
+                        <label class="form-label">Pilih Data Pemesan</label>
                         <select class="form-select" id="trTukangPemesan" required>
                           <option value="">-- Pilih Guru --</option>
                         </select>
@@ -595,8 +620,7 @@
                             <th width="10%"><i class="fas fa-trash"></i></th>
                           </tr>
                         </thead>
-                        <tbody>
-                          </tbody>
+                        <tbody></tbody>
                         <tfoot>
                           <tr>
                             <td colspan="4" class="text-end fw-bold">TOTAL UPAH:</td>
@@ -613,16 +637,43 @@
                       <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
                         <i class="fas fa-plus me-1"></i> Tambah Baris
                       </button>
-                      <button type="button" class="btn btn-success" onclick="simpanTransaksi('tukang')">
-                        <i class="fas fa-save me-1"></i> Simpan Transaksi Tukang
-                      </button>
+
+                      <div>
+                        <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('tukang')">
+                          <i class="fas fa-times me-1"></i> Batal
+                        </button>
+                        <button type="button" id="btnSimpanTukangTrans" class="btn btn-success" onclick="simpanTransaksi('tukang')">
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                        </button>
+                      </div>
                     </div>
 
                   </form>
                 </div>
               </div>
-            </div>
 
+              <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Tukang</div>
+                  <div class="card-body">
+                      <div class="table-responsive">
+                          <table class="table table-hover align-middle table-striped text-sm">
+                              <thead class="table-light">
+                                  <tr>
+                                      <th>Tanggal</th>
+                                      <th>Uraian</th>
+                                      <th>Tukang</th>
+                                      <th>Total</th>
+                                      <th>Aksi</th>
+                                  </tr>
+                              </thead>
+                              <tbody id="listTransaksiTukang">
+                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+            </div>
           </div>
 
           <div id="panel-uraian" class="panel-content hidden">
@@ -1727,9 +1778,9 @@
         });
       }
 
-      /* --- LOGIC TRANSAKSI BELANJA (KOMPLEKS) --- */
+      /* --- LOGIC TRANSAKSI BELANJA (DIPERBARUI) --- */
 
-      // 1. Tab Switching
+      // 1. Tab Switching (Diperbarui untuk load data list)
       function bukaTab(tabName) {
         // Hide semua content
         document.getElementById('tab-content-toko').classList.add('hidden');
@@ -1742,6 +1793,260 @@
         // Show selected
         document.getElementById('tab-content-' + tabName).classList.remove('hidden');
         document.getElementById('tab-btn-' + tabName).classList.add('active');
+
+        // LOAD DATA LIST TRANSAKSI
+        if(tabName === 'toko') loadTransaksiData('TOKO');
+        if(tabName === 'tukang') loadTransaksiData('TUKANG');
+      }
+
+      // 2. Load Data List Transaksi (FUNGSI BARU)
+      function loadTransaksiData(tipe) {
+        const token = localStorage.getItem('userToken');
+        const targetId = tipe === 'TOKO' ? 'listTransaksiToko' : 'listTransaksiTukang';
+        const tbody = document.getElementById(targetId);
+
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
+
+        google.script.run.withSuccessHandler(function(res) {
+            if (res.status === 'success') {
+                tbody.innerHTML = '';
+                if(res.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Belum ada riwayat transaksi.</td></tr>';
+                    return;
+                }
+
+                res.data.forEach(item => {
+                    // Siapkan data JSON untuk dikirim ke fungsi edit
+                    // Kita encode agar aman saat dipassing ke HTML attribute
+                    const dataJson = encodeURIComponent(JSON.stringify(item));
+                    const tipeKecil = tipe === 'TOKO' ? 'toko' : 'tukang';
+
+                    const btnEdit = `
+                        <button class="btn btn-sm btn-outline-warning me-1" 
+                            onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit Transaksi">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                    `;
+                    const btnHapus = `
+                        <button class="btn btn-sm btn-outline-danger" 
+                            onclick="hapusTransaksi('${item.id}', '${tipe}')" title="Hapus Transaksi">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+
+                    const row = `
+                        <tr>
+                            <td>${item.tanggal}</td>
+                            <td><div class="text-truncate" style="max-width: 200px;" title="${item.uraian}">${item.uraian}</div></td>
+                            <td>${item.pihakKetiga}</td>
+                            <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
+                            <td>${btnEdit} ${btnHapus}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
+            }
+        }).getTransaksiList(token, tipe);
+      }
+
+      // 3. Mode Edit Transaksi (FUNGSI BARU & KOMPLEKS)
+      function modeEditTransaksi(tipe, encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        
+        // 1. Isi ID Hidden
+        const idField = tipe === 'toko' ? 'trTokoId' : 'trTukangId';
+        document.getElementById(idField).value = data.id;
+
+        // 2. Isi Header
+        if(tipe === 'toko') {
+            document.getElementById('trTokoTanggal').value = data.tanggal;
+            // Gunakan unescapeHtml jika perlu untuk dropdown
+            // Pastikan value option dropdown sama persis dengan yang tersimpan
+            setSelectValue('trTokoUraian', data.uraian);
+            setSelectValue('trTokoNama', data.pihakKetiga);
+            setSelectValue('trTokoPemesan', data.pemesan);
+        } else {
+            document.getElementById('trTukangTanggal').value = data.tanggal;
+            setSelectValue('trTukangUraian', data.uraian);
+            setSelectValue('trTukangNama', data.pihakKetiga);
+            setSelectValue('trTukangPemesan', data.pemesan);
+        }
+
+        // 3. Re-draw Tabel Item
+        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
+        const tbody = document.getElementById(tableId).querySelector('tbody');
+        tbody.innerHTML = ''; // Kosongkan tabel
+
+        data.items.forEach(item => {
+            const rowId = new Date().getTime() + Math.random(); 
+            const row = `
+              <tr id="row-${rowId}">
+                <td><input type="text" class="form-control item-nama" value="${item.nama}" placeholder="Nama Barang"></td>
+                <td><input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
+                <td><input type="text" class="form-control item-sat" value="${item.sat}" placeholder="Satuan"></td>
+                <td><input type="number" class="form-control item-harga" value="${item.harga}" oninput="hitungBaris(this, '${tipe}')"></td>
+                <td>
+                  <input type="text" class="form-control item-jumlah-display" readonly value="${formatRupiahJS(item.jumlah)}">
+                  <input type="hidden" class="item-jumlah-value" value="${item.jumlah}">
+                </td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBaris(this, '${tipe}')"><i class="fas fa-trash"></i></button>
+                </td>
+              </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+
+        // Hitung ulang total
+        hitungTotalSemua(tipe);
+
+        // 4. Ubah Tombol Aksi
+        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
+        const btnBatal = document.getElementById(tipe === 'toko' ? 'btnBatalTokoTrans' : 'btnBatalTukangTrans');
+        
+        btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
+        btnSimpan.classList.remove('btn-success');
+        btnSimpan.classList.add('btn-warning');
+        
+        btnBatal.classList.remove('hidden');
+
+        // 5. Scroll ke Form
+        const formId = tipe === 'toko' ? 'formBelanjaToko' : 'formBelanjaTukang';
+        document.getElementById(formId).scrollIntoView({ behavior: 'smooth' });
+      }
+
+      // Helper untuk set value select yang mungkin mengandung karakter spesial
+      function setSelectValue(id, value) {
+          const select = document.getElementById(id);
+          // Cari option yang text/valuenya cocok
+          for (let i = 0; i < select.options.length; i++) {
+              // Decode HTML entities jika perlu, atau bandingkan langsung
+              if (select.options[i].value === value || select.options[i].text === value) {
+                  select.selectedIndex = i;
+                  break;
+              }
+          }
+      }
+
+      // 4. Batal Edit (Reset Form & Mode)
+      function batalEditTransaksi(tipe) {
+        // Reset Form
+        resetFormTransaksi(tipe);
+
+        // Clear ID Hidden
+        const idField = tipe === 'toko' ? 'trTokoId' : 'trTukangId';
+        document.getElementById(idField).value = '';
+
+        // Kembalikan Tombol
+        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
+        const btnBatal = document.getElementById(tipe === 'toko' ? 'btnBatalTokoTrans' : 'btnBatalTukangTrans');
+
+        btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Transaksi';
+        btnSimpan.classList.add('btn-success');
+        btnSimpan.classList.remove('btn-warning');
+        
+        btnBatal.classList.add('hidden');
+      }
+
+      // 5. Hapus Transaksi
+      function hapusTransaksi(id, tipe) {
+        Swal.fire({
+          title: 'Hapus Transaksi?', text: "Data tidak bisa dikembalikan.",
+          icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const token = localStorage.getItem('userToken');
+            google.script.run.withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
+                loadTransaksiData(tipe); // Reload tabel
+              } else {
+                Swal.fire('Gagal', res.message, 'error');
+              }
+            }).hapusTransaksiItem(token, id);
+          }
+        });
+      }
+
+      // --- LOGIC SIMPAN YANG DIPERBARUI (HANDLE EDIT & BARU) ---
+      function simpanTransaksi(tipe) {
+        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
+        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+        const idEdit = document.getElementById(tipe === 'toko' ? 'trTokoId' : 'trTukangId').value;
+
+        // A. Validasi Barang
+        if (rows.length === 0) {
+          Swal.fire('Eror', 'Belum ada barang yang dimasukkan!', 'error');
+          return;
+        }
+        
+        // B. Ambil Data Header
+        const tgl = document.getElementById(tipe === 'toko' ? 'trTokoTanggal' : 'trTukangTanggal').value;
+        const uraian = document.getElementById(tipe === 'toko' ? 'trTokoUraian' : 'trTukangUraian').value;
+        const pihak = document.getElementById(tipe === 'toko' ? 'trTokoNama' : 'trTukangNama').value;
+        const pemesan = document.getElementById(tipe === 'toko' ? 'trTokoPemesan' : 'trTukangPemesan').value;
+
+        if (!tgl || !uraian || !pihak || !pemesan) {
+          Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal, Uraian, Pihak Ketiga, dan Pemesan!', 'warning');
+          return;
+        }
+
+        // C. Ambil Detail Items
+        let items = [];
+        rows.forEach(row => {
+          items.push({
+            nama: row.querySelector('.item-nama').value,
+            vol: row.querySelector('.item-vol').value,
+            sat: row.querySelector('.item-sat').value,
+            harga: row.querySelector('.item-harga').value,
+            jumlah: row.querySelector('.item-jumlah-value').value
+          });
+        });
+        
+        const total = document.getElementById(tipe === 'toko' ? 'trTokoTotalValue' : 'trTukangTotalValue').value;
+
+        // D. Payload
+        const payload = {
+          id: idEdit, // Jika kosong = Baru, Jika isi = Edit
+          tipe: tipe.toUpperCase(), 
+          tanggal: tgl,
+          uraian: uraian,
+          pihakKetiga: pihak,
+          pemesan: pemesan,
+          items: items,
+          total: total
+        };
+
+        const token = localStorage.getItem('userToken');
+        
+        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
+        const txtAsli = btnSimpan.innerHTML;
+        btnSimpan.innerHTML = 'Memproses...';
+        btnSimpan.disabled = true;
+
+        const handleResult = function(res) {
+            btnSimpan.innerHTML = txtAsli;
+            btnSimpan.disabled = false;
+            
+            if (res.status === 'success') {
+                Swal.fire({
+                  icon: 'success', title: 'Berhasil!', text: res.message, showConfirmButton: false, timer: 1500
+                });
+                batalEditTransaksi(tipe); // Reset form & tombol
+                loadTransaksiData(tipe.toUpperCase()); // Refresh tabel
+            } else {
+                Swal.fire('Gagal', res.message, 'error');
+            }
+        };
+
+        // E. Percabangan Edit atau Baru
+        if (idEdit) {
+            google.script.run.withSuccessHandler(handleResult).editTransaksiItem(token, payload);
+        } else {
+            google.script.run.withSuccessHandler(handleResult).simpanTransaksiBaru(token, payload);
+        }
       }
 
       // 2. Load Dropdown Options
@@ -1847,85 +2152,6 @@
       // Helper Format Rupiah JS
       function formatRupiahJS(angka) {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
-      }
-
-      // 7. Simpan Transaksi (REAL)
-      function simpanTransaksi(tipe) {
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
-        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-        
-        // A. Validasi Barang
-        if (rows.length === 0) {
-          Swal.fire('Eror', 'Belum ada barang yang dimasukkan!', 'error');
-          return;
-        }
-        
-        // B. Ambil Data Header Form
-        const tgl = document.getElementById(tipe === 'toko' ? 'trTokoTanggal' : 'trTukangTanggal').value;
-        const uraian = document.getElementById(tipe === 'toko' ? 'trTokoUraian' : 'trTukangUraian').value;
-        const pihak = document.getElementById(tipe === 'toko' ? 'trTokoNama' : 'trTukangNama').value; // Toko atau Tukang
-        const pemesan = document.getElementById(tipe === 'toko' ? 'trTokoPemesan' : 'trTukangPemesan').value;
-
-        // C. Validasi Header
-        if (!tgl || !uraian || !pihak || !pemesan) {
-          Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal, Uraian, Pihak Ketiga, dan Pemesan!', 'warning');
-          return;
-        }
-
-        // D. Ambil Detail Items
-        let items = [];
-        rows.forEach(row => {
-          items.push({
-            nama: row.querySelector('.item-nama').value,
-            vol: row.querySelector('.item-vol').value,
-            sat: row.querySelector('.item-sat').value,
-            harga: row.querySelector('.item-harga').value,
-            jumlah: row.querySelector('.item-jumlah-value').value
-          });
-        });
-        
-        // E. Ambil Total
-        const total = document.getElementById(tipe === 'toko' ? 'trTokoTotalValue' : 'trTukangTotalValue').value;
-
-        // F. Susun Payload Data
-        const payload = {
-          tipe: tipe.toUpperCase(), // 'TOKO' atau 'TUKANG'
-          tanggal: tgl,
-          uraian: uraian,
-          pihakKetiga: pihak,
-          pemesan: pemesan,
-          items: items,
-          total: total
-        };
-
-        // G. Kirim ke Server (Loading State)
-        const token = localStorage.getItem('userToken');
-        
-        // Tampilkan Loading Swal
-        Swal.fire({
-          title: 'Menyimpan Transaksi...',
-          text: 'Mohon tunggu sebentar',
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-
-        google.script.run.withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            Swal.fire({
-              icon: 'success',
-              title: 'Berhasil!',
-              text: res.message,
-              confirmButtonText: 'OK'
-            }).then(() => {
-              // Opsi: Reset Form setelah simpan
-              resetFormTransaksi(tipe);
-            });
-          } else {
-            Swal.fire('Gagal', res.message, 'error');
-          }
-        }).simpanTransaksiBaru(token, payload);
       }
 
       // Helper: Reset Form
