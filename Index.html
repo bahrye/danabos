@@ -2803,12 +2803,11 @@
         if(tabName === 'guru') loadTransaksiData('GURU'); // Baru
       }
 
-      // 2. Load Data List Transaksi (FUNGSI BARU)
-      // UPDATE FUNGSI INI
+      // 2. Load Data List Transaksi (PERBAIKAN: HANDLING TANDA KUTIP)
       function loadTransaksiData(tipe) {
         const token = localStorage.getItem('userToken');
         
-        // 1. TENTUKAN TARGET TABLE BODY (PERBAIKAN DISINI)
+        // 1. TENTUKAN TARGET TABLE BODY
         let targetId;
         if (tipe === 'TOKO') targetId = 'listTransaksiToko';
         else if (tipe === 'TUKANG') targetId = 'listTransaksiTukang';
@@ -2827,7 +2826,9 @@
                 }
 
                 res.data.forEach(item => {
-                    const dataJson = encodeURIComponent(JSON.stringify(item));
+                    // --- PERBAIKAN DISINI ---
+                    // Tambahkan .replace(/'/g, "%27") agar aman dari tanda kutip satu
+                    const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
                     
                     // Tentukan parameter tipe untuk fungsi edit
                     let tipeKecil;
@@ -2856,7 +2857,6 @@
                     `;
 
                     // Kolom Ke-3 berbeda untuk Guru (Bukan Pihak Ketiga, tapi Keterangan/Kosong)
-                    // Untuk Guru, Pihak Ketiga di DB diisi "Honorarium Guru", jadi kita tampilkan item.pihakKetiga saja atau "-"
                     const displayPihak = item.pihakKetiga; 
 
                     const row = `
@@ -3645,7 +3645,6 @@
             }
 
             res.data.forEach(item => {
-              // Cek Kelengkapan Surat
               const s = item.dataSurat; 
               let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
               
@@ -3657,9 +3656,10 @@
                 }
               }
 
-              const dataJson = encodeURIComponent(JSON.stringify(item));
+              // --- PERBAIKAN UTAMA DISINI ---
+              // Tambahkan .replace(/'/g, "%27") agar tanda kutip satu tidak merusak onclick
+              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
               
-              // [BARU] Tombol Lihat Detail (Icon Mata)
               const btnLihat = `
                 <button class="btn btn-sm btn-info text-white me-1" 
                   onclick="lihatNomorSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Nomor">
@@ -3667,7 +3667,6 @@
                 </button>
               `;
 
-              // Tombol Kelola (Edit)
               const btnKelola = `
                 <button class="btn btn-sm btn-outline-primary" 
                   onclick="bukaModalSurat('${tipe}', '${dataJson}')">
@@ -4147,19 +4146,18 @@
             }
 
             res.data.forEach(item => {
-              const t = item.dataTanggal; // Object tanggal dari backend
+              const t = item.dataTanggal; 
               let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
               
-              // Logika Status
               if (t && t.baPembayaran) {
                 statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
               } else if (t) {
                 statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
               }
 
-              const dataJson = encodeURIComponent(JSON.stringify(item));
+              // --- PERBAIKAN UTAMA DISINI ---
+              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
               
-              // [BARU] Tombol Lihat Detail (Icon Mata) - Warna Hijau/Teal agar senada dengan tema Tanggal
               const btnLihat = `
                 <button class="btn btn-sm btn-info text-white me-1" 
                   onclick="lihatTanggalSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Tanggal">
@@ -4167,7 +4165,6 @@
                 </button>
               `;
 
-              // Tombol Atur (Edit)
               const btnAtur = `
                 <button class="btn btn-sm btn-outline-success" 
                   onclick="bukaModalTanggal('${tipe}', '${dataJson}')">
@@ -4541,7 +4538,9 @@
             }
 
             res.data.forEach(item => {
-              const dataJson = encodeURIComponent(JSON.stringify(item));
+              // --- PERBAIKAN DISINI ---
+              // Tambahkan .replace(/'/g, "%27") agar aman dari tanda kutip satu
+              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
               
               let displayPihak = item.pihakKetiga;
               if (tipeRaw === 'guru' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
@@ -4565,7 +4564,6 @@
               if (item.pdfId && item.pdfId !== "") {
                 // KONDISI SUDAH GENERATE:
                 // 1. Tombol Cetak (Membuka file lama)
-                // Link Viewer Google Drive
                 const linkPdf = `https://drive.google.com/file/d/${item.pdfId}/view?usp=sharing`;
                 
                 btnCetak = `
@@ -4576,6 +4574,7 @@
                 `;
 
                 // 2. Tombol Generate Ulang (Icon Sync/Refresh)
+                // Kita gunakan dataJson yang sudah diperbaiki di sini
                 btnGenerate = `
                   <button class="btn btn-sm btn-outline-danger" 
                     onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate Ulang (Hapus Lama)">
