@@ -951,31 +951,31 @@
 
                   <h5 class="text-primary border-bottom pb-2 mb-3 mt-4">Pengaturan Default BOS</h5>
                   <div class="row mb-3">
-                            <div class="col-md-6">
-                              <label class="form-label fw-bold">Nama Dana BOS</label>
-                              <select class="form-select" id="dsDanaBos">
-                                <option value="">-- Pilih Jenis --</option>
-                                <option value="BOS.1">BOS.1</option>
-                                <option value="BOS.2">BOS.2</option>
-                                <option value="BOS.TRW.1">BOS.TRW.1</option>
-                                <option value="BOS.TRW.2">BOS.TRW.2</option>
-                                <option value="BOS.TRW.3">BOS.TRW.3</option>
-                                <option value="BOS.TRW.4">BOS.TRW.4</option>
-                              </select>
-                            </div>
-                            <div class="col-md-6">
-                              <label class="form-label fw-bold">Tahun Anggaran</label>
-                              <input type="number" class="form-control" id="dsTahun" placeholder="2025">
-                            </div>
-                          </div>
+                    
+                    <div class="col-md-4">
+                      <label class="form-label fw-bold">Nama Dana BOS</label>
+                      <select class="form-select" id="dsDanaBos">
+                        <option value="">-- Pilih Jenis --</option>
+                        <option value="BOS.1">BOS.1</option>
+                        <option value="BOS.2">BOS.2</option>
+                        <option value="BOS.TRW.1">BOS.TRW.1</option>
+                        <option value="BOS.TRW.2">BOS.TRW.2</option>
+                        <option value="BOS.TRW.3">BOS.TRW.3</option>
+                        <option value="BOS.TRW.4">BOS.TRW.4</option>
+                      </select>
+                    </div>
 
-                          <div class="d-flex justify-content-end mt-4 pt-3 border-top">
-                            <button type="button" class="btn btn-primary" onclick="submitDataSekolah()">
-                              <i class="fas fa-save me-2"></i> Simpan Data
-                            </button>
-                          </div>
+                    <div class="col-md-4">
+                      <label class="form-label fw-bold">Jumlah Anggaran</label>
+                      <div class="input-group">
+                        <span class="input-group-text">Rp</span>
+                        <input type="number" class="form-control" id="dsJumlahAnggaran" placeholder="0">
+                      </div>
+                    </div>
 
-                        </form> </div>
+                    <div class="col-md-4">
+                      <label class="form-label fw-bold">Tahun Anggaran</label>
+                      <input type="number" class="form-control" id="dsTahun" placeholder="2025">
                     </div>
                   </div>
                 </form>
@@ -1150,6 +1150,7 @@
             document.getElementById('dsTelp').value = String(d.noTelp).replace(/'/g, '');
             document.getElementById('dsEmail').value = d.email;
             document.getElementById('dsDanaBos').value = d.danaBOS;
+            document.getElementById('dsJumlahAnggaran').value = d.jumlahAnggaran;
             document.getElementById('dsTahun').value = d.tahunAnggaran;
           } 
         }).getDataSekolah(token);
@@ -1189,6 +1190,7 @@
           noTelp: document.getElementById('dsTelp').value,
           email: document.getElementById('dsEmail').value,
           danaBOS: document.getElementById('dsDanaBos').value,
+          jumlahAnggaran: document.getElementById('dsJumlahAnggaran').value,
           tahunAnggaran: document.getElementById('dsTahun').value
         };
 
