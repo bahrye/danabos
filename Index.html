@@ -109,7 +109,7 @@
           <h4 class="text-center py-3 border-bottom"><i class="fas fa-user-shield"></i> Admin LPJ</h4>
           <ul class="nav flex-column mt-4">
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-dashboard', this)" class="nav-link active">
+              <a onclick="navigasiKe('panel-dashboard', this)" class="nav-link active" style="cursor: pointer;">
                 <i class="fas fa-home me-2"></i> Dashboard
               </a>
             </li>
@@ -117,27 +117,27 @@
             <li class="nav-item mt-2"><small class="text-secondary ms-3 text-uppercase" style="font-size:0.7rem; letter-spacing:1px;">Data Master</small></li>
             
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-data-sekolah', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-data-sekolah', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-school me-2"></i> Data Sekolah
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-uraian', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-uraian', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-list-ul me-2"></i> Data Uraian Pekerjaan
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-toko', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-toko', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-store me-2"></i> Data Toko
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-tukang', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-tukang', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-hammer me-2"></i> Data Tukang
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-guru', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-guru', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-user-tie me-2"></i> Data Pemesan/Guru
               </a>
             </li>
@@ -145,7 +145,7 @@
             <li class="nav-item mt-2"><small class="text-secondary ms-3 text-uppercase" style="font-size:0.7rem; letter-spacing:1px;">Pengaturan</small></li>
 
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-kop', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-kop', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-image me-2"></i> Kop Surat
               </a>
             </li>
@@ -163,13 +163,13 @@
             <li class="nav-item mt-2"><small class="text-secondary ms-3 text-uppercase" style="font-size:0.7rem; letter-spacing:1px;">Transaksi</small></li>
             
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="navigasiKe('panel-transaksi', this)" class="nav-link">
+              <a onclick="navigasiKe('panel-transaksi', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-shopping-cart me-2"></i> Transaksi Belanja
               </a>
             </li>
             
             <li class="nav-item mt-5 pt-5 border-top">
-              <a href="javascript:void(0)" onclick="logout()" class="nav-link text-danger">
+              <a onclick="logout()" class="nav-link text-danger" style="cursor: pointer;">
                 <i class="fas fa-sign-out-alt me-2"></i> Keluar
               </a>
             </li>
@@ -468,6 +468,11 @@
                 </button>
               </li>
               <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-btn-guru" onclick="bukaTab('guru')">
+                  <i class="fas fa-chalkboard-teacher me-2"></i> Honor Guru
+                </button>
+              </li>
+              <li class="nav-item">
                 <button class="nav-link fw-bold" id="tab-btn-tukang" onclick="bukaTab('tukang')">
                   <i class="fas fa-hammer me-2"></i> Upah Tukang
                 </button>
@@ -566,6 +571,94 @@
                                   </tr>
                               </thead>
                               <tbody id="listTransaksiToko">
+                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+            </div>
+
+            <div id="tab-content-guru" class="tab-section hidden">
+              <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-4">
+                  <div class="alert alert-info py-2 mb-3"><small><i class="fas fa-info-circle"></i> Mode Input: Pembayaran Honorarium / Transport Guru</small></div>
+                  
+                  <form id="formBelanjaGuru">
+                    <input type="hidden" id="trGuruId"> 
+                    
+                    <div class="row mb-3">
+                      <div class="col-md-3">
+                        <label class="form-label">Tanggal Pembayaran</label>
+                        <input type="date" class="form-control" id="trGuruTanggal" required>
+                      </div>
+                      <div class="col-md-9">
+                        <label class="form-label">Uraian Pekerjaan / Kegiatan</label>
+                        <select class="form-select" id="trGuruUraian" required>
+                          <option value="">-- Pilih Uraian --</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <h5 class="border-bottom pb-2 mb-3">Rincian Penerima Honor</h5>
+                    <div class="table-responsive">
+                      <table class="table table-bordered align-middle" id="tabelItemGuru">
+                        <thead class="table-light text-center">
+                          <tr>
+                            <th width="30%">Nama Guru</th>
+                            <th width="10%">Vol</th>
+                            <th width="10%">Satuan</th>
+                            <th width="20%">Honor/Upah (Rp)</th>
+                            <th width="20%">Jumlah (Rp)</th>
+                            <th width="10%"><i class="fas fa-trash"></i></th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                          <tr>
+                            <td colspan="4" class="text-end fw-bold">TOTAL HONOR:</td>
+                            <td colspan="2" class="fw-bold bg-light">
+                              <span id="trGuruTotalDisplay">Rp 0</span>
+                              <input type="hidden" id="trGuruTotalValue" value="0">
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+                      <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('guru')">
+                        <i class="fas fa-plus me-1"></i> Tambah Penerima
+                      </button>
+
+                      <div>
+                        <button type="button" id="btnBatalGuruTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('guru')">
+                          <i class="fas fa-times me-1"></i> Batal
+                        </button>
+                        <button type="button" id="btnSimpanGuruTrans" class="btn btn-success" onclick="simpanTransaksi('guru')">
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                        </button>
+                      </div>
+                    </div>
+
+                  </form>
+                </div>
+              </div>
+
+              <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold py-3">Riwayat Pembayaran Honor</div>
+                  <div class="card-body">
+                      <div class="table-responsive">
+                          <table class="table table-hover align-middle table-striped text-sm">
+                              <thead class="table-light">
+                                  <tr>
+                                      <th>Tanggal</th>
+                                      <th>Uraian Kegiatan</th>
+                                      <th>Keterangan</th> <th>Total</th>
+                                      <th>Aksi</th>
+                                  </tr>
+                              </thead>
+                              <tbody id="listTransaksiGuru">
                                   <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
                               </tbody>
                           </table>
@@ -890,6 +983,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+
+      let cacheDataGuru = []; // Menyimpan data guru agar bisa dipanggil berulang kali
+
+
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
       
       // 1. Pindah Antara Login, Register, dan Admin Panel
@@ -911,18 +1008,25 @@
           linkElement.classList.add('active');
         }
         
-        // TRIGGER DATA LOADING
         if(panelId === 'panel-data-sekolah') loadDataSekolah();
         if(panelId === 'panel-uraian') loadUraianData();
         if(panelId === 'panel-toko') loadTokoData();
         if(panelId === 'panel-tukang') loadTukangData();
         if(panelId === 'panel-guru') loadGuruData();
         if(panelId === 'panel-kop') loadKopSettings();
+        
+        // LOGIKA TRANSAKSI
         if(panelId === 'panel-transaksi') {
-          loadTransaksiOptions(); // Load dropdown
-          // Tambahkan 1 baris kosong default jika tabel masih kosong
+          // 1. Load Dropdown (termasuk isi cacheDataGuru)
+          loadTransaksiOptions(); 
+          
+          // 2. Siapkan baris kosong jika tabel masih kosong
           if(document.getElementById('tabelItemToko').tBodies[0].rows.length === 0) tambahBaris('toko');
           if(document.getElementById('tabelItemTukang').tBodies[0].rows.length === 0) tambahBaris('tukang');
+          if(document.getElementById('tabelItemGuru').tBodies[0].rows.length === 0) tambahBaris('guru');
+
+          // 3. Buka tab default (Toko) agar user tidak melihat layar kosong
+          bukaTab('toko'); 
         }
       }
 
@@ -1785,10 +1889,12 @@
         // Hide semua content
         document.getElementById('tab-content-toko').classList.add('hidden');
         document.getElementById('tab-content-tukang').classList.add('hidden');
+        document.getElementById('tab-content-guru').classList.add('hidden'); // Baru
         
         // Reset active buttons
         document.getElementById('tab-btn-toko').classList.remove('active');
         document.getElementById('tab-btn-tukang').classList.remove('active');
+        document.getElementById('tab-btn-guru').classList.remove('active'); // Baru
 
         // Show selected
         document.getElementById('tab-content-' + tabName).classList.remove('hidden');
@@ -1797,12 +1903,20 @@
         // LOAD DATA LIST TRANSAKSI
         if(tabName === 'toko') loadTransaksiData('TOKO');
         if(tabName === 'tukang') loadTransaksiData('TUKANG');
+        if(tabName === 'guru') loadTransaksiData('GURU'); // Baru
       }
 
       // 2. Load Data List Transaksi (FUNGSI BARU)
+      // UPDATE FUNGSI INI
       function loadTransaksiData(tipe) {
         const token = localStorage.getItem('userToken');
-        const targetId = tipe === 'TOKO' ? 'listTransaksiToko' : 'listTransaksiTukang';
+        
+        // 1. TENTUKAN TARGET TABLE BODY (PERBAIKAN DISINI)
+        let targetId;
+        if (tipe === 'TOKO') targetId = 'listTransaksiToko';
+        else if (tipe === 'TUKANG') targetId = 'listTransaksiTukang';
+        else targetId = 'listTransaksiGuru'; // Target untuk Guru
+
         const tbody = document.getElementById(targetId);
 
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
@@ -1816,31 +1930,45 @@
                 }
 
                 res.data.forEach(item => {
-                    // Siapkan data JSON untuk dikirim ke fungsi edit
-                    // Kita encode agar aman saat dipassing ke HTML attribute
                     const dataJson = encodeURIComponent(JSON.stringify(item));
-                    const tipeKecil = tipe === 'TOKO' ? 'toko' : 'tukang';
+                    
+                    // Tentukan parameter tipe untuk fungsi edit
+                    let tipeKecil;
+                    if (tipe === 'TOKO') tipeKecil = 'toko';
+                    else if (tipe === 'TUKANG') tipeKecil = 'tukang';
+                    else tipeKecil = 'guru';
+
+                    const btnDetail = `
+                        <button class="btn btn-sm btn-outline-info me-1" 
+                            onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    `;
 
                     const btnEdit = `
                         <button class="btn btn-sm btn-outline-warning me-1" 
-                            onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit Transaksi">
+                            onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
                             <i class="fas fa-pencil-alt"></i>
                         </button>
                     `;
                     const btnHapus = `
                         <button class="btn btn-sm btn-outline-danger" 
-                            onclick="hapusTransaksi('${item.id}', '${tipe}')" title="Hapus Transaksi">
+                            onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     `;
+
+                    // Kolom Ke-3 berbeda untuk Guru (Bukan Pihak Ketiga, tapi Keterangan/Kosong)
+                    // Untuk Guru, Pihak Ketiga di DB diisi "Honorarium Guru", jadi kita tampilkan item.pihakKetiga saja atau "-"
+                    const displayPihak = (tipe === 'GURU') ? '-' : item.pihakKetiga;
 
                     const row = `
                         <tr>
                             <td>${item.tanggal}</td>
                             <td><div class="text-truncate" style="max-width: 200px;" title="${item.uraian}">${item.uraian}</div></td>
-                            <td>${item.pihakKetiga}</td>
+                            <td>${displayPihak}</td> 
                             <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
-                            <td>${btnEdit} ${btnHapus}</td>
+                            <td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>
                         </tr>
                     `;
                     tbody.innerHTML += row;
@@ -1853,58 +1981,145 @@
 
       // 3. Mode Edit Transaksi (FUNGSI BARU & KOMPLEKS)
       function modeEditTransaksi(tipe, encodedData) {
+        // 1. Decode Data JSON dari parameter
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // 1. Isi ID Hidden
-        const idField = tipe === 'toko' ? 'trTokoId' : 'trTukangId';
-        document.getElementById(idField).value = data.id;
-
-        // 2. Isi Header
-        if(tipe === 'toko') {
-            document.getElementById('trTokoTanggal').value = data.tanggal;
-            // Gunakan unescapeHtml jika perlu untuk dropdown
-            // Pastikan value option dropdown sama persis dengan yang tersimpan
-            setSelectValue('trTokoUraian', data.uraian);
-            setSelectValue('trTokoNama', data.pihakKetiga);
-            setSelectValue('trTokoPemesan', data.pemesan);
-        } else {
-            document.getElementById('trTukangTanggal').value = data.tanggal;
-            setSelectValue('trTukangUraian', data.uraian);
-            setSelectValue('trTukangNama', data.pihakKetiga);
-            setSelectValue('trTukangPemesan', data.pemesan);
+        // 2. Mapping ID Form Header & Button berdasarkan Tipe
+        let formId, tableId, btnSimpanId, btnBatalId;
+        
+        if (tipe === 'toko') {
+          formId = 'formBelanjaToko';
+          tableId = 'tabelItemToko';
+          btnSimpanId = 'btnSimpanTokoTrans';
+          btnBatalId = 'btnBatalTokoTrans';
+          
+          // Isi Header Toko
+          document.getElementById('trTokoId').value = data.id;
+          document.getElementById('trTokoTanggal').value = data.tanggal;
+          setSelectValue('trTokoUraian', data.uraian);
+          setSelectValue('trTokoNama', data.pihakKetiga);
+          setSelectValue('trTokoPemesan', data.pemesan);
+          
+        } else if (tipe === 'tukang') {
+          formId = 'formBelanjaTukang';
+          tableId = 'tabelItemTukang';
+          btnSimpanId = 'btnSimpanTukangTrans';
+          btnBatalId = 'btnBatalTukangTrans';
+          
+          // Isi Header Tukang
+          document.getElementById('trTukangId').value = data.id;
+          document.getElementById('trTukangTanggal').value = data.tanggal;
+          setSelectValue('trTukangUraian', data.uraian);
+          setSelectValue('trTukangNama', data.pihakKetiga);
+          setSelectValue('trTukangPemesan', data.pemesan);
+          
+        } else if (tipe === 'guru') {
+          formId = 'formBelanjaGuru';
+          tableId = 'tabelItemGuru';
+          btnSimpanId = 'btnSimpanGuruTrans';
+          btnBatalId = 'btnBatalGuruTrans';
+          
+          // Isi Header Guru (Hanya Tanggal & Uraian)
+          document.getElementById('trGuruId').value = data.id;
+          document.getElementById('trGuruTanggal').value = data.tanggal;
+          setSelectValue('trGuruUraian', data.uraian);
         }
 
-        // 3. Re-draw Tabel Item
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
+        // 3. Reset & Gambar Ulang Tabel Rincian Item
         const tbody = document.getElementById(tableId).querySelector('tbody');
-        tbody.innerHTML = ''; // Kosongkan tabel
+        tbody.innerHTML = ''; // Kosongkan tabel dulu
 
-        data.items.forEach(item => {
-            const rowId = new Date().getTime() + Math.random(); 
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            const rowId = new Date().getTime() + Math.random();
+            let colNamaInput = '';
+
+            // LOGIKA UTAMA: Deteksi apakah Item ini Guru Manual atau Dropdown
+            if (tipe === 'guru') {
+              let isManual = true; // Asumsi awal manual
+              
+              // Cek apakah nama di item ini ada di database cacheDataGuru?
+              if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
+                  cacheDataGuru.forEach(g => {
+                      // Bandingkan nama (trim spasi agar akurat)
+                      if (g.nama.trim() === item.nama.trim()) {
+                          isManual = false; // Ketemu! Berarti bukan manual
+                      }
+                  });
+              }
+
+              // --- RENDER KOLOM NAMA ---
+              if (isManual) {
+                  // A. Jika Manual -> Tampilkan INPUT GROUP dengan Tombol X
+                  const val = String(item.nama).replace(/"/g, '&quot;');
+                  
+                  colNamaInput = `
+                    <div class="input-group">
+                      <input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Guru (Manual)">
+                      <button class="btn btn-outline-secondary" type="button" onclick="resetKeDropdown(this)" title="Kembali ke Pilihan">
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </div>
+                  `;
+                  
+              } else {
+                  // B. Jika Ada di Database -> Tampilkan DROPDOWN (Sama seperti sebelumnya)
+                  let opts = '<option value="">-- Pilih Guru --</option>';
+                  opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+                  
+                  cacheDataGuru.forEach(g => {
+                      const isSelected = (g.nama.trim() === item.nama.trim()) ? 'selected' : '';
+                      const val = String(g.nama).replace(/"/g, '&quot;');
+                      opts += `<option value="${val}" ${isSelected}>${g.nama}</option>`;
+                  });
+                  
+                  colNamaInput = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
+              }
+
+            } else {
+              // Jika Tipe Toko/Tukang -> Selalu Input Text
+              const val = String(item.nama).replace(/"/g, '&quot;');
+              colNamaInput = `<input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang">`;
+            }
+
+            // 4. Template Baris Tabel
             const row = `
               <tr id="row-${rowId}">
-                <td><input type="text" class="form-control item-nama" value="${item.nama}" placeholder="Nama Barang"></td>
-                <td><input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
-                <td><input type="text" class="form-control item-sat" value="${item.sat}" placeholder="Satuan"></td>
-                <td><input type="number" class="form-control item-harga" value="${item.harga}" oninput="hitungBaris(this, '${tipe}')"></td>
+                <td>${colNamaInput}</td>
+                <td>
+                  <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
+                </td>
+                <td>
+                  <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan">
+                </td>
+                <td>
+                  <input type="number" class="form-control item-harga" value="${item.harga}" oninput="hitungBaris(this, '${tipe}')">
+                </td>
                 <td>
                   <input type="text" class="form-control item-jumlah-display" readonly value="${formatRupiahJS(item.jumlah)}">
                   <input type="hidden" class="item-jumlah-value" value="${item.jumlah}">
                 </td>
                 <td class="text-center">
-                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBaris(this, '${tipe}')"><i class="fas fa-trash"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBaris(this, '${tipe}')">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </td>
               </tr>
             `;
+            
             tbody.insertAdjacentHTML('beforeend', row);
-        });
+          });
+        } else {
+          // Jika data item kosong (error case), tambahkan 1 baris kosong default
+          tambahBaris(tipe);
+        }
 
-        // Hitung ulang total
+        // 5. Hitung Ulang Total
         hitungTotalSemua(tipe);
 
-        // 4. Ubah Tombol Aksi
-        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
-        const btnBatal = document.getElementById(tipe === 'toko' ? 'btnBatalTokoTrans' : 'btnBatalTukangTrans');
+        // 6. Ubah Tampilan Tombol Simpan & Batal (Mode Edit)
+        const btnSimpan = document.getElementById(btnSimpanId);
+        const btnBatal = document.getElementById(btnBatalId);
         
         btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btnSimpan.classList.remove('btn-success');
@@ -1912,9 +2127,8 @@
         
         btnBatal.classList.remove('hidden');
 
-        // 5. Scroll ke Form
-        const formId = tipe === 'toko' ? 'formBelanjaToko' : 'formBelanjaTukang';
-        document.getElementById(formId).scrollIntoView({ behavior: 'smooth' });
+        // 7. Scroll ke Form agar user melihat data yang diedit
+        document.getElementById(formId).scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       // Helper untuk set value select yang mungkin mengandung karakter spesial
@@ -1972,45 +2186,88 @@
 
       // --- LOGIC SIMPAN YANG DIPERBARUI (HANDLE EDIT & BARU) ---
       function simpanTransaksi(tipe) {
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
-        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-        const idEdit = document.getElementById(tipe === 'toko' ? 'trTokoId' : 'trTukangId').value;
+        // 1. Tentukan ID Elemen berdasarkan Tipe Tab
+        let tableId, idHidden, btnId;
 
-        // A. Validasi Barang
+        if (tipe === 'toko') {
+          tableId = 'tabelItemToko';
+          idHidden = 'trTokoId';
+          btnId = 'btnSimpanTokoTrans';
+        } else if (tipe === 'tukang') {
+          tableId = 'tabelItemTukang';
+          idHidden = 'trTukangId';
+          btnId = 'btnSimpanTukangTrans';
+        } else { // guru
+          tableId = 'tabelItemGuru';
+          idHidden = 'trGuruId';
+          btnId = 'btnSimpanGuruTrans';
+        }
+
+        // 2. Ambil Baris Data & ID Edit (jika ada)
+        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+        const idEdit = document.getElementById(idHidden).value;
+
+        // Validasi: Pastikan ada item barang/jasa/guru yang diinput
         if (rows.length === 0) {
-          Swal.fire('Eror', 'Belum ada barang yang dimasukkan!', 'error');
+          Swal.fire('Eror', 'Belum ada rincian yang dimasukkan!', 'error');
+          return;
+        }
+
+        // 3. Ambil Data Header Form (Tanggal, Uraian, dll)
+        let tgl, uraian, pihak, pemesan, total;
+
+        if (tipe === 'guru') {
+          // Logika Khusus Tab Honor Guru
+          tgl = document.getElementById('trGuruTanggal').value;
+          uraian = document.getElementById('trGuruUraian').value;
+          
+          // Set nilai default untuk database karena input ini tidak ada di header form Guru
+          // (Nama Guru ada di rincian tabel, bukan di header)
+          pihak = "Honorarium Guru"; 
+          pemesan = "-"; 
+          
+          total = document.getElementById('trGuruTotalValue').value;
+        } else {
+          // Logika Umum (Toko & Tukang)
+          const prefix = (tipe === 'toko') ? 'trToko' : 'trTukang';
+          
+          tgl = document.getElementById(prefix + 'Tanggal').value;
+          uraian = document.getElementById(prefix + 'Uraian').value;
+          pihak = document.getElementById(prefix + 'Nama').value;     // Nama Toko / Tukang
+          pemesan = document.getElementById(prefix + 'Pemesan').value; // Nama Guru Pemesan
+          total = document.getElementById(prefix + 'TotalValue').value;
+        }
+
+        // 4. Validasi Form Header
+        if (!tgl || !uraian) {
+          Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal dan Uraian!', 'warning');
           return;
         }
         
-        // B. Ambil Data Header
-        const tgl = document.getElementById(tipe === 'toko' ? 'trTokoTanggal' : 'trTukangTanggal').value;
-        const uraian = document.getElementById(tipe === 'toko' ? 'trTokoUraian' : 'trTukangUraian').value;
-        const pihak = document.getElementById(tipe === 'toko' ? 'trTokoNama' : 'trTukangNama').value;
-        const pemesan = document.getElementById(tipe === 'toko' ? 'trTokoPemesan' : 'trTukangPemesan').value;
-
-        if (!tgl || !uraian || !pihak || !pemesan) {
-          Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal, Uraian, Pihak Ketiga, dan Pemesan!', 'warning');
+        // Validasi tambahan khusus Toko & Tukang (Pihak Ketiga & Pemesan wajib diisi)
+        if (tipe !== 'guru' && (!pihak || !pemesan)) {
+          Swal.fire('Data Belum Lengkap', 'Pihak Ketiga dan Pemesan wajib diisi!', 'warning');
           return;
         }
 
-        // C. Ambil Detail Items
+        // 5. Ambil Rincian Item dari Tabel
         let items = [];
         rows.forEach(row => {
+          // .item-nama bisa berupa Input Text (Toko/Tukang) atau Select (Guru)
+          // .value akan mengambil nilai yang benar dari keduanya
           items.push({
-            nama: row.querySelector('.item-nama').value,
+            nama: row.querySelector('.item-nama').value, 
             vol: row.querySelector('.item-vol').value,
             sat: row.querySelector('.item-sat').value,
             harga: row.querySelector('.item-harga').value,
             jumlah: row.querySelector('.item-jumlah-value').value
           });
         });
-        
-        const total = document.getElementById(tipe === 'toko' ? 'trTokoTotalValue' : 'trTukangTotalValue').value;
 
-        // D. Payload
+        // 6. Siapkan Payload Data
         const payload = {
-          id: idEdit, // Jika kosong = Baru, Jika isi = Edit
-          tipe: tipe.toUpperCase(), 
+          id: idEdit, // Kosong jika Baru, Terisi jika Edit
+          tipe: tipe.toUpperCase(), // 'TOKO', 'TUKANG', atau 'GURU'
           tanggal: tgl,
           uraian: uraian,
           pihakKetiga: pihak,
@@ -2019,33 +2276,42 @@
           total: total
         };
 
+        // 7. Proses Simpan ke Server (Google Apps Script)
         const token = localStorage.getItem('userToken');
-        
-        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
+        const btnSimpan = document.getElementById(btnId);
         const txtAsli = btnSimpan.innerHTML;
-        btnSimpan.innerHTML = 'Memproses...';
+        
+        // Ubah tombol jadi loading
+        btnSimpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memproses...';
         btnSimpan.disabled = true;
 
         const handleResult = function(res) {
-            btnSimpan.innerHTML = txtAsli;
-            btnSimpan.disabled = false;
+          // Kembalikan tombol
+          btnSimpan.innerHTML = txtAsli;
+          btnSimpan.disabled = false;
+          
+          if (res.status === 'success') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Berhasil!',
+              text: res.message,
+              showConfirmButton: false,
+              timer: 1500
+            });
             
-            if (res.status === 'success') {
-                Swal.fire({
-                  icon: 'success', title: 'Berhasil!', text: res.message, showConfirmButton: false, timer: 1500
-                });
-                batalEditTransaksi(tipe); // Reset form & tombol
-                loadTransaksiData(tipe.toUpperCase()); // Refresh tabel
-            } else {
-                Swal.fire('Gagal', res.message, 'error');
-            }
+            // Reset Form & Reload Tabel Riwayat
+            batalEditTransaksi(tipe); 
+            loadTransaksiData(tipe.toUpperCase());
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
         };
 
-        // E. Percabangan Edit atau Baru
+        // Percabangan: Panggil fungsi Edit atau Simpan Baru
         if (idEdit) {
-            google.script.run.withSuccessHandler(handleResult).editTransaksiItem(token, payload);
+          google.script.run.withSuccessHandler(handleResult).editTransaksiItem(token, payload);
         } else {
-            google.script.run.withSuccessHandler(handleResult).simpanTransaksiBaru(token, payload);
+          google.script.run.withSuccessHandler(handleResult).simpanTransaksiBaru(token, payload);
         }
       }
 
@@ -2057,43 +2323,142 @@
           if (res.status === 'success') {
             const d = res.data;
             
-            // Helper untuk isi select
-            const isiSelect = (id, data, keyNama) => {
+            // 1. SIMPAN DATA KE CACHE
+            cacheDataGuru = d.guru; 
+
+            // Helper isi select header
+            const isiSelect = (id, data) => {
               const el = document.getElementById(id);
+              if(!el) return;
+              const currentVal = el.value; 
+              
               el.innerHTML = '<option value="">-- Pilih --</option>';
               data.forEach(item => {
-                // Escape string
                 const val = String(item.nama).replace(/"/g, '&quot;'); 
                 el.innerHTML += `<option value="${val}">${item.nama}</option>`;
               });
+              
+              if(currentVal) el.value = currentVal;
             };
             
-            // Isi Dropdown Toko
-            const uraianOps = d.uraian.map(u => ({nama: u.uraian})); // Mapping agar format sama
+            const uraianOps = d.uraian.map(u => ({nama: u.uraian}));
+            
+            // Isi Dropdown Header
             isiSelect('trTokoUraian', uraianOps);
             isiSelect('trTokoNama', d.toko);
             isiSelect('trTokoPemesan', d.guru);
 
-            // Isi Dropdown Tukang
             isiSelect('trTukangUraian', uraianOps);
             isiSelect('trTukangNama', d.tukang);
             isiSelect('trTukangPemesan', d.guru);
+            
+            isiSelect('trGuruUraian', uraianOps); 
+
+            // 2. UPDATE DROPDOWN DI TABEL RINCIAN GURU
+            const dropdownsDiTabel = document.querySelectorAll('#tabelItemGuru .item-nama');
+            
+            dropdownsDiTabel.forEach(select => {
+              // Cek apakah elemen ini adalah SELECT (karena bisa jadi sudah berubah jadi INPUT TEXT)
+              if (select.tagName === 'SELECT') {
+                  const valSebelumnya = select.value;
+                  
+                  // Susun Opsi: Default -> LAINNYA -> Data Guru
+                  let opts = '<option value="">-- Pilih Guru --</option>';
+                  opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>'; // MENU BARU
+                  
+                  cacheDataGuru.forEach(g => {
+                    const val = String(g.nama).replace(/"/g, '&quot;');
+                    opts += `<option value="${val}">${g.nama}</option>`;
+                  });
+                  
+                  select.innerHTML = opts;
+                  if(valSebelumnya) select.value = valSebelumnya;
+              }
+            });
+
           }
         }).getAllOptions(token);
       }
 
+      // --- FUNGSI GANTI DROPDOWN JADI INPUT TEXT (DENGAN TOMBOL X) ---
+      function cekInputManual(selectElement) {
+        if (selectElement.value === 'MANUAL_INPUT') {
+          const parentTd = selectElement.parentElement;
+          
+          // Kita gunakan fitur Input Group Bootstrap
+          // Class 'item-nama' tetap wajib ada di input agar terbaca saat simpan
+          const htmlInputGroup = `
+            <div class="input-group">
+              <input type="text" class="form-control item-nama" placeholder="Ketik Nama Guru..." autofocus>
+              <button class="btn btn-outline-secondary" type="button" onclick="resetKeDropdown(this)" title="Kembali ke Pilihan">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          `;
+          
+          parentTd.innerHTML = htmlInputGroup;
+          
+          // Otomatis fokus ke input
+          parentTd.querySelector('input').focus();
+        }
+      }
+
+      // --- FUNGSI KEMBALIKAN KE DROPDOWN ---
+      function resetKeDropdown(btnElement) {
+        // Cari elemen TD pembungkusnya
+        const parentTd = btnElement.closest('td');
+        
+        // Susun Ulang Option Dropdown dari Cache
+        let opts = '<option value="">-- Pilih Guru --</option>';
+        opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+        
+        if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
+          cacheDataGuru.forEach(g => {
+            const val = String(g.nama).replace(/"/g, '&quot;');
+            opts += `<option value="${val}">${g.nama}</option>`;
+          });
+        }
+        
+        // Kembalikan ke bentuk Select
+        const selectHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
+        parentTd.innerHTML = selectHtml;
+      }
+
       // 3. Tambah Baris Dinamis
       function tambahBaris(tipe) {
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
-        const tbody = document.getElementById(tableId).querySelector('tbody');
+        const tableId = (tipe === 'toko') ? 'tabelItemToko' : 
+                        (tipe === 'tukang') ? 'tabelItemTukang' : 'tabelItemGuru';
         
-        const rowId = new Date().getTime(); // ID Unik sederhana
+        const tbody = document.getElementById(tableId).querySelector('tbody');
+        const rowId = new Date().getTime() + Math.random();
+        
+        let colPertamaHtml = '';
+
+        if (tipe === 'guru') {
+          // 1. Susun Opsi Default
+          let optionsGuru = '<option value="">-- Pilih Guru --</option>';
+          // 2. Tambah Opsi Lainnya
+          optionsGuru += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+          
+          // 3. Isi Data Guru (jika cache sudah ready)
+          if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
+            cacheDataGuru.forEach(g => {
+              const val = String(g.nama).replace(/"/g, '&quot;');
+              optionsGuru += `<option value="${val}">${g.nama}</option>`;
+            });
+          }
+          
+          // 4. Tambahkan event onchange="cekInputManual(this)"
+          colPertamaHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${optionsGuru}</select>`;
+        } else {
+          colPertamaHtml = `<input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa">`;
+        }
         
         const row = `
           <tr id="row-${rowId}">
-            <td><input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa"></td>
+            <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
-            <td><input type="text" class="form-control item-sat" placeholder="Pcs/Ls"></td>
+            <td><input type="text" class="form-control item-sat" placeholder="Bln/Keg"></td>
             <td><input type="number" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
             <td>
               <input type="text" class="form-control item-jumlah-display" readonly value="0">
@@ -2133,17 +2498,23 @@
 
       // 6. Hitung Grand Total
       function hitungTotalSemua(tipe) {
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
+        const tableId = (tipe === 'toko') ? 'tabelItemToko' : 
+                        (tipe === 'tukang') ? 'tabelItemTukang' : 'tabelItemGuru';
+                        
         const inputs = document.querySelectorAll(`#${tableId} .item-jumlah-value`);
         
         let grandTotal = 0;
-        inputs.forEach(el => {
-          grandTotal += parseFloat(el.value) || 0;
-        });
+        inputs.forEach(el => { grandTotal += parseFloat(el.value) || 0; });
 
         // Update Tampilan Total Bawah
-        const elDisplay = tipe === 'toko' ? 'trTokoTotalDisplay' : 'trTukangTotalDisplay';
-        const elValue = tipe === 'toko' ? 'trTokoTotalValue' : 'trTukangTotalValue';
+        let elDisplay, elValue;
+        if(tipe === 'toko') {
+          elDisplay = 'trTokoTotalDisplay'; elValue = 'trTokoTotalValue';
+        } else if (tipe === 'tukang') {
+          elDisplay = 'trTukangTotalDisplay'; elValue = 'trTukangTotalValue';
+        } else {
+          elDisplay = 'trGuruTotalDisplay'; elValue = 'trGuruTotalValue';
+        }
         
         document.getElementById(elDisplay).innerText = formatRupiahJS(grandTotal);
         document.getElementById(elValue).value = grandTotal;
@@ -2156,25 +2527,107 @@
 
       // Helper: Reset Form
       function resetFormTransaksi(tipe) {
-        const formId = tipe === 'toko' ? 'formBelanjaToko' : 'formBelanjaTukang';
-        const tableId = tipe === 'toko' ? 'tabelItemToko' : 'tabelItemTukang';
-        
-        document.getElementById(formId).reset();
-        
-        // Kosongkan tabel (sisakan header)
-        document.querySelector(`#${tableId} tbody`).innerHTML = '';
-        
-        // Reset Total
-        if(tipe === 'toko') {
-          document.getElementById('trTokoTotalDisplay').innerText = 'Rp 0';
-          document.getElementById('trTokoTotalValue').value = 0;
-        } else {
-          document.getElementById('trTukangTotalDisplay').innerText = 'Rp 0';
-          document.getElementById('trTukangTotalValue').value = 0;
+        let formId, tableId, dispId, valId;
+
+        if (tipe === 'toko') {
+          formId='formBelanjaToko'; tableId='tabelItemToko'; dispId='trTokoTotalDisplay'; valId='trTokoTotalValue';
+        } else if (tipe === 'tukang') {
+          formId='formBelanjaTukang'; tableId='tabelItemTukang'; dispId='trTukangTotalDisplay'; valId='trTukangTotalValue';
+        } else { // GURU
+          formId='formBelanjaGuru'; tableId='tabelItemGuru'; dispId='trGuruTotalDisplay'; valId='trGuruTotalValue';
         }
         
-        // Tambah 1 baris kosong lagi
+        document.getElementById(formId).reset();
+        document.querySelector(`#${tableId} tbody`).innerHTML = '';
+        document.getElementById(dispId).innerText = 'Rp 0';
+        document.getElementById(valId).value = 0;
+        
         tambahBaris(tipe);
+      }
+
+      // --- FUNGSI POPUP DETAIL TRANSAKSI ---
+      function lihatDetailTransaksi(encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        
+        // 1. Buat Header HTML untuk Info Dasar
+        let htmlContent = `
+          <div class="text-start mb-3" style="font-size: 0.9rem;">
+            <table class="table table-borderless table-sm mb-0">
+              <tr>
+                <td width="30%" class="fw-bold">Tanggal</td>
+                <td>: ${data.tanggal}</td>
+              </tr>
+              <tr>
+                <td class="fw-bold">Uraian</td>
+                <td>: ${data.uraian}</td>
+              </tr>
+              <tr>
+                <td class="fw-bold">Pihak Ketiga</td>
+                <td>: ${data.pihakKetiga} (Tipe: ${data.tipe})</td>
+              </tr>
+              <tr>
+                <td class="fw-bold">Pemesan</td>
+                <td>: ${data.pemesan}</td>
+              </tr>
+            </table>
+          </div>
+        `;
+
+        // 2. Buat Tabel Rincian Barang
+        htmlContent += `
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle" style="font-size: 0.85rem;">
+              <thead class="table-light text-center">
+                <tr>
+                  <th>Nama Barang / Item</th>
+                  <th width="10%">Vol</th>
+                  <th width="10%">Sat</th>
+                  <th width="20%">Harga</th>
+                  <th width="25%">Jumlah</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        // Loop item barang
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            htmlContent += `
+              <tr>
+                <td class="text-start">${item.nama}</td>
+                <td class="text-center">${item.vol}</td>
+                <td class="text-center">${item.sat}</td>
+                <td class="text-end">${formatRupiahJS(item.harga)}</td>
+                <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
+              </tr>
+            `;
+          });
+        } else {
+          htmlContent += `<tr><td colspan="5" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
+        }
+
+        // Tutup Tabel & Tambah Total
+        htmlContent += `
+              </tbody>
+              <tfoot class="table-light">
+                <tr>
+                  <td colspan="4" class="text-end fw-bold">TOTAL KESELURUHAN</td>
+                  <td class="text-end fw-bold fs-6 text-primary">${formatRupiahJS(data.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `;
+
+        // 3. Tampilkan dengan SweetAlert
+        Swal.fire({
+          title: 'Rincian Transaksi',
+          html: htmlContent,
+          width: '600px',
+          showCloseButton: true,
+          showConfirmButton: false, // Hanya tombol close X diatas atau klik luar
+          focusConfirm: false
+        });
       }
 
     </script>
