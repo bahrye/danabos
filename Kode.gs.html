@@ -81,7 +81,7 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF (UPDATE MULTI-TEMPLATE) --- */
+/* --- FUNGSI GENERATE PDF (UPDATE: NOMOR BUKTI DARI DATA URAIAN) --- */
 
 function generateLPJ(token, dataForm) {
   try {
@@ -96,6 +96,25 @@ function generateLPJ(token, dataForm) {
 
     if (!templateId) return { status: 'error', message: 'ID Template belum diatur di CONFIG.' };
 
+    // --- AMBIL DATA SEKOLAH ---
+    const resSekolah = getDataSekolah(token);
+    const ds = resSekolah.data || {}; 
+
+    // --- [BARU] AMBIL DATA URAIAN UNTUK CARI NOMOR BUKTI ---
+    // Kita ambil semua list uraian, lalu cari yang namanya cocok dengan transaksi ini
+    let nomorBuktiUraian = "-";
+    const resUraian = getUraianList(token);
+    
+    if (resUraian.status === 'success' && resUraian.data) {
+        // Cari item yang uraiannya sama dengan dataForm.uraian
+        // Kita gunakan trim() agar spasi tidak mempengaruhi pencarian
+        const uraianFound = resUraian.data.find(u => u.uraian.trim() === dataForm.uraian.trim());
+        if (uraianFound) {
+            nomorBuktiUraian = uraianFound.noBukti; // Ambil kolom 'noBukti' dari master
+        }
+    }
+    // -------------------------------------------------------
+
     // 2. Copy Template
     const docFile = DriveApp.getFileById(templateId);
     const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
@@ -103,50 +122,74 @@ function generateLPJ(token, dataForm) {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
 
-    // 3. Replace Placeholder Umum (Header Dokumen)
-    // Gunakan replaceText dengan aman (cek jika data null ganti string kosong)
+    // 3. Helper Replace
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
+    // --- PENGISIAN DATA UMUM ---
     safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
-    safeReplace('<<Nama Madrasah>>', dataForm.namaMadrasah);
+    
+    // [UPDATE] Menggunakan Nomor Bukti hasil pencarian di atas
+    safeReplace('<<Nomor Bukti Uraian>>', nomorBuktiUraian);
+    
+    // Identitas Madrasah
+    safeReplace('<<Nama Madrasah>>', ds.namaSekolah);
+    safeReplace('<<Kecamatan>>', ds.kecamatan);
+    safeReplace('<<Kabupaten>>', ds.kabupaten);
+    safeReplace('<<Provinsi>>', ds.provinsi);
+    
+    // Keuangan
     safeReplace('<<Total>>', formatRupiah(dataForm.total));
     safeReplace('<<Total Terbilang>>', terbilang(dataForm.total) + ' Rupiah');
+    safeReplace('<<Nama Dana BOS>>', ds.danaBOS);
+    safeReplace('<<Periode>>', ds.periodeAnggaran);
+    safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+
+    // Pejabat
+    safeReplace('<<NAMA KEPALA SEKOLAH>>', ds.namaKepala);
+    safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
     
-    // Format Tanggal (asumsi format input YYYY-MM-DD)
+    // Tanggal
     let tglIndo = dataForm.tanggal; 
     try {
         if(dataForm.tanggal) {
             const d = new Date(dataForm.tanggal);
-            tglIndo = Utilities.formatDate(d, "GMT+7", "dd MMMM yyyy"); // Format: 05 Desember 2025
+            tglIndo = Utilities.formatDate(d, "GMT+7", "dd MMMM yyyy");
         }
     } catch(e) {}
+    
     safeReplace('<<Tanggal Transaksi>>', tglIndo);
+    safeReplace('<<Tanggal BA.Bayar>>', tglIndo);
 
-    // Replace Khusus per Tipe
+    // --- PENGISIAN KHUSUS PER TIPE ---
     if (tipe === 'TOKO') {
         safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
+
     } else if (tipe === 'GURU') {
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
-        safeReplace('<<Keterangan>>', dataForm.pihakKetiga); // Di Guru, pihakKetiga berisi Keterangan
+        safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
+        
+        let namaPenerima = "-";
+        if(dataForm.items && dataForm.items.length > 0) {
+            namaPenerima = dataForm.items[0].nama; 
+        }
+        safeReplace('<<Nama Guru 1>>', namaPenerima);
+
     } else if (tipe === 'TUKANG') {
         safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
         safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
     }
 
-    // 4. Mengisi Tabel Item (Logic Dinamis)
+    // 4. Mengisi Tabel Item
     if (dataForm.items && dataForm.items.length > 0) {
-      // Cari tabel yang memiliki placeholder <<TABLE_ROW>>
       const tables = body.getTables();
       let targetTable = null;
       let rowIndexTemplate = -1;
 
-      // Loop cari tabel yang pas
       for (let t = 0; t < tables.length; t++) {
         const table = tables[t];
         const numRows = table.getNumRows();
         for (let r = 0; r < numRows; r++) {
-          const rowText = table.getRow(r).getText();
-          if (rowText.includes('<<TABLE_ROW>>')) {
+          if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
             targetTable = table;
             rowIndexTemplate = r;
             break;
@@ -156,40 +199,18 @@ function generateLPJ(token, dataForm) {
       }
 
       if (targetTable) {
-        // Ambil style baris template untuk dicopy
         const templateRow = targetTable.getRow(rowIndexTemplate);
         
-        // Loop Items dan tambah baris
         dataForm.items.forEach((item, index) => {
-           // Insert baris baru sebelum baris template (agar urutan benar)
-           // Atau insert setelah baris header. 
-           // Cara paling aman: Insert copy dari templateRow di index yang sama, lalu geser.
-           
            const newRow = targetTable.insertRow(rowIndexTemplate + index, templateRow.copy());
-           
-           // Isi Cell (Sesuaikan dengan urutan kolom di Template Anda)
-           // Asumsi Urutan Standar: [No] [Nama] [Vol] [Sat] [Harga] [Jumlah]
-           
-           // Kolom 0: No
-           newRow.getCell(0).setText((index + 1).toString());
-           
-           // Kolom 1: Nama Item
-           newRow.getCell(1).setText(item.nama);
-           
-           // Kolom 2: Volume
-           newRow.getCell(2).setText(item.vol.toString());
-           
-           // Kolom 3: Satuan
-           newRow.getCell(3).setText(item.sat);
-           
-           // Kolom 4: Harga Satuan
-           newRow.getCell(4).setText(formatRupiah(item.harga));
-           
-           // Kolom 5: Jumlah
-           newRow.getCell(5).setText(formatRupiah(item.jumlah));
+           try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
+           try { newRow.getCell(1).setText(item.nama); } catch(e){}
+           try { newRow.getCell(2).setText(item.vol.toString()); } catch(e){}
+           try { newRow.getCell(3).setText(item.sat); } catch(e){}
+           try { newRow.getCell(4).setText(formatRupiah(item.harga)); } catch(e){}
+           try { newRow.getCell(5).setText(formatRupiah(item.jumlah)); } catch(e){}
         });
 
-        // Hapus baris template asli (yang ada tulisan <<TABLE_ROW>>)
         targetTable.removeRow(rowIndexTemplate + dataForm.items.length);
       }
     }
@@ -200,7 +221,12 @@ function generateLPJ(token, dataForm) {
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
     const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ_' + tipe + '_' + dataForm.nomorSurat + '.pdf');
     
-    // Hapus file doc sementara
+    if (CONFIG.FOLDER_PDF_ID) {
+       const folder = DriveApp.getFolderById(CONFIG.FOLDER_PDF_ID);
+       folder.addFile(pdfFile);
+       DriveApp.getRootFolder().removeFile(pdfFile);
+    }
+    
     tempDocFile.setTrashed(true);
 
     return { status: 'success', url: pdfFile.getUrl() };
