@@ -48,6 +48,24 @@
         background-color: #dfe6ed;
         color: #000;
       }
+
+      /* --- STYLE TAMBAHAN UNTUK NAV PILLS (Tab Setting) --- */
+      .nav-pills .nav-link {
+        background-color: #e9ecef; /* Warna abu-abu terang untuk tab tidak aktif */
+        color: #495057;            /* Warna teks abu tua */
+        margin-right: 5px;
+        border: 1px solid #dee2e6; /* Border tipis agar tegas */
+      }
+
+      .nav-pills .nav-link.active {
+        background-color: #0d6efd; /* Warna biru untuk tab aktif */
+        color: white;
+        border-color: #0d6efd;
+      }
+
+      .nav-pills .nav-link:hover {
+        background-color: #dfe6ed; /* Efek hover */
+      }
     </style>
   </head>
   <body>
@@ -528,41 +546,141 @@
                   <i class="fas fa-hammer me-2"></i> Transaksi Tukang
                 </button>
               </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-surat-setting" onclick="bukaTabSurat('setting')">
+                  <i class="fas fa-cogs me-2"></i> Setting Nomor Otomatis
+                </button>
+              </li>
             </ul>
 
-            <div class="card shadow-sm border-0">
-              <div class="card-body">
-                <div class="row g-2 mb-3 align-items-center">
-                  <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
-                  <div class="col-auto">
-                    <select id="fltTahun_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')"></select>
-                  </div>
-                  <div class="col-auto">
-                    <select id="fltBulan_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')">
-                      <option value="">Semua Bulan</option>
-                      <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
-                      <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
-                      <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
-                      <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
-                    </select>
+            <div id="view-surat-list"> 
+                <div class="card shadow-sm border-0">
+                  <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-center">
+                      <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                      <div class="col-auto">
+                        <select id="fltTahun_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')"></select>
+                      </div>
+                      <div class="col-auto">
+                        <select id="fltBulan_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')">
+                          <option value="">Semua Bulan</option>
+                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Tanggal</th>
+                            <th>Uraian Belanja/Pekerjaan</th>
+                            <th>Pihak Ketiga</th>
+                            <th>Status Dokumen</th>
+                            <th width="15%">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tabelSuratBody">
+                          <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
+            </div>
 
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Tanggal</th>
-                        <th>Uraian Belanja/Pekerjaan</th>
-                        <th>Pihak Ketiga</th>
-                        <th>Status Dokumen</th>
-                        <th width="15%">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tabelSuratBody">
-                      <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
-                    </tbody>
-                  </table>
+            <div id="view-surat-setting" class="hidden">
+              <div class="card shadow-sm border-0">
+                <div class="card-body">
+                  
+                  <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i> <strong>Panduan Format Otomatis:</strong><br>
+                    Gunakan placeholder berikut dalam format surat Anda:
+                    <ul>
+                      <li><code>[nomor]</code> : Untuk input nomor urut surat (Contoh: 001, 002).</li>
+                      <li><code>[bulan]</code> : Otomatis mengambil bulan dari tanggal transaksi (Contoh: 08, 12).</li>
+                      <li><code>[tahun]</code> : Otomatis mengambil tahun dari tanggal transaksi (Contoh: 2025).</li>
+                      <li><code>[apapun]</code> : Kata dalam kurung siku lain akan menjadi kolom input manual (Contoh: [kode], [romawi]).</li>
+                    </ul>
+                    Contoh Format: <code>B.[nomor]/MTs.21/[bulan]/[tahun]</code>
+                  </div>
+
+                  <ul class="nav nav-pills mb-3" id="pills-tab-setting" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link active" id="pills-set-toko-tab" data-bs-toggle="pill" data-bs-target="#pills-set-toko" type="button" role="tab">Setting Toko</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" id="pills-set-tukang-tab" data-bs-toggle="pill" data-bs-target="#pills-set-tukang" type="button" role="tab">Setting Tukang</button>
+                    </li>
+                  </ul>
+
+                  <div class="tab-content" id="pills-tabContent-setting">
+                    
+                    <div class="tab-pane fade show active" id="pills-set-toko" role="tabpanel">
+                      <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="toggleAutoToko" onchange="toggleFormSetting('toko')">
+                        <label class="form-check-label fw-bold" for="toggleAutoToko">Aktifkan Penomoran Otomatis Toko</label>
+                      </div>
+                      
+                      <div id="formAutoToko" class="border p-3 rounded bg-light hidden">
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format Surat Permintaan</label>
+                          <input type="text" class="form-control" id="fmtTokoPermintaan" placeholder="Contoh: B.[nomor]/MTs.../[bulan]/[tahun]">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format Surat Penawaran</label>
+                          <input type="text" class="form-control" id="fmtTokoPenawaran">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Pemeriksaan</label>
+                          <input type="text" class="form-control" id="fmtTokoPemeriksaan">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Serah Terima (BAST)</label>
+                          <input type="text" class="form-control" id="fmtTokoBAST">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Pembayaran</label>
+                          <input type="text" class="form-control" id="fmtTokoBayar">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="pills-set-tukang" role="tabpanel">
+                      <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="toggleAutoTukang" onchange="toggleFormSetting('tukang')">
+                        <label class="form-check-label fw-bold" for="toggleAutoTukang">Aktifkan Penomoran Otomatis Tukang</label>
+                      </div>
+                      
+                      <div id="formAutoTukang" class="border p-3 rounded bg-light hidden">
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format Surat Permintaan</label>
+                          <input type="text" class="form-control" id="fmtTukangPermintaan">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Pemeriksaan</label>
+                          <input type="text" class="form-control" id="fmtTukangPemeriksaan">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Serah Terima (BAST)</label>
+                          <input type="text" class="form-control" id="fmtTukangBAST">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Format BA Pembayaran</label>
+                          <input type="text" class="form-control" id="fmtTukangBayar">
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                  
+                  <div class="mt-4 border-top pt-3 text-end">
+                    <button class="btn btn-primary" onclick="simpanSettingNomor()"><i class="fas fa-save me-1"></i> Simpan Pengaturan</button>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -579,50 +697,18 @@
                   <form id="formInputSurat" onsubmit="simpanSurat(event)">
                     <input type="hidden" id="suratTransId">
                     <input type="hidden" id="suratTransTipe">
+                    <input type="hidden" id="suratTransTanggal"> 
                     
-                    <div class="alert alert-info py-2 mb-3">
-                      <small><i class="fas fa-info-circle"></i> Silakan isi nomor surat yang sesuai. Kosongkan jika belum ada.</small>
+                    <div id="alertManualMode" class="alert alert-info py-2 mb-3">
+                      <small><i class="fas fa-info-circle"></i> Mode Manual: Silakan ketik nomor surat lengkap.</small>
+                    </div>
+                    
+                    <div id="alertAutoMode" class="alert alert-success py-2 mb-3 hidden">
+                      <small><i class="fas fa-robot"></i> Mode Otomatis: Masukkan variabel yang diminta.</small>
                     </div>
 
-                    <div class="mb-3 row">
-                      <label class="col-sm-4 col-form-label fw-bold">Surat Permintaan</label>
-                      <div class="col-sm-8">
-                        <input type="text" class="form-control" id="noSuratPermintaan" placeholder="Nomor dari Sekolah...">
-                        <div class="form-text">Surat Permintaan Barang/Jasa dari Sekolah.</div>
-                      </div>
-                    </div>
-
-                    <div class="mb-3 row" id="wrapSuratPenawaran">
-                      <label class="col-sm-4 col-form-label fw-bold">Surat Penawaran <span class="badge bg-secondary">Opsional</span></label>
-                      <div class="col-sm-8">
-                        <input type="text" class="form-control" id="noSuratPenawaran" placeholder="Nomor dari Toko...">
-                        <div class="form-text">Surat Penawaran Harga dari Toko/Rekanan.</div>
-                      </div>
-                    </div>
-
-                    <div class="mb-3 row">
-                      <label class="col-sm-4 col-form-label fw-bold">BA Pemeriksaan</label>
-                      <div class="col-sm-8">
-                        <input type="text" class="form-control" id="noBaPemeriksaan" placeholder="Nomor BA Pemeriksaan...">
-                        <div class="form-text">Berita Acara Pemeriksaan Barang/Pekerjaan.</div>
-                      </div>
-                    </div>
-
-                    <div class="mb-3 row">
-                      <label class="col-sm-4 col-form-label fw-bold">BA Serah Terima (BAST)</label>
-                      <div class="col-sm-8">
-                        <input type="text" class="form-control" id="noBaSerahTerima" placeholder="Nomor BAST...">
-                        <div class="form-text">Berita Acara Serah Terima Barang/Pekerjaan.</div>
-                      </div>
-                    </div>
-
-                    <div class="mb-3 row">
-                      <label class="col-sm-4 col-form-label fw-bold">BA Pembayaran</label>
-                      <div class="col-sm-8">
-                        <input type="text" class="form-control" id="noBaPembayaran" placeholder="Nomor BA Pembayaran...">
-                        <div class="form-text">Berita Acara Pembayaran Lunas.</div>
-                      </div>
-                    </div>
+                    <div id="containerInputSurat">
+                        </div>
 
                     <div class="modal-footer px-0 pb-0 mt-4">
                       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -3367,19 +3453,47 @@
 
       /* --- LOGIKA MANAJEMEN NOMOR SURAT --- */
 
-      // 1. Tab Switching & Load Data
+      let globalAutoSettings = { toko: {active: false}, tukang: {active: false} };
+
       function bukaTabSurat(tipe) {
-        // Atur Class Active pada Tab
+        // 1. Reset Class Active pada tombol Tab
         document.getElementById('tab-surat-toko').classList.remove('active');
         document.getElementById('tab-surat-tukang').classList.remove('active');
+        document.getElementById('tab-surat-setting').classList.remove('active');
         
-        if (tipe === 'toko') {
-          document.getElementById('tab-surat-toko').classList.add('active');
-        } else {
-          document.getElementById('tab-surat-tukang').classList.add('active');
-        }
+        // 2. Ambil Elemen View (List vs Setting)
+        const viewList = document.getElementById('view-surat-list');
+        const viewSetting = document.getElementById('view-surat-setting');
+        
+        if (tipe === 'setting') {
+          // --- MODE SETTING ---
+          document.getElementById('tab-surat-setting').classList.add('active');
+          
+          // Sembunyikan List, Tampilkan Setting
+          viewList.classList.add('hidden');
+          viewSetting.classList.remove('hidden');
+          
+          // Load data setting dari server
+          loadSettingNomor();
 
-        loadDataSurat(tipe);
+        } else {
+          // --- MODE LIST (Toko / Tukang) ---
+          if (tipe === 'toko') {
+              document.getElementById('tab-surat-toko').classList.add('active');
+          } else {
+              document.getElementById('tab-surat-tukang').classList.add('active');
+          }
+          
+          // Tampilkan List, Sembunyikan Setting
+          viewList.classList.remove('hidden');
+          viewSetting.classList.add('hidden');
+
+          // Load Data Tabel
+          loadDataSurat(tipe);
+          
+          // Refresh cache setting diam-diam agar saat popup dibuka datanya sudah siap
+          refreshAutoSettingsCache(); 
+        }
       }
 
       // 2. Load Data List
@@ -3445,36 +3559,174 @@
 
       function bukaModalSurat(tipe, encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
-        const s = data.dataSurat || {}; // Ambil data surat jika ada, atau object kosong
+        const s = data.dataSurat || {}; 
+        const rawData = s.raw || {}; // Ambil data raw jika ada
 
-        // Set Hidden ID
         document.getElementById('suratTransId').value = data.id;
         document.getElementById('suratTransTipe').value = tipe;
+        document.getElementById('suratTransTanggal').value = data.tanggal; 
 
-        // Reset Form
-        document.getElementById('formInputSurat').reset();
+        // Cek Setting Auto
+        const config = (tipe === 'toko') ? globalAutoSettings.toko : globalAutoSettings.tukang;
+        const isAuto = config && config.active;
 
-        // Kondisional Field (Penawaran hanya untuk Toko)
-        const wrapPenawaran = document.getElementById('wrapSuratPenawaran');
-        if (tipe === 'toko') {
-          wrapPenawaran.classList.remove('hidden');
-          // Set Value Penawaran
-          document.getElementById('noSuratPenawaran').value = s.penawaran || '';
+        const container = document.getElementById('containerInputSurat');
+        container.innerHTML = ''; 
+
+        // Toggle Alert
+        if(isAuto) {
+          document.getElementById('alertManualMode').classList.add('hidden');
+          document.getElementById('alertAutoMode').classList.remove('hidden');
         } else {
-          wrapPenawaran.classList.add('hidden');
-          document.getElementById('noSuratPenawaran').value = ''; 
+          document.getElementById('alertManualMode').classList.remove('hidden');
+          document.getElementById('alertAutoMode').classList.add('hidden');
         }
 
-        // Isi Value Field Lainnya
-        document.getElementById('noSuratPermintaan').value = s.permintaan || '';
-        document.getElementById('noBaPemeriksaan').value = s.baPemeriksaan || '';
-        document.getElementById('noBaSerahTerima').value = s.baSerahTerima || '';
-        document.getElementById('noBaPembayaran').value = s.baPembayaran || '';
+        // Definisi Field
+        let fields = [
+          { key: 'permintaan', label: 'Surat Permintaan', format: config?.permintaan },
+          { key: 'baPemeriksaan', label: 'BA Pemeriksaan', format: config?.pemeriksaan },
+          { key: 'baSerahTerima', label: 'BA Serah Terima', format: config?.bast },
+          { key: 'baPembayaran', label: 'BA Pembayaran', format: config?.bayar }
+        ];
 
-        // Tampilkan Modal
+        if(tipe === 'toko') {
+          fields.splice(1, 0, { key: 'penawaran', label: 'Surat Penawaran', format: config?.penawaran });
+        }
+
+        // --- RENDER INPUT ---
+        fields.forEach(f => {
+          const currentValue = s[f.key] || '';
+          
+          let htmlInput = '';
+          
+          if (isAuto && f.format && f.format.trim() !== '') {
+            // === MODE OTOMATIS ===
+            const regex = /\[(.*?)\]/g;
+            let matches = [...f.format.matchAll(regex)]; 
+            
+            let inputGroup = '';
+            let placeholdersFound = false;
+
+            const uniqueTags = [];
+            matches.forEach(m => {
+              const tag = m[1];
+              if(!uniqueTags.includes(tag)) uniqueTags.push(tag);
+            });
+
+            uniqueTags.forEach(tag => {
+              if(tag === 'bulan' || tag === 'tahun') return;
+
+              placeholdersFound = true;
+
+              // LOGIKA PENTING: AMBIL NILAI LAMA (JIKA ADA)
+              // Kita cek di rawData -> Key Dokumen -> Tag (misal: rawData['permintaan']['nomor'])
+              let savedVal = '';
+              if (rawData[f.key] && rawData[f.key][tag]) {
+                  savedVal = rawData[f.key][tag];
+              }
+
+              inputGroup += `
+                <div class="col-md-4 mb-2">
+                  <label class="form-label text-muted small fst-italic">Isi [${tag}]</label>
+                  <input type="text" class="form-control form-control-sm auto-input" 
+                        data-key="${f.key}" data-tag="${tag}" placeholder="${tag}..."
+                        value="${savedVal}"> </div>
+              `;
+            });
+
+            const previewId = `preview-${f.key}`;
+            
+            if(placeholdersFound) {
+              htmlInput = `
+                <div class="row g-2 bg-light p-2 rounded mb-2 border">
+                  <div class="col-12 border-bottom mb-2 pb-1">
+                    <span class="fw-bold text-primary small">${f.format}</span>
+                  </div>
+                  ${inputGroup}
+                  <div class="col-12">
+                    <small class="text-success fw-bold"><i class="fas fa-eye"></i> Preview: <span id="${previewId}">-</span></small>
+                  </div>
+                </div>
+              `;
+            } else {
+              htmlInput = `
+                <div class="bg-light p-2 rounded mb-2 border">
+                  <span class="fw-bold text-primary small d-block mb-1">${f.format}</span>
+                  <small class="text-success fw-bold"><i class="fas fa-eye"></i> Preview: <span id="${previewId}">-</span></small>
+                  <input type="hidden" class="auto-input" data-key="${f.key}" data-tag="DUMMY"> 
+                </div>
+              `;
+            }
+
+          } else {
+            // === MODE MANUAL ===
+            htmlInput = `
+              <input type="text" class="form-control manual-input" id="manual_${f.key}" value="${currentValue}" placeholder="Nomor...">
+            `;
+          }
+
+          const rowHtml = `
+            <div class="mb-3 row">
+              <label class="col-sm-4 col-form-label fw-bold">${f.label}</label>
+              <div class="col-sm-8">
+                ${htmlInput}
+              </div>
+            </div>
+          `;
+          container.insertAdjacentHTML('beforeend', rowHtml);
+        });
+
+        // Listener Preview
+        if(isAuto) {
+          const inputs = container.querySelectorAll('.auto-input');
+          inputs.forEach(inp => {
+            inp.addEventListener('input', () => updatePreviews(config, data.tanggal));
+          });
+          updatePreviews(config, data.tanggal);
+        }
+
         const el = document.getElementById('modalSurat');
         modalSuratBS = new bootstrap.Modal(el);
         modalSuratBS.show();
+      }
+
+      // Helper: Live Preview Logic
+      function updatePreviews(config, tglTransaksi) {
+        // Parsing Tanggal
+        let bulan = '00', tahun = '0000';
+        if(tglTransaksi) {
+          const d = new Date(tglTransaksi);
+          bulan = String(d.getMonth() + 1).padStart(2, '0'); // 01, 02.. 12
+          tahun = d.getFullYear();
+        }
+
+        // Loop setiap field yang punya preview
+        const previewSpans = document.querySelectorAll('[id^="preview-"]');
+        previewSpans.forEach(span => {
+          const key = span.id.replace('preview-', ''); // misal: permintaan
+          let formatStr = config[key]; // Format mentah
+
+          if(!formatStr) return;
+
+          // Ganti Bulan & Tahun
+          formatStr = formatStr.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
+
+          // Cari input terkait key ini
+          const relatedInputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
+          relatedInputs.forEach(inp => {
+            const tag = inp.getAttribute('data-tag');
+            const val = inp.value || `[${tag}]`; // Jika kosong, tampilkan placeholder
+            // Ganti Tag custom dengan value
+            if(tag !== 'DUMMY') {
+              // Replace global
+              const regex = new RegExp(`\\[${tag}\\]`, 'g');
+              formatStr = formatStr.replace(regex, val);
+            }
+          });
+
+          span.innerText = formatStr;
+        });
       }
 
       // 4. Simpan Data Surat
@@ -3483,22 +3735,77 @@
         
         const tipe = document.getElementById('suratTransTipe').value;
         const id = document.getElementById('suratTransId').value;
+        const tgl = document.getElementById('suratTransTanggal').value;
 
-        // Ambil Data Form
-        const dataSurat = {
-          permintaan: document.getElementById('noSuratPermintaan').value,
-          penawaran: document.getElementById('noSuratPenawaran').value, // Jika tukang, ini akan kosong/diabaikan
-          baPemeriksaan: document.getElementById('noBaPemeriksaan').value,
-          baSerahTerima: document.getElementById('noBaSerahTerima').value,
-          baPembayaran: document.getElementById('noBaPembayaran').value
+        const config = (tipe === 'toko') ? globalAutoSettings.toko : globalAutoSettings.tukang;
+        const isAuto = config && config.active;
+
+        let dataSurat = {
+          // Siapkan object untuk menyimpan data mentah inputan user
+          raw: {} 
         };
 
-        const payload = {
-          id: id,
-          dataSurat: dataSurat
-        };
+        if (isAuto) {
+          // === SIMPAN DARI AUTO GENERATE ===
+          
+          // Parsing Tanggal
+          let bulan = '00', tahun = '0000';
+          if(tgl) {
+              const d = new Date(tgl);
+              bulan = String(d.getMonth() + 1).padStart(2, '0');
+              tahun = d.getFullYear();
+          }
 
-        // Loading Button
+          const processField = (key, format) => {
+              if(!format) return "";
+              let result = format.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
+              
+              // Ambil input user untuk field ini
+              const inputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
+              
+              // Siapkan object raw untuk key ini (misal: raw.permintaan)
+              if (!dataSurat.raw[key]) dataSurat.raw[key] = {};
+
+              inputs.forEach(inp => {
+                  const tag = inp.getAttribute('data-tag');
+                  const val = inp.value.trim();
+                  
+                  // SIMPAN NILAI ASLI KE OBJECT RAW
+                  if(tag !== 'DUMMY') {
+                      dataSurat.raw[key][tag] = val; // Contoh: raw['permintaan']['nomor'] = "001"
+                      
+                      const regex = new RegExp(`\\[${tag}\\]`, 'g');
+                      result = result.replace(regex, val);
+                  }
+              });
+              
+              return result;
+          };
+
+          dataSurat.permintaan = processField('permintaan', config.permintaan);
+          dataSurat.baPemeriksaan = processField('baPemeriksaan', config.pemeriksaan);
+          dataSurat.baSerahTerima = processField('baSerahTerima', config.bast);
+          dataSurat.baPembayaran = processField('baPembayaran', config.bayar);
+          
+          if(tipe === 'toko') {
+              dataSurat.penawaran = processField('penawaran', config.penawaran);
+          }
+
+        } else {
+          // === SIMPAN MANUAL ===
+          // Kalau manual, raw datanya kosong atau kita anggap sama dengan hasil
+          dataSurat.permintaan = document.getElementById('manual_permintaan').value;
+          dataSurat.baPemeriksaan = document.getElementById('manual_baPemeriksaan').value;
+          dataSurat.baSerahTerima = document.getElementById('manual_baSerahTerima').value;
+          dataSurat.baPembayaran = document.getElementById('manual_baPembayaran').value;
+          
+          if(tipe === 'toko') {
+              dataSurat.penawaran = document.getElementById('manual_penawaran').value;
+          }
+        }
+
+        // --- PROSES KIRIM KE SERVER ---
+        const payload = { id: id, dataSurat: dataSurat };
         const btn = document.getElementById('btnSimpanSurat');
         const txtAsli = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
@@ -3511,18 +3818,9 @@
           btn.disabled = false;
 
           if (res.status === 'success') {
-            // Tutup Modal
             if(modalSuratBS) modalSuratBS.hide();
-            
-            Swal.fire({
-              icon: 'success', title: 'Tersimpan', 
-              text: 'Data nomor surat berhasil diperbarui.',
-              timer: 1500, showConfirmButton: false
-            });
-
-            // Reload Tabel
+            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Data nomor surat diperbarui.', timer: 1500, showConfirmButton: false });
             loadDataSurat(tipe);
-
           } else {
             Swal.fire('Gagal', res.message, 'error');
           }
@@ -4065,6 +4363,102 @@
         if (oldOnLoad) oldOnLoad(); // Jalankan onload yang lama (login check dll)
         initFilterTahun(); // Jalankan inisialisasi filter
       };
+
+      // Load Setting dari Server ke Form
+      function loadSettingNomor() {
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res){
+          if(res.status === 'success' && res.data) {
+            const s = res.data;
+            globalAutoSettings = s; // Update Global Cache
+
+            // Set Toko
+            document.getElementById('toggleAutoToko').checked = s.toko.active;
+            toggleFormSetting('toko');
+            document.getElementById('fmtTokoPermintaan').value = s.toko.permintaan || '';
+            document.getElementById('fmtTokoPenawaran').value = s.toko.penawaran || '';
+            document.getElementById('fmtTokoPemeriksaan').value = s.toko.pemeriksaan || '';
+            document.getElementById('fmtTokoBAST').value = s.toko.bast || '';
+            document.getElementById('fmtTokoBayar').value = s.toko.bayar || '';
+
+            // Set Tukang
+            document.getElementById('toggleAutoTukang').checked = s.tukang.active;
+            toggleFormSetting('tukang');
+            document.getElementById('fmtTukangPermintaan').value = s.tukang.permintaan || '';
+            document.getElementById('fmtTukangPemeriksaan').value = s.tukang.pemeriksaan || '';
+            document.getElementById('fmtTukangBAST').value = s.tukang.bast || '';
+            document.getElementById('fmtTukangBayar').value = s.tukang.bayar || '';
+          }
+        }).getSettingNomor(token);
+      }
+
+      // Helper Toggle UI
+      function toggleFormSetting(tipe) {
+        const isActive = document.getElementById(tipe === 'toko' ? 'toggleAutoToko' : 'toggleAutoTukang').checked;
+        const formDiv = document.getElementById(tipe === 'toko' ? 'formAutoToko' : 'formAutoTukang');
+        isActive ? formDiv.classList.remove('hidden') : formDiv.classList.add('hidden');
+      }
+
+      // Simpan Setting ke Server
+      function simpanSettingNomor() {
+        const token = localStorage.getItem('userToken');
+        
+        // Ambil data dari form
+        const settings = {
+          toko: {
+            active: document.getElementById('toggleAutoToko').checked,
+            permintaan: document.getElementById('fmtTokoPermintaan').value,
+            penawaran: document.getElementById('fmtTokoPenawaran').value,
+            pemeriksaan: document.getElementById('fmtTokoPemeriksaan').value,
+            bast: document.getElementById('fmtTokoBAST').value,
+            bayar: document.getElementById('fmtTokoBayar').value
+          },
+          tukang: {
+            active: document.getElementById('toggleAutoTukang').checked,
+            permintaan: document.getElementById('fmtTukangPermintaan').value,
+            pemeriksaan: document.getElementById('fmtTukangPemeriksaan').value,
+            bast: document.getElementById('fmtTukangBAST').value,
+            bayar: document.getElementById('fmtTukangBayar').value
+          }
+        };
+
+        // --- LOGIKA ANIMASI LOADING ---
+        // Kita cari tombol yang memanggil fungsi ini
+        // (Pastikan di HTML tombolnya: onclick="simpanSettingNomor()")
+        const btn = document.querySelector('button[onclick="simpanSettingNomor()"]');
+        const originalText = btn.innerHTML; // Simpan teks/icon asli
+
+        // Ubah tombol jadi mode loading
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        google.script.run.withSuccessHandler(function(res){
+          // Kembalikan tombol ke semula
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+
+          if(res.status === 'success') {
+            Swal.fire({
+              icon: 'success', 
+              title: 'Tersimpan',
+              text: 'Pengaturan nomor otomatis berhasil disimpan!',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            globalAutoSettings = settings; // Update cache global
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanSettingNomor(token, settings);
+      }
+
+      // Helper: Refresh Cache diam-diam saat buka tab list
+      function refreshAutoSettingsCache() {
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res){
+          if(res.status === 'success' && res.data) globalAutoSettings = res.data;
+        }).getSettingNomor(token);
+      }
 
     </script>
   </body>
