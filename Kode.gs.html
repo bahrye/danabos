@@ -1004,3 +1004,50 @@ function simpanTanggalSurat(token, form) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI DASHBOARD (BARU) --- */
+
+function getDashboardStats(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Ambil Data Anggaran dari Sheet DataSekolah
+    let sheetSekolah = ss.getSheetByName('DataSekolah');
+    let anggaran = 0;
+    
+    if (sheetSekolah) {
+      // Jumlah Anggaran ada di Kolom Q (Index 17, array index 16)
+      // Cek header di fungsi getDataSekolah sebelumnya
+      const dataSekolah = sheetSekolah.getRange(2, 1, 1, 17).getValues()[0];
+      anggaran = Number(dataSekolah[16]) || 0; 
+    }
+
+    // 2. Hitung Total Pengeluaran & Jumlah Transaksi dari Sheet DataTransaksi
+    let sheetTrans = ss.getSheetByName('DataTransaksi');
+    let totalPengeluaran = 0;
+    let jumlahTransaksi = 0;
+
+    if (sheetTrans) {
+      const dataTrans = sheetTrans.getDataRange().getValues();
+      // Mulai dari baris ke-2 (index 1) karena baris 1 adalah Header
+      for (let i = 1; i < dataTrans.length; i++) {
+        // Kolom Total_Biaya ada di index 7 (Kolom H)
+        let biaya = Number(dataTrans[i][7]) || 0;
+        totalPengeluaran += biaya;
+        jumlahTransaksi++;
+      }
+    }
+
+    return {
+      status: 'success',
+      data: {
+        anggaran: anggaran,
+        pengeluaran: totalPengeluaran,
+        jumlahTransaksi: jumlahTransaksi
+      }
+    };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
