@@ -166,6 +166,65 @@ function generateLPJ(token, dataForm) {
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
+    // --- LOGIKA GANTI <<KOP SURAT>> DENGAN GAMBAR ---
+    const kopSuratId = getSettingValue(token, 'KOP_SURAT_ID');
+    
+    // Fungsi Helper: Cari SEMUA teks di container dan ganti gambar
+    const replaceAllWithImage = (container, placeholderText, blobImage) => {
+      if (!container) return; 
+
+      // 1. Cari kejadian pertama
+      let searchResult = container.findText(placeholderText);
+      
+      // 2. Lakukan Looping selama teks masih ditemukan
+      while (searchResult) {
+        const textElement = searchResult.getElement();
+        const parent = textElement.getParent();
+        
+        // Hapus teks placeholder <<KOP SURAT>> agar tidak ditemukan lagi di loop berikutnya
+        textElement.removeFromParent();
+        
+        // Masukkan Gambar
+        try {
+          // Karena kita melakukan loop, kita perlu blob baru (copy) untuk setiap gambar 
+          // agar tidak terjadi konflik referensi di beberapa kasus PDF rendering
+          const imgBlobCopy = blobImage.copyBlob(); 
+          const img = parent.insertInlineImage(0, imgBlobCopy);
+          
+          // Resize Logika
+          if (img.getWidth() > 600) {
+             const ratio = img.getHeight() / img.getWidth();
+             img.setWidth(600);
+             img.setHeight(600 * ratio);
+          }
+        } catch(err) {
+          // Error handling
+        }
+
+        // 3. Cari lagi kejadian berikutnya (Loop berlanjut)
+        searchResult = container.findText(placeholderText);
+      }
+    };
+
+    // Eksekusi Penggantian
+    if (kopSuratId) {
+      try {
+        const kopFile = DriveApp.getFileById(kopSuratId);
+        const kopBlob = kopFile.getBlob();
+
+        // 1. Ganti Semua di Header (Jika ada)
+        replaceAllWithImage(doc.getHeader(), '<<KOP SURAT>>', kopBlob);
+        
+        // 2. Ganti Semua di Body (Halaman 1, 2, 3, dst)
+        replaceAllWithImage(body, '<<KOP SURAT>>', kopBlob);
+
+      } catch (e) {
+        safeReplace('<<KOP SURAT>>', ''); 
+      }
+    } else {
+       safeReplace('<<KOP SURAT>>', '');
+    }
+
     // --- REPLACE DATA UMUM ---
     safeReplace('<<Nomor Bukti Uraian>>', nomorBuktiUraian);
     safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
@@ -344,11 +403,27 @@ function generateLPJ(token, dataForm) {
   }
 }
 
-/* --- HELPER DATE FORMATTING UNTUK SURAT --- */
+/* --- HELPER DATE FORMATTING INDONESIA (UPDATE) --- */
 
 function formatTanggalIndo(dateString) {
   if (!dateString) return "-";
-  return Utilities.formatDate(new Date(dateString), "GMT+7", "dd MMMM yyyy");
+  
+  const d = new Date(dateString);
+  const bulanIndo = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  // Ambil Tanggal (dd), Bulan (Index), dan Tahun (yyyy) zona waktu Jakarta
+  const tanggal = Utilities.formatDate(d, "GMT+7", "dd");
+  const bulanIndex = parseInt(Utilities.formatDate(d, "GMT+7", "M")) - 1; 
+  const tahun = Utilities.formatDate(d, "GMT+7", "yyyy");
+
+  // Pastikan index bulan valid
+  if (bulanIndex < 0 || bulanIndex > 11) return "-";
+
+  // Gabungkan: 07 + Desember + 2025
+  return tanggal + " " + bulanIndo[bulanIndex] + " " + tahun;
 }
 
 function getIndonesianDateDetails(dateString) {
@@ -374,8 +449,7 @@ function getIndonesianDateDetails(dateString) {
   };
 }
 
-// Konversi Angka ke Teks Sederhana (Untuk Tanggal/Tahun)
-// Bedanya dengan Terbilang Rupiah: ini tidak pakai "Rupiah" di belakang
+/* --- HELPER TERBILANG ANGKA (DENGAN PERBAIKAN SPASI) --- */
 function angkaKeTeks(nilai) {
   const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
   let temp = "";
@@ -385,24 +459,34 @@ function angkaKeTeks(nilai) {
   } else if (nilai < 20) {
     temp = angkaKeTeks(nilai - 10) + " Belas";
   } else if (nilai < 100) {
-    temp = angkaKeTeks(Math.floor(nilai / 10)) + " Puluh" + angkaKeTeks(nilai % 10);
+    // Tambahkan spasi setelah "Puluh "
+    temp = angkaKeTeks(Math.floor(nilai / 10)) + " Puluh " + angkaKeTeks(nilai % 10);
   } else if (nilai < 200) {
-    temp = " Seratus" + angkaKeTeks(nilai - 100);
+    // Tambahkan spasi setelah "Seratus "
+    temp = " Seratus " + angkaKeTeks(nilai - 100);
   } else if (nilai < 1000) {
-    temp = angkaKeTeks(Math.floor(nilai / 100)) + " Ratus" + angkaKeTeks(nilai % 100);
+    // Tambahkan spasi setelah "Ratus "
+    temp = angkaKeTeks(Math.floor(nilai / 100)) + " Ratus " + angkaKeTeks(nilai % 100);
   } else if (nilai < 2000) {
-    temp = " Seribu" + angkaKeTeks(nilai - 1000);
+    // Tambahkan spasi setelah "Seribu "
+    temp = " Seribu " + angkaKeTeks(nilai - 1000);
   } else if (nilai < 1000000) {
-    temp = angkaKeTeks(Math.floor(nilai / 1000)) + " Ribu" + angkaKeTeks(nilai % 1000);
+    // Tambahkan spasi setelah "Ribu "
+    temp = angkaKeTeks(Math.floor(nilai / 1000)) + " Ribu " + angkaKeTeks(nilai % 1000);
+  } else if (nilai < 1000000000) {
+    // Tambahkan spasi setelah "Juta "
+    temp = angkaKeTeks(Math.floor(nilai / 1000000)) + " Juta " + angkaKeTeks(nilai % 1000000);
   }
-  return temp.trim(); // Hapus spasi di awal/akhir
+  
+  // Hapus spasi berlebih di awal/akhir
+  return temp.trim(); 
 }
 
 function formatRupiah(angka) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
 }
 
-// Fungsi Terbilang sederhana
+// Fungsi Terbilang (Dengan Perbaikan Spasi & Trim)
 function terbilang(nilai) {
   var bilangan = Math.abs(nilai);
   var angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
@@ -413,19 +497,27 @@ function terbilang(nilai) {
   } else if (bilangan < 20) {
     temp = terbilang(bilangan - 10) + " Belas";
   } else if (bilangan < 100) {
-    temp = terbilang(Math.floor(bilangan / 10)) + " Puluh" + terbilang(bilangan % 10);
+    // Tambahkan spasi kiri-kanan pada "Puluh"
+    temp = terbilang(Math.floor(bilangan / 10)) + " Puluh " + terbilang(bilangan % 10);
   } else if (bilangan < 200) {
-    temp = " Seratus" + terbilang(bilangan - 100);
+    // Tambahkan spasi kiri-kanan pada "Seratus"
+    temp = " Seratus " + terbilang(bilangan - 100);
   } else if (bilangan < 1000) {
-    temp = terbilang(Math.floor(bilangan / 100)) + " Ratus" + terbilang(bilangan % 100);
+    // Tambahkan spasi kiri-kanan pada "Ratus"
+    temp = terbilang(Math.floor(bilangan / 100)) + " Ratus " + terbilang(bilangan % 100);
   } else if (bilangan < 2000) {
-    temp = " Seribu" + terbilang(bilangan - 1000);
+    // Tambahkan spasi kiri-kanan pada "Seribu"
+    temp = " Seribu " + terbilang(bilangan - 1000);
   } else if (bilangan < 1000000) {
-    temp = terbilang(Math.floor(bilangan / 1000)) + " Ribu" + terbilang(bilangan % 1000);
+    // Tambahkan spasi kiri-kanan pada "Ribu"
+    temp = terbilang(Math.floor(bilangan / 1000)) + " Ribu " + terbilang(bilangan % 1000);
   } else if (bilangan < 1000000000) {
-    temp = terbilang(Math.floor(bilangan / 1000000)) + " Juta" + terbilang(bilangan % 1000000);
+    // Tambahkan spasi kiri-kanan pada "Juta"
+    temp = terbilang(Math.floor(bilangan / 1000000)) + " Juta " + terbilang(bilangan % 1000000);
   }
-  return temp;
+  
+  // PENTING: Hapus spasi di awal string agar rata kiri
+  return temp.trim();
 }
 
 /* --- FUNGSI DATA SEKOLAH --- */
