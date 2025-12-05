@@ -3697,29 +3697,44 @@
         let bulan = '00', tahun = '0000';
         if(tglTransaksi) {
           const d = new Date(tglTransaksi);
-          bulan = String(d.getMonth() + 1).padStart(2, '0'); // 01, 02.. 12
+          bulan = String(d.getMonth() + 1).padStart(2, '0');
           tahun = d.getFullYear();
         }
+
+        // --- MAPPING KUNCI: ID HTML -> KEY CONFIG ---
+        // Ini diperlukan agar preview bisa membaca format dari config yang benar
+        const keyMap = {
+          'permintaan': 'permintaan',
+          'penawaran': 'penawaran',
+          'baPemeriksaan': 'pemeriksaan', // HTML: baPemeriksaan -> Config: pemeriksaan
+          'baSerahTerima': 'bast',        // HTML: baSerahTerima -> Config: bast
+          'baPembayaran': 'bayar'         // HTML: baPembayaran -> Config: bayar
+        };
 
         // Loop setiap field yang punya preview
         const previewSpans = document.querySelectorAll('[id^="preview-"]');
         previewSpans.forEach(span => {
-          const key = span.id.replace('preview-', ''); // misal: permintaan
-          let formatStr = config[key]; // Format mentah
+          const htmlKey = span.id.replace('preview-', ''); // misal: baSerahTerima
+          const configKey = keyMap[htmlKey]; // diterjemahkan jadi: bast
+          
+          // Ambil format mentah dari config menggunakan kunci yang sudah dipetakan
+          let formatStr = config ? config[configKey] : ''; 
 
-          if(!formatStr) return;
+          if(!formatStr) {
+              span.innerText = "-";
+              return;
+          }
 
           // Ganti Bulan & Tahun
           formatStr = formatStr.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
 
-          // Cari input terkait key ini
-          const relatedInputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
+          // Cari input terkait key ini (input menggunakan data-key sesuai htmlKey)
+          const relatedInputs = document.querySelectorAll(`.auto-input[data-key="${htmlKey}"]`);
           relatedInputs.forEach(inp => {
             const tag = inp.getAttribute('data-tag');
-            const val = inp.value || `[${tag}]`; // Jika kosong, tampilkan placeholder
-            // Ganti Tag custom dengan value
+            const val = inp.value || `[${tag}]`; // Jika kosong tampilkan placeholder [tag]
+            
             if(tag !== 'DUMMY') {
-              // Replace global
               const regex = new RegExp(`\\[${tag}\\]`, 'g');
               formatStr = formatStr.replace(regex, val);
             }
@@ -3737,18 +3752,20 @@
         const id = document.getElementById('suratTransId').value;
         const tgl = document.getElementById('suratTransTanggal').value;
 
+        // Ambil Config Toko/Tukang
         const config = (tipe === 'toko') ? globalAutoSettings.toko : globalAutoSettings.tukang;
         const isAuto = config && config.active;
 
         let dataSurat = {
-          // Siapkan object untuk menyimpan data mentah inputan user
-          raw: {} 
+          raw: {} // Tempat simpan data mentah inputan user (001, dll)
         };
 
+        // --- LOGIKA UTAMA DISINI ---
+        
         if (isAuto) {
-          // === SIMPAN DARI AUTO GENERATE ===
+          // === MODE OTOMATIS AKTIF (Bisa Campuran Auto & Manual) ===
           
-          // Parsing Tanggal
+          // Parsing Tanggal Transaksi
           let bulan = '00', tahun = '0000';
           if(tgl) {
               const d = new Date(tgl);
@@ -3756,44 +3773,56 @@
               tahun = d.getFullYear();
           }
 
-          const processField = (key, format) => {
-              if(!format) return "";
+          // Fungsi internal untuk memproses format placeholder
+          const processAutoFormat = (key, format) => {
               let result = format.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
               
-              // Ambil input user untuk field ini
+              // Ambil input kecil (auto-input)
               const inputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
               
-              // Siapkan object raw untuk key ini (misal: raw.permintaan)
+              // Inisialisasi object raw jika belum ada
               if (!dataSurat.raw[key]) dataSurat.raw[key] = {};
 
               inputs.forEach(inp => {
                   const tag = inp.getAttribute('data-tag');
                   const val = inp.value.trim();
                   
-                  // SIMPAN NILAI ASLI KE OBJECT RAW
+                  // Simpan nilai mentah
                   if(tag !== 'DUMMY') {
-                      dataSurat.raw[key][tag] = val; // Contoh: raw['permintaan']['nomor'] = "001"
+                      dataSurat.raw[key][tag] = val; 
                       
                       const regex = new RegExp(`\\[${tag}\\]`, 'g');
                       result = result.replace(regex, val);
                   }
               });
-              
               return result;
           };
 
-          dataSurat.permintaan = processField('permintaan', config.permintaan);
-          dataSurat.baPemeriksaan = processField('baPemeriksaan', config.pemeriksaan);
-          dataSurat.baSerahTerima = processField('baSerahTerima', config.bast);
-          dataSurat.baPembayaran = processField('baPembayaran', config.bayar);
+          // Fungsi Pengambil Nilai Pintar (Cek apakah field ini Auto atau Manual?)
+          const getFinalValue = (key, formatSetting) => {
+              // Cek 1: Apakah ada format settingnya?
+              if (formatSetting && formatSetting.trim() !== '') {
+                  // JIKA ADA FORMAT -> Proses secara Otomatis
+                  return processAutoFormat(key, formatSetting);
+              } else {
+                  // JIKA FORMAT KOSONG -> Ambil dari Input Manual (Full Text)
+                  const elManual = document.getElementById('manual_' + key);
+                  return elManual ? elManual.value : '';
+              }
+          };
+
+          // Eksekusi untuk setiap field
+          dataSurat.permintaan = getFinalValue('permintaan', config.permintaan);
+          dataSurat.baPemeriksaan = getFinalValue('baPemeriksaan', config.pemeriksaan);
+          dataSurat.baSerahTerima = getFinalValue('baSerahTerima', config.bast);
+          dataSurat.baPembayaran = getFinalValue('baPembayaran', config.bayar);
           
           if(tipe === 'toko') {
-              dataSurat.penawaran = processField('penawaran', config.penawaran);
+              dataSurat.penawaran = getFinalValue('penawaran', config.penawaran);
           }
 
         } else {
-          // === SIMPAN MANUAL ===
-          // Kalau manual, raw datanya kosong atau kita anggap sama dengan hasil
+          // === MODE MANUAL TOTAL (Global Toggle OFF) ===
           dataSurat.permintaan = document.getElementById('manual_permintaan').value;
           dataSurat.baPemeriksaan = document.getElementById('manual_baPemeriksaan').value;
           dataSurat.baSerahTerima = document.getElementById('manual_baSerahTerima').value;
@@ -3806,6 +3835,8 @@
 
         // --- PROSES KIRIM KE SERVER ---
         const payload = { id: id, dataSurat: dataSurat };
+        
+        // Update Tombol Loading
         const btn = document.getElementById('btnSimpanSurat');
         const txtAsli = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
@@ -3819,8 +3850,14 @@
 
           if (res.status === 'success') {
             if(modalSuratBS) modalSuratBS.hide();
-            Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Data nomor surat diperbarui.', timer: 1500, showConfirmButton: false });
-            loadDataSurat(tipe);
+            Swal.fire({ 
+              icon: 'success', 
+              title: 'Tersimpan', 
+              text: 'Data nomor surat berhasil diperbarui.', 
+              timer: 1500, 
+              showConfirmButton: false 
+            });
+            loadDataSurat(tipe); // Refresh Tabel
           } else {
             Swal.fire('Gagal', res.message, 'error');
           }
