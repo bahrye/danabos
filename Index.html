@@ -238,9 +238,72 @@
 
             </div>
 
-            <div class="text-center text-muted py-5 mt-5">
-              <i class="fas fa-school fa-4x mb-3 text-secondary opacity-25"></i>
-              <p>Selamat Datang di Sistem Manajemen LPJ BOS</p>
+            <div class="card shadow-sm border-0 mt-4">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-school text-primary me-2"></i> Identitas Sekolah</h5>
+                
+                <button class="btn btn-sm btn-outline-primary" 
+                  onclick="navigasiKe('panel-data-sekolah', document.querySelector(`a[onclick*='panel-data-sekolah']`))">
+                  <i class="fas fa-edit me-1"></i> Ubah Data
+                </button>
+              </div>
+              
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6 border-end-md">
+                     <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Profil Madrasah</h6>
+                     <table class="table table-borderless table-sm mb-0" style="font-size: 0.95rem;">
+                       <tr>
+                         <td width="35%" class="text-muted">Nama Madrasah</td>
+                         <td class="fw-bold" id="dashNamaSekolah">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">NPSN</td>
+                         <td class="fw-bold" id="dashNpsn">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">NSM</td>
+                         <td id="dashNsm">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">Alamat</td>
+                         <td id="dashAlamat">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">Wilayah</td>
+                         <td id="dashLokasi">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">Email</td>
+                         <td id="dashEmail">-</td>
+                       </tr>
+                     </table>
+                  </div>
+
+                  <div class="col-md-6 ps-md-4 mt-4 mt-md-0">
+                     <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Pejabat Sekolah</h6>
+                     <table class="table table-borderless table-sm mb-0" style="font-size: 0.95rem;">
+                       <tr>
+                         <td width="35%" class="text-muted">Kepala Madrasah</td>
+                         <td class="fw-bold" id="dashKepala">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">NIP Kepala</td>
+                         <td id="dashNipKepala">-</td>
+                       </tr>
+                       <tr><td colspan="2" class="py-2"></td></tr>
+                       <tr>
+                         <td class="text-muted">Bendahara</td>
+                         <td class="fw-bold" id="dashBendahara">-</td>
+                       </tr>
+                       <tr>
+                         <td class="text-muted">NIP Bendahara</td>
+                         <td id="dashNipBendahara">-</td>
+                       </tr>
+                     </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3301,79 +3364,70 @@
         return parseFloat(String(str).replace(/\./g, '')) || 0;
       }
 
-      /* --- LOGIKA DASHBOARD (UPDATE PEWARNAAN KONTRAS) --- */
+      /* --- LOGIKA DASHBOARD (UPDATE LENGKAP) --- */
 
       function loadDashboardStats() {
         const token = localStorage.getItem('userToken');
         
-        // Reset angka sementara loading
         document.getElementById('dashAnggaran').innerText = '...';
         
         google.script.run.withSuccessHandler(function(res) {
           if (res.status === 'success') {
             const d = res.data;
+            const p = d.profile || {}; // Data Profil Sekolah
+
+            // 1. Render Statistik (Sama seperti sebelumnya)
             const anggaran = parseFloat(d.anggaran) || 0;
             const pengeluaran = parseFloat(d.pengeluaran) || 0;
             const jmlTrans = d.jumlahTransaksi || 0;
-            
-            // Hitung Sisa
             const sisa = anggaran - pengeluaran;
 
-            // 1. Render Angka
             document.getElementById('dashAnggaran').innerText = formatRupiahJS(anggaran);
             document.getElementById('dashPengeluaran').innerText = formatRupiahJS(pengeluaran);
             document.getElementById('dashSisa').innerText = formatRupiahJS(sisa);
             document.getElementById('dashJmlTrans').innerText = jmlTrans + " Item";
 
-            // 2. Logika Warna & Kontras Sisa Anggaran
+            // Pewarnaan Kartu Sisa (Logika Kontras)
             const cardSisa = document.getElementById('cardSisaAnggaran');
+            const titleSisa = cardSisa.querySelector('h6');
+            const iconSisa = cardSisa.querySelector('i');
+            const angkaSisa = cardSisa.querySelector('h3');
+            const ketSisa = cardSisa.querySelector('small');
             
-            // Ambil elemen teks di dalam kartu untuk diubah warnanya
-            const titleSisa = cardSisa.querySelector('h6');      // Tulisan "Sisa Anggaran"
-            const iconSisa = cardSisa.querySelector('i');        // Icon Chart
-            const angkaSisa = cardSisa.querySelector('h3');      // Nominal Rupiah
-            const ketSisa = cardSisa.querySelector('small');     // Tulisan "Saldo Tersedia"
-            
-            // Reset Class Dasar
             cardSisa.className = 'card p-3 shadow-sm h-100'; 
 
             if (sisa > 0) {
-              // --- KONDISI SISA (KUNING) ---
-              // Masih ada sisa -> Kuning (#ffc107)
-              // Agar terbaca jelas, SEMUA teks harus HITAM/GELAP
-              
               cardSisa.style.backgroundColor = '#ffc107'; 
-              
-              // Ubah warna elemen anak menjadi gelap
-              if(titleSisa) { titleSisa.className = 'mb-0 text-dark fw-bold opacity-75'; } // Hitam agak transparan
-              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-dark opacity-50'; }
-              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-dark'; } // Hitam Pekat
-              if(ketSisa)   { ketSisa.className = 'text-dark opacity-75'; }
-
+              if(titleSisa) titleSisa.className = 'mb-0 text-dark fw-bold opacity-75';
+              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-dark opacity-50';
+              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-dark';
+              if(ketSisa)   ketSisa.className = 'text-dark opacity-75';
             } else if (sisa === 0) {
-              // --- KONDISI PAS (HIJAU) ---
-              // Sisa 0 -> Hijau (#198754)
-              // Teks harus PUTIH
-              
               cardSisa.style.backgroundColor = '#198754';
-              
-              if(titleSisa) { titleSisa.className = 'mb-0 text-white-50'; } // Putih agak transparan
-              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50'; }
-              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-white'; } // Putih Pekat
-              if(ketSisa)   { ketSisa.className = 'text-white-50'; }
-
+              if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
+              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
+              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
+              if(ketSisa)   ketSisa.className = 'text-white-50';
             } else {
-              // --- KONDISI MINUS (MERAH) ---
-              // Minus -> Merah (#dc3545)
-              // Teks harus PUTIH
-              
               cardSisa.style.backgroundColor = '#dc3545';
-              
-              if(titleSisa) { titleSisa.className = 'mb-0 text-white-50'; }
-              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50'; }
-              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-white'; }
-              if(ketSisa)   { ketSisa.className = 'text-white-50'; }
+              if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
+              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
+              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
+              if(ketSisa)   ketSisa.className = 'text-white-50';
             }
+
+            // 2. Render Profil Sekolah (BARU)
+            document.getElementById('dashNamaSekolah').innerText = p.nama;
+            document.getElementById('dashNpsn').innerText = p.npsn;
+            document.getElementById('dashNsm').innerText = p.nsm;
+            document.getElementById('dashAlamat').innerText = p.alamat;
+            document.getElementById('dashLokasi').innerText = p.lokasi; // Kec, Kab, Prov
+            document.getElementById('dashEmail').innerText = p.email;
+            
+            document.getElementById('dashKepala').innerText = p.kepala;
+            document.getElementById('dashNipKepala').innerText = p.nipKepala;
+            document.getElementById('dashBendahara').innerText = p.bendahara;
+            document.getElementById('dashNipBendahara').innerText = p.nipBendahara;
 
           }
         }).getDashboardStats(token);
