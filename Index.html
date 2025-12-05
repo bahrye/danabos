@@ -13,7 +13,64 @@
       .card-login { max-width: 400px; margin: 50px auto; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
       
       /* Layout Styles */
-      .sidebar { min-height: 100vh; background: #2c3e50; color: white; transition: all 0.3s; }
+      /* --- CSS UPDATE RESPONSIVE --- */
+
+      /* 1. Sidebar Default (Desktop) */
+      .sidebar {
+        min-height: 100vh;
+        background: #2c3e50;
+        color: white;
+        transition: all 0.3s;
+      }
+
+      /* 2. CSS Khusus Mobile (Layar < 768px) */
+      @media (max-width: 767.98px) {
+        /* Sidebar disembunyikan di kiri layar (offcanvas manual) */
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: -250px; /* Sembunyi ke kiri */
+          width: 250px;
+          height: 100%;
+          z-index: 1050; /* Di atas konten */
+          overflow-y: auto;
+        }
+
+        /* Class untuk memunculkan sidebar */
+        .sidebar.show {
+          left: 0;
+        }
+
+        /* Konten Utama padding lebih kecil */
+        .col-md-9.col-lg-10.p-4 {
+          padding: 1rem !important; /* Ganti p-4 jadi p-3/p-2 di mobile */
+        }
+
+        /* Font tabel lebih kecil agar muat */
+        .table {
+          font-size: 0.8rem; 
+        }
+        
+        /* Sembunyikan kolom yang kurang penting di mobile (Opsional) */
+        /* .hide-mobile { display: none; } */
+      }
+
+      /* 3. Overlay Gelap saat Menu Mobile Aktif */
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040; /* Di bawah sidebar, di atas konten */
+      }
+
+      .sidebar-overlay.show {
+        display: block;
+      }
+
       .nav-link { color: rgba(255,255,255,0.8); margin-bottom: 5px; cursor: pointer; }
       .nav-link:hover { background: #34495e; color: white; border-radius: 5px; }
       .nav-link.active { background: #3498db; color: white; border-radius: 5px; font-weight: bold; }
@@ -132,8 +189,13 @@
     <div id="view-admin" class="container-fluid view-section hidden">
       <div class="row">
         
-        <div class="col-md-3 col-lg-2 sidebar p-3 d-none d-md-block">
-          <h4 class="text-center py-3 border-bottom"><i class="fas fa-user-shield"></i> Admin LPJ</h4>
+        <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <div class="row g-0"> <div id="sidebarMenu" class="col-md-3 col-lg-2 sidebar p-3">
+          <div class="d-flex justify-content-between align-items-center">
+              <h4 class="text-center py-3 border-bottom w-100"><i class="fas fa-user-shield"></i> Admin LPJ</h4>
+              <button class="btn btn-sm text-white d-md-none" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
+          </div>
           <ul class="nav flex-column mt-4">
             <li class="nav-item">
               <a onclick="navigasiKe('panel-dashboard', this)" class="nav-link active" style="cursor: pointer;">
@@ -215,8 +277,11 @@
 
         <div class="col-md-9 col-lg-10 p-4">
           
-          <div class="d-md-none mb-3">
-            <button class="btn btn-dark" onclick="alert('Menu Mobile belum aktif')"><i class="fas fa-bars"></i> Menu</button>
+          <div class="col-md-9 col-lg-10 p-4 w-100"> <div class="d-md-none mb-3 d-flex align-items-center justify-content-between">
+            <button class="btn btn-primary" onclick="toggleSidebar()">
+              <i class="fas fa-bars me-1"></i> Menu
+            </button>
+            <span class="fw-bold text-secondary">LPJ BOS App</span>
           </div>
 
           <div id="panel-dashboard" class="panel-content">
@@ -404,7 +469,7 @@
                   <div class="card-body">
                     <h5 class="card-title mb-3">Daftar Toko Tersimpan</h5>
                     <div class="table-responsive">
-                      <table class="table table-hover align-middle table-sm" style="font-size: 0.9rem;">
+                      <table class="table table-hover align-middle table-sm text-nowrap" style="font-size: 0.9rem;">
                         <thead class="table-light">
                           <tr>
                             <th>Nama Toko</th>
@@ -463,7 +528,7 @@
                   <div class="card-body">
                     <h5 class="card-title mb-3">Daftar Tukang Tersimpan</h5>
                     <div class="table-responsive">
-                      <table class="table table-hover align-middle table-striped">
+                      <table class="table table-hover align-middle table-striped text-nowrap">
                         <thead class="table-light">
                           <tr>
                             <th>Nama Lengkap</th>
@@ -521,7 +586,7 @@
                   <div class="card-body">
                     <h5 class="card-title mb-3">Daftar Guru Tersimpan</h5>
                     <div class="table-responsive">
-                      <table class="table table-hover align-middle table-striped">
+                      <table class="table table-hover align-middle table-striped text-nowrap">
                         <thead class="table-light">
                           <tr>
                             <th>Nama Lengkap</th>
@@ -581,7 +646,7 @@
                     </div>
 
                     <div class="table-responsive">
-                      <table class="table table-hover align-middle">
+                      <table class="table table-hover align-middle text-nowrap">
                         <thead class="table-light">
                           <tr>
                             <th>Tanggal</th>
@@ -763,7 +828,7 @@
                 </div>
 
                 <div class="table-responsive">
-                  <table class="table table-hover align-middle">
+                  <table class="table table-hover align-middle text-nowrap">
                     <thead class="table-light">
                       <tr>
                         <th>Tanggal Transaksi</th>
@@ -934,7 +999,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Daftar Barang Belanjaan</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle" id="tabelItemToko">
+                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemToko">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="30%">Nama Barang</th>
@@ -998,7 +1063,7 @@
                       </div>
 
                       <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm">
+                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
                               <thead class="table-light">
                                   <tr>
                                       <th>Tanggal</th>
@@ -1045,7 +1110,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Rincian Penerima Honor</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle" id="tabelItemGuru">
+                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemGuru">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="30%">Nama Guru</th>
@@ -1108,7 +1173,7 @@
                       </div>
 
                       <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm">
+                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
                               <thead class="table-light">
                                   <tr>
                                       <th>Tanggal</th>
@@ -1161,7 +1226,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Rincian Upah / Bahan</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle" id="tabelItemTukang">
+                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemTukang">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="30%">Jenis Pekerjaan/Item</th>
@@ -1223,7 +1288,7 @@
                         </div>
                       </div>
                       <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm">
+                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
                               <thead class="table-light">
                                   <tr>
                                       <th>Tanggal</th>
@@ -1285,7 +1350,7 @@
                     </div>
                   </div>
                   <div class="table-responsive">
-                    <table class="table table-hover align-middle table-striped">
+                    <table class="table table-hover align-middle table-striped text-nowrap">
                       <thead class="table-light">
                         <tr>
                           <th>Tanggal</th>
@@ -1320,7 +1385,7 @@
                     </div>
                   </div>
                   <div class="table-responsive">
-                    <table class="table table-hover align-middle table-striped">
+                    <table class="table table-hover align-middle table-striped text-nowrap">
                       <thead class="table-light">
                         <tr>
                           <th>Tanggal</th>
@@ -1355,7 +1420,7 @@
                     </div>
                   </div>
                   <div class="table-responsive">
-                    <table class="table table-hover align-middle table-striped">
+                    <table class="table table-hover align-middle table-striped text-nowrap">
                       <thead class="table-light">
                         <tr>
                           <th>Tanggal</th>
@@ -1415,7 +1480,7 @@
                   <div class="card-body">
                     <h5 class="card-title mb-3">Daftar Uraian Tersimpan</h5>
                     <div class="table-responsive">
-                      <table class="table table-hover align-middle table-striped">
+                      <table class="table table-hover align-middle table-striped text-nowrap">
                         <thead class="table-light">
                           <tr>
                             <th width="25%">No. Bukti</th>
@@ -3405,7 +3470,7 @@
         // 2. Buat Tabel Rincian Barang
         htmlContent += `
           <div class="table-responsive">
-            <table class="table table-bordered table-sm align-middle" style="font-size: 0.85rem;">
+            <table class="table table-bordered table-sm align-middle text-nowrap" style="font-size: 0.85rem;">
               <thead class="table-light text-center">
                 <tr>
                   <th>Nama Barang / Item</th>
@@ -4710,6 +4775,34 @@
         google.script.run.withSuccessHandler(function(res){
           if(res.status === 'success' && res.data) globalAutoSettings = res.data;
         }).getSettingNomor(token);
+      }
+
+      /* --- FUNGSI NAVIGASI MOBILE --- */
+      function toggleSidebar() {
+        // Hanya jalankan jika di layar mobile (lebar < 768px)
+        if (window.innerWidth < 768) {
+          const sidebar = document.getElementById('sidebarMenu');
+          const overlay = document.getElementById('sidebarOverlay');
+          
+          // Toggle class 'show'
+          sidebar.classList.toggle('show');
+          overlay.classList.toggle('show');
+        }
+      }
+
+      // Opsional: Perbaiki navigasiKe agar menutup sidebar di mobile
+      // Update sedikit fungsi navigasiKe Anda:
+      const originalNavigasiKe = navigasiKe; // Simpan fungsi lama
+      navigasiKe = function(panelId, linkElement) {
+          originalNavigasiKe(panelId, linkElement); // Jalankan logika lama
+          
+          // Logika tambahan: Tutup sidebar jika di mobile
+          if (window.innerWidth < 768) {
+              const sidebar = document.getElementById('sidebarMenu');
+              const overlay = document.getElementById('sidebarOverlay');
+              sidebar.classList.remove('show');
+              overlay.classList.remove('show');
+          }
       }
 
     </script>
