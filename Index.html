@@ -7,7 +7,26 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
-      body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
+      /* Update pada bagian CSS body */
+      body { 
+        background-color: #f4f6f9; 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        /* Hapus overflow-x: hidden global, ganti dengan penanganan horizontal yang lebih baik */
+        width: 100%;
+        overflow-x: hidden; 
+        -webkit-overflow-scrolling: touch; /* PENTING: Agar scroll licin di mobile */
+      }
+
+      /* Tambahan: Pastikan konten utama tidak melebar */
+      .panel-content {
+        width: 100%;
+        overflow-x: hidden;
+      }
+
+      /* Perbaikan Input agar tidak zoom in otomatis di HP saat diklik */
+      input, select, textarea {
+        font-size: 16px !important; /* Mencegah auto-zoom browser HP */
+      }
       
       /* Login & Register Styles */
       .card-login { max-width: 400px; margin: 50px auto; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
@@ -186,10 +205,7 @@
       </div>
     </div>
 
-    <div id="view-admin" class="container-fluid view-section hidden">
-      <div class="row">
-        
-        <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="view-admin" class="container-fluid view-section hidden p-0"> <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
         <div class="row g-0"> <div id="sidebarMenu" class="col-md-3 col-lg-2 sidebar p-3">
           <div class="d-flex justify-content-between align-items-center">
@@ -277,7 +293,7 @@
 
         <div class="col-md-9 col-lg-10 p-4">
           
-          <div class="col-md-9 col-lg-10 p-4 w-100"> <div class="d-md-none mb-3 d-flex align-items-center justify-content-between">
+          <div class="col-md-9 col-lg-10 p-3 p-md-4"> <div class="d-md-none mb-3 d-flex align-items-center justify-content-between">
             <button class="btn btn-primary" onclick="toggleSidebar()">
               <i class="fas fa-bars me-1"></i> Menu
             </button>
@@ -1690,28 +1706,33 @@
 
       // 2. Pindah Menu Sidebar (Dashboard <-> Buat LPJ <-> Pengaturan)
       function navigasiKe(panelId, linkElement) {
-        // 1. Scroll ke Paling Atas Halaman (FITUR BARU)
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 1. Sembunyikan Overlay & Sidebar (Khusus Mobile) agar tidak menghalangi
+        if (window.innerWidth < 768) {
+          const sidebar = document.getElementById('sidebarMenu');
+          const overlay = document.getElementById('sidebarOverlay');
+          sidebar.classList.remove('show');
+          overlay.classList.remove('show');
+        }
 
-        // 2. Sembunyikan semua panel
+        // 2. Sembunyikan SEMUA panel terlebih dahulu
         document.querySelectorAll('.panel-content').forEach(el => el.classList.add('hidden'));
-        
+
         // 3. Tampilkan panel target
         const targetPanel = document.getElementById(panelId);
         if(targetPanel) targetPanel.classList.remove('hidden');
 
-        // 4. Update status Active di Sidebar
+        // 4. Scroll ke Paling Atas SECARA INSTAN (Tanpa animasi smooth)
+        // Animasi smooth menyebabkan bentrok koordinat saat panel berganti
+        window.scrollTo(0, 0); 
+
+        // 5. Update status Active di Sidebar
         if (linkElement) {
           document.querySelectorAll('.sidebar .nav-link').forEach(el => el.classList.remove('active'));
           linkElement.classList.add('active');
         }
 
-        // --- TAMBAHAN PEMANGGILAN DASHBOARD ---
-        if(panelId === 'panel-dashboard') {
-          loadDashboardStats();
-        }
-        
-        // 5. Load Data sesuai Panel
+        // --- Logika Load Data ---
+        if(panelId === 'panel-dashboard') loadDashboardStats();
         if(panelId === 'panel-data-sekolah') loadDataSekolah();
         if(panelId === 'panel-uraian') loadUraianData();
         if(panelId === 'panel-toko') loadTokoData();
@@ -1719,30 +1740,17 @@
         if(panelId === 'panel-guru') loadGuruData();
         if(panelId === 'panel-kop') loadKopSettings();
         
-        // LOGIKA TRANSAKSI
         if(panelId === 'panel-transaksi') {
           loadTransaksiOptions(); 
-          // Siapkan baris kosong jika tabel masih kosong
           if(document.getElementById('tabelItemToko').tBodies[0].rows.length === 0) tambahBaris('toko');
           if(document.getElementById('tabelItemTukang').tBodies[0].rows.length === 0) tambahBaris('tukang');
           if(document.getElementById('tabelItemGuru').tBodies[0].rows.length === 0) tambahBaris('guru');
-
           bukaTab('toko'); 
         }
 
-        // LOGIKA NOMOR SURAT
-        if(panelId === 'panel-nomor-surat') {
-          bukaTabSurat('toko');
-        }
-
-        // LOGIKA TANGGAL SURAT
-        if(panelId === 'panel-tanggal-surat') {
-          bukaTabTanggal('toko');
-        }
-
-        if(panelId === 'panel-cetak-pdf') {
-          bukaTabCetak('toko'); // Default buka tab toko
-        }
+        if(panelId === 'panel-nomor-surat') bukaTabSurat('toko');
+        if(panelId === 'panel-tanggal-surat') bukaTabTanggal('toko');
+        if(panelId === 'panel-cetak-pdf') bukaTabCetak('toko');
       }
 
       // Helper khusus untuk tombol "Transaksi Baru" di dashboard
@@ -2106,14 +2114,14 @@
         }).getUraianList(token);
       }
 
-      // 2. Fungsi Mengaktifkan Mode Edit
+      // 2. Fungsi Mengaktifkan Mode Edit (Data Uraian)
       function modeEdit(id, noBukti, uraian) {
         // Isi form dengan data yang dipilih
         document.getElementById('urId').value = id;
         document.getElementById('urNoBukti').value = noBukti;
         document.getElementById('urNama').value = uraian;
 
-        // Ubah Tampilan Tombol
+        // Ubah Tampilan Tombol (Jadi Mode Edit - Kuning)
         const btnSimpan = document.getElementById('btnSimpanUraian');
         btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btnSimpan.classList.remove('btn-primary');
@@ -2122,8 +2130,12 @@
         // Munculkan Tombol Batal
         document.getElementById('btnBatalUraian').classList.remove('hidden');
 
-        // Scroll ke atas (ke form) agar user sadar form sudah terisi
-        document.getElementById('formUraian').scrollIntoView({ behavior: 'smooth' });
+        // PERBAIKAN SCROLL: Gunakan setTimeout agar tidak loncat di mobile
+        // block: 'center' akan menempatkan form di tengah layar agar mudah dilihat
+        setTimeout(() => {
+          const form = document.getElementById('formUraian');
+          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       }
 
       // 3. Fungsi Batal Edit (Reset Form)
@@ -2285,8 +2297,7 @@
 
       // 3. Mode Edit
       function modeEditToko(id, nama, jenis, alamat, telp, pemilik, tempat) {
-        // Decode kembali karakter html (jika perlu) atau pakai raw value
-        // Disini kita isi form
+        // Isi form seperti biasa
         document.getElementById('tkId').value = id;
         document.getElementById('tkNama').value = unescapeHtml(nama);
         document.getElementById('tkJenis').value = unescapeHtml(jenis);
@@ -2295,12 +2306,18 @@
         document.getElementById('tkPemilik').value = unescapeHtml(pemilik);
         document.getElementById('tkTempat').value = unescapeHtml(tempat);
 
+        // Ubah tombol menjadi mode Edit
         const btn = document.getElementById('btnSimpanToko');
         btn.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalToko').classList.remove('hidden');
         
-        document.getElementById('formToko').scrollIntoView({ behavior: 'smooth' });
+        // PERBAIKAN SCROLL: Gunakan setTimeout dan block: 'center'
+        setTimeout(() => {
+          const form = document.getElementById('formToko');
+          // 'center' membuat form berada di tengah layar, lebih aman dari 'start' yang sering tertutup header
+          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       }
 
       // 4. Batal Edit
@@ -2449,7 +2466,11 @@
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalTukang').classList.remove('hidden');
         
-        document.getElementById('formTukang').scrollIntoView({ behavior: 'smooth' });
+        // PERBAIKAN SCROLL
+        setTimeout(() => {
+          const form = document.getElementById('formTukang');
+          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       }
 
       // 4. Batal Edit
@@ -2581,7 +2602,11 @@
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalGuru').classList.remove('hidden');
         
-        document.getElementById('formGuru').scrollIntoView({ behavior: 'smooth' });
+        // PERBAIKAN SCROLL
+        setTimeout(() => {
+          const form = document.getElementById('formGuru');
+          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       }
 
       // 4. Batal Edit
@@ -2834,7 +2859,7 @@
         // 1. Decode Data JSON
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // 2. Mapping ID Form Header & Button
+        // 2. Mapping ID Form Header & Button berdasarkan Tipe
         let formId, tableId, btnSimpanId, btnBatalId;
         
         if (tipe === 'toko') {
@@ -2881,7 +2906,7 @@
           }
         }
 
-        // 3. Reset & Gambar Ulang Tabel Rincian
+        // 3. Reset & Gambar Ulang Tabel Rincian (PENTING: Logika Render)
         const tbody = document.getElementById(tableId).querySelector('tbody');
         tbody.innerHTML = ''; // Kosongkan tabel dulu
 
@@ -2893,6 +2918,7 @@
             // --- LOGIKA KOLOM NAMA (Dropdown Guru vs Input Biasa) ---
             if (tipe === 'guru') {
               let isManual = true; 
+              // Cek apakah nama guru ada di cache data sekolah
               if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
                   cacheDataGuru.forEach(g => {
                       if (g.nama.trim() === item.nama.trim()) isManual = false;
@@ -2900,6 +2926,7 @@
               }
 
               if (isManual) {
+                  // Jika nama manual (tidak ada di master data guru)
                   const val = String(item.nama).replace(/"/g, '&quot;');
                   colNamaInput = `
                     <div class="input-group">
@@ -2910,26 +2937,29 @@
                     </div>
                   `;
               } else {
+                  // Jika nama ada di master data, tampilkan sebagai dropdown
                   let opts = '<option value="">-- Pilih Guru --</option>';
                   opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
-                  cacheDataGuru.forEach(g => {
-                      const isSelected = (g.nama.trim() === item.nama.trim()) ? 'selected' : '';
-                      const val = String(g.nama).replace(/"/g, '&quot;');
-                      opts += `<option value="${val}" ${isSelected}>${g.nama}</option>`;
-                  });
+                  
+                  if (typeof cacheDataGuru !== 'undefined') {
+                    cacheDataGuru.forEach(g => {
+                        const isSelected = (g.nama.trim() === item.nama.trim()) ? 'selected' : '';
+                        const val = String(g.nama).replace(/"/g, '&quot;');
+                        opts += `<option value="${val}" ${isSelected}>${g.nama}</option>`;
+                    });
+                  }
                   colNamaInput = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
               }
             } else {
-              // Input Biasa (Toko/Tukang)
+              // Input Biasa (Untuk Toko & Tukang)
               const val = String(item.nama).replace(/"/g, '&quot;');
               colNamaInput = `<input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang">`;
             }
 
             // --- LOGIKA FORMAT HARGA (Titik Ribuan) ---
-            // Pastikan harga diformat dengan titik saat ditampilkan kembali
             const hargaTampil = formatRibuanInput(item.harga);
 
-            // --- TEMPLATE BARIS (HARUS 6 KOLOM TD) ---
+            // --- TEMPLATE BARIS TABEL ---
             const row = `
               <tr id="row-${rowId}">
                 <td>${colNamaInput}</td>
@@ -2962,22 +2992,29 @@
             tbody.insertAdjacentHTML('beforeend', row);
           });
         } else {
+          // Jika data item kosong (error case), buat 1 baris baru
           tambahBaris(tipe);
         }
 
-        // 4. Hitung Ulang & Update UI
+        // 4. Hitung Ulang & Update UI Tombol
         hitungTotalSemua(tipe);
 
         const btnSimpan = document.getElementById(btnSimpanId);
         const btnBatal = document.getElementById(btnBatalId);
         
+        // Ubah tombol jadi warna kuning (Mode Edit)
         btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btnSimpan.classList.remove('btn-success');
         btnSimpan.classList.add('btn-warning');
         
         btnBatal.classList.remove('hidden');
 
-        document.getElementById(formId).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // --- 5. PERBAIKAN SCROLL UNTUK MOBILE ---
+        // Gunakan setTimeout agar rendering tabel selesai dulu sebelum scroll
+        // Gunakan 'block: start' agar form mulai dari bagian atas layar
+        setTimeout(() => {
+          document.getElementById(formId).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400); 
       }
 
       // Helper untuk set value select yang mungkin mengandung karakter spesial
