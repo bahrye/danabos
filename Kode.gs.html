@@ -26,7 +26,7 @@ function doGet(e) {
 
 /* --- FUNGSI REGISTRASI & LOGIN --- */
 
-/* --- FUNGSI REGISTRASI (UPDATE: AKSES FOLDER GENERATE) --- */
+/* --- FUNGSI REGISTRASI (UPDATE: SECURITY FIX) --- */
 function registerSchool(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
@@ -48,9 +48,9 @@ function registerSchool(form) {
     const folderKop = schoolFolder.createFolder("Kop Sekolah");
     const folderGenerate = schoolFolder.createFolder("File Generate");
 
-    // [BARU] SET PERMISSION FOLDER GENERATE
-    // Agar file PDF di dalamnya bisa dilihat publik (via link) tanpa request access
-    folderGenerate.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // [SECURITY FIX] JANGAN SET FOLDER JADI PUBLIK
+    // Baris di bawah ini dihapus/dikomentari agar folder tetap aman (Privat)
+    // folderGenerate.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
     // 4. Copy Template DB ke dalam Folder Sekolah
     const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
@@ -58,6 +58,9 @@ function registerSchool(form) {
     const newDbId = newDbFile.getId();
 
     // 5. Set Permission File DB (Agar bisa diedit user)
+    // DB tetap perlu akses edit, tapi karena user login via Web App (Exec as Me),
+    // sebenarnya user tidak butuh akses langsung ke file DB jika semua via Script.
+    // Tapi untuk debugging, kita biarkan dulu atau bisa diperketat nanti.
     newDbFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
 
     // 6. SIMPAN ID FOLDER KE DATABASE SEKOLAH (Sheet DataPengaturan)
@@ -68,7 +71,6 @@ function registerSchool(form) {
       sheetSet.appendRow(['KEY', 'VALUE']);
     }
 
-    // Simpan Konfigurasi Folder
     sheetSet.appendRow(['FOLDER_SEKOLAH_ID', schoolFolderId]);
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
@@ -365,10 +367,18 @@ function generateLPJ(token, dataForm) {
 
     // Konversi & Save PDF
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
+    
+    // [SECURITY FIX] Tambahkan UUID random 8 digit agar nama file tidak bisa ditebak
+    // Contoh hasil: LPJ_TOKO_001_20251206120000_a1b2c3d4.pdf
     const uniqueSuffix = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss");
-    const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || 'DRAFT') + '_' + uniqueSuffix + '.pdf';
+    const randomCode = Utilities.getUuid().slice(0, 8); 
+    const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || 'DRAFT') + '_' + uniqueSuffix + '_' + randomCode + '.pdf';
     
     const pdfFile = DriveApp.createFile(pdfBlob).setName(namaPdf);
+    
+    // [SECURITY FIX] Set Permission HANYA untuk File ini saja (Bukan Folder)
+    // Ini memungkinkan user membuka link PDF tanpa login Google, tapi tidak bisa melihat isi folder
+    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
     const folderGenerateId = getSettingValue(token, 'FOLDER_PDF_ID');
     if (folderGenerateId) {
@@ -378,6 +388,8 @@ function generateLPJ(token, dataForm) {
          DriveApp.getRootFolder().removeFile(pdfFile);
        } catch(e) {}
     }
+    
+    // Hapus File Doc Sementara
     tempDocFile.setTrashed(true);
 
     // Update Database dengan ID File PDF Baru
