@@ -4,6 +4,7 @@
     <base target="_top">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
       body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
@@ -150,12 +151,12 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="alert('Fitur Nomor Surat segera hadir')" class="nav-link">
+              <a onclick="navigasiKe('panel-nomor-surat', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-list-ol me-2"></i> Nomor Surat
               </a>
             </li>
             <li class="nav-item">
-              <a href="javascript:void(0)" onclick="alert('Fitur Tanggal Surat segera hadir')" class="nav-link">
+              <a onclick="navigasiKe('panel-tanggal-surat', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-calendar-alt me-2"></i> Tanggal Surat
               </a>
             </li>
@@ -418,6 +419,210 @@
                       </table>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-nomor-surat" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-file-alt text-primary"></i> Pengaturan Nomor Surat</h2>
+
+            <ul class="nav nav-tabs mb-4">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-surat-toko" onclick="bukaTabSurat('toko')">
+                  <i class="fas fa-store me-2"></i> Transaksi Toko
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-surat-tukang" onclick="bukaTabSurat('tukang')">
+                  <i class="fas fa-hammer me-2"></i> Transaksi Tukang
+                </button>
+              </li>
+            </ul>
+
+            <div class="card shadow-sm border-0">
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Tanggal</th>
+                        <th>Uraian Belanja/Pekerjaan</th>
+                        <th>Pihak Ketiga</th>
+                        <th>Status Dokumen</th>
+                        <th width="15%">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tabelSuratBody">
+                      <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalSurat" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                  <h5 class="modal-title"><i class="fas fa-edit me-2"></i> Kelola Nomor Surat</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <form id="formInputSurat" onsubmit="simpanSurat(event)">
+                    <input type="hidden" id="suratTransId">
+                    <input type="hidden" id="suratTransTipe">
+                    
+                    <div class="alert alert-info py-2 mb-3">
+                      <small><i class="fas fa-info-circle"></i> Silakan isi nomor surat yang sesuai. Kosongkan jika belum ada.</small>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">Surat Permintaan</label>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="noSuratPermintaan" placeholder="Nomor dari Sekolah...">
+                        <div class="form-text">Surat Permintaan Barang/Jasa dari Sekolah.</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row" id="wrapSuratPenawaran">
+                      <label class="col-sm-4 col-form-label fw-bold">Surat Penawaran <span class="badge bg-secondary">Opsional</span></label>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="noSuratPenawaran" placeholder="Nomor dari Toko...">
+                        <div class="form-text">Surat Penawaran Harga dari Toko/Rekanan.</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">BA Pemeriksaan</label>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="noBaPemeriksaan" placeholder="Nomor BA Pemeriksaan...">
+                        <div class="form-text">Berita Acara Pemeriksaan Barang/Pekerjaan.</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">BA Serah Terima (BAST)</label>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="noBaSerahTerima" placeholder="Nomor BAST...">
+                        <div class="form-text">Berita Acara Serah Terima Barang/Pekerjaan.</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">BA Pembayaran</label>
+                      <div class="col-sm-8">
+                        <input type="text" class="form-control" id="noBaPembayaran" placeholder="Nomor BA Pembayaran...">
+                        <div class="form-text">Berita Acara Pembayaran Lunas.</div>
+                      </div>
+                    </div>
+
+                    <div class="modal-footer px-0 pb-0 mt-4">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                      <button type="submit" id="btnSimpanSurat" class="btn btn-primary"><i class="fas fa-save me-1"></i> Simpan Dokumen</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-tanggal-surat" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-calendar-alt text-primary"></i> Pengaturan Tanggal Surat</h2>
+
+            <ul class="nav nav-tabs mb-4">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-tgl-toko" onclick="bukaTabTanggal('toko')">
+                  <i class="fas fa-store me-2"></i> Transaksi Toko
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-tgl-tukang" onclick="bukaTabTanggal('tukang')">
+                  <i class="fas fa-hammer me-2"></i> Transaksi Tukang
+                </button>
+              </li>
+            </ul>
+
+            <div class="card shadow-sm border-0">
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Tanggal Transaksi</th>
+                        <th>Uraian</th>
+                        <th>Pihak Ketiga</th>
+                        <th>Status Tanggal</th>
+                        <th width="15%">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tabelTanggalBody">
+                      <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalTanggal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                  <h5 class="modal-title"><i class="fas fa-calendar-day me-2"></i> Atur Tanggal Dokumen</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <form id="formInputTanggal" onsubmit="simpanTanggal(event)">
+                    <input type="hidden" id="tglTransId">
+                    <input type="hidden" id="tglTransTipe">
+                    
+                    <div class="alert alert-success py-2 mb-3">
+                      <small><i class="fas fa-info-circle"></i> Tanggal Surat Permintaan otomatis mengikuti tanggal transaksi.</small>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">Tgl. Surat Permintaan</label>
+                      <div class="col-sm-8">
+                        <input type="date" class="form-control bg-light" id="tglSuratPermintaan" readonly>
+                        <div class="form-text text-success"><i class="fas fa-lock me-1"></i> Terkunci (Sesuai Tgl Transaksi)</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row" id="wrapTglPenawaran">
+                      <label class="col-sm-4 col-form-label fw-bold">Tgl. Surat Penawaran</label>
+                      <div class="col-sm-8">
+                        <input type="date" class="form-control" id="tglSuratPenawaran">
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">Tgl. BA Pemeriksaan</label>
+                      <div class="col-sm-8">
+                        <input type="date" class="form-control" id="tglBaPemeriksaan">
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">Tgl. BA Serah Terima</label>
+                      <div class="col-sm-8">
+                        <input type="date" class="form-control" id="tglBaSerahTerima">
+                      </div>
+                    </div>
+
+                    <div class="mb-3 row">
+                      <label class="col-sm-4 col-form-label fw-bold">Tgl. BA Pembayaran</label>
+                      <div class="col-sm-8">
+                        <input type="date" class="form-control" id="tglBaPembayaran">
+                      </div>
+                    </div>
+
+                    <div class="modal-footer px-0 pb-0 mt-4">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                      <button type="submit" id="btnSimpanTanggal" class="btn btn-success"><i class="fas fa-save me-1"></i> Simpan Tanggal</button>
+                    </div>
+                  </form>
                 </div>
               </div>
             </div>
@@ -1038,6 +1243,13 @@
 
           // 3. Buka tab default (Toko) agar user tidak melihat layar kosong
           bukaTab('toko'); 
+        }
+        if(panelId === 'panel-nomor-surat') {
+            // Default buka tab Toko saat menu diklik
+            bukaTabSurat('toko');
+        }
+        if(panelId === 'panel-tanggal-surat') {
+            bukaTabTanggal('toko');
         }
       }
 
@@ -2680,6 +2892,358 @@
           showConfirmButton: false, // Hanya tombol close X diatas atau klik luar
           focusConfirm: false
         });
+      }
+
+      /* --- LOGIKA MANAJEMEN NOMOR SURAT --- */
+
+      // 1. Tab Switching & Load Data
+      function bukaTabSurat(tipe) {
+        // Atur Class Active pada Tab
+        document.getElementById('tab-surat-toko').classList.remove('active');
+        document.getElementById('tab-surat-tukang').classList.remove('active');
+        
+        if (tipe === 'toko') {
+          document.getElementById('tab-surat-toko').classList.add('active');
+        } else {
+          document.getElementById('tab-surat-tukang').classList.add('active');
+        }
+
+        loadDataSurat(tipe);
+      }
+
+      // 2. Load Data List
+      function loadDataSurat(tipe) {
+        const token = localStorage.getItem('userToken');
+        const tbody = document.getElementById('tabelSuratBody');
+        
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data transaksi...</td></tr>';
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            tbody.innerHTML = '';
+            if(res.data.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
+              return;
+            }
+
+            res.data.forEach(item => {
+              // Cek Kelengkapan Surat
+              const s = item.dataSurat; // Object surat dari backend
+              let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
+              
+              // Logika sederhana: Jika ada surat permintaan & pembayaran terisi, dianggap "Diproses"
+              // Jika null, berarti belum pernah disimpan
+              if (s) {
+                if (s.permintaan && s.baPembayaran) {
+                    statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
+                }
+              }
+
+              const dataJson = encodeURIComponent(JSON.stringify(item));
+              const tipeUpper = tipe.toUpperCase(); // 'TOKO' atau 'TUKANG'
+
+              const btnAksi = `
+                <button class="btn btn-sm btn-outline-primary" 
+                  onclick="bukaModalSurat('${tipe}', '${dataJson}')">
+                  <i class="fas fa-edit me-1"></i> Kelola Dokumen
+                </button>
+              `;
+
+              const row = `
+                <tr>
+                  <td>${item.tanggal}</td>
+                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.pihakKetiga}</td>
+                  <td>${statusBadge}</td>
+                  <td>${btnAksi}</td>
+                </tr>
+              `;
+              tbody.innerHTML += row;
+            });
+
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
+          }
+        }).getTransaksiList(token, tipe.toUpperCase()); 
+        // Kita reuse fungsi getTransaksiList yang sudah diupdate
+      }
+
+      // 3. Buka Modal & Isi Form
+      let modalSuratBS = null; // Instance Bootstrap Modal
+
+      function bukaModalSurat(tipe, encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const s = data.dataSurat || {}; // Ambil data surat jika ada, atau object kosong
+
+        // Set Hidden ID
+        document.getElementById('suratTransId').value = data.id;
+        document.getElementById('suratTransTipe').value = tipe;
+
+        // Reset Form
+        document.getElementById('formInputSurat').reset();
+
+        // Kondisional Field (Penawaran hanya untuk Toko)
+        const wrapPenawaran = document.getElementById('wrapSuratPenawaran');
+        if (tipe === 'toko') {
+          wrapPenawaran.classList.remove('hidden');
+          // Set Value Penawaran
+          document.getElementById('noSuratPenawaran').value = s.penawaran || '';
+        } else {
+          wrapPenawaran.classList.add('hidden');
+          document.getElementById('noSuratPenawaran').value = ''; 
+        }
+
+        // Isi Value Field Lainnya
+        document.getElementById('noSuratPermintaan').value = s.permintaan || '';
+        document.getElementById('noBaPemeriksaan').value = s.baPemeriksaan || '';
+        document.getElementById('noBaSerahTerima').value = s.baSerahTerima || '';
+        document.getElementById('noBaPembayaran').value = s.baPembayaran || '';
+
+        // Tampilkan Modal
+        const el = document.getElementById('modalSurat');
+        modalSuratBS = new bootstrap.Modal(el);
+        modalSuratBS.show();
+      }
+
+      // 4. Simpan Data Surat
+      function simpanSurat(e) {
+        e.preventDefault();
+        
+        const tipe = document.getElementById('suratTransTipe').value;
+        const id = document.getElementById('suratTransId').value;
+
+        // Ambil Data Form
+        const dataSurat = {
+          permintaan: document.getElementById('noSuratPermintaan').value,
+          penawaran: document.getElementById('noSuratPenawaran').value, // Jika tukang, ini akan kosong/diabaikan
+          baPemeriksaan: document.getElementById('noBaPemeriksaan').value,
+          baSerahTerima: document.getElementById('noBaSerahTerima').value,
+          baPembayaran: document.getElementById('noBaPembayaran').value
+        };
+
+        const payload = {
+          id: id,
+          dataSurat: dataSurat
+        };
+
+        // Loading Button
+        const btn = document.getElementById('btnSimpanSurat');
+        const txtAsli = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        const token = localStorage.getItem('userToken');
+
+        google.script.run.withSuccessHandler(function(res) {
+          btn.innerHTML = txtAsli;
+          btn.disabled = false;
+
+          if (res.status === 'success') {
+            // Tutup Modal
+            if(modalSuratBS) modalSuratBS.hide();
+            
+            Swal.fire({
+              icon: 'success', title: 'Tersimpan', 
+              text: 'Data nomor surat berhasil diperbarui.',
+              timer: 1500, showConfirmButton: false
+            });
+
+            // Reload Tabel
+            loadDataSurat(tipe);
+
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanDataSurat(token, payload);
+      }
+
+      /* --- LOGIKA MANAJEMEN TANGGAL SURAT --- */
+
+      // 1. Tab Switching
+      function bukaTabTanggal(tipe) {
+        document.getElementById('tab-tgl-toko').classList.remove('active');
+        document.getElementById('tab-tgl-tukang').classList.remove('active');
+        
+        if (tipe === 'toko') {
+          document.getElementById('tab-tgl-toko').classList.add('active');
+        } else {
+          document.getElementById('tab-tgl-tukang').classList.add('active');
+        }
+
+        loadDataTanggal(tipe);
+      }
+
+      // 2. Load Data List untuk Tanggal
+      function loadDataTanggal(tipe) {
+        const token = localStorage.getItem('userToken');
+        const tbody = document.getElementById('tabelTanggalBody');
+        
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            tbody.innerHTML = '';
+            if(res.data.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
+              return;
+            }
+
+            res.data.forEach(item => {
+              const t = item.dataTanggal; // Object tanggal dari backend
+              let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
+              
+              // Logika Status: Jika BA Pembayaran ada isinya -> Selesai
+              if (t && t.baPembayaran) {
+                statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
+              } else if (t) {
+                statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
+              }
+
+              const dataJson = encodeURIComponent(JSON.stringify(item));
+              
+              const btnAksi = `
+                <button class="btn btn-sm btn-outline-success" 
+                  onclick="bukaModalTanggal('${tipe}', '${dataJson}')">
+                  <i class="fas fa-calendar-check me-1"></i> Atur Tanggal
+                </button>
+              `;
+
+              const row = `
+                <tr>
+                  <td>${item.tanggal}</td>
+                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.pihakKetiga}</td>
+                  <td>${statusBadge}</td>
+                  <td>${btnAksi}</td>
+                </tr>
+              `;
+              tbody.innerHTML += row;
+            });
+
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
+          }
+        }).getTransaksiList(token, tipe.toUpperCase());
+      }
+
+      // 3. Buka Modal Tanggal (UPDATE: Dengan Validasi Tanggal Minimum)
+      let modalTanggalBS = null;
+
+      function bukaModalTanggal(tipe, encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const t = data.dataTanggal || {}; 
+
+        // Set ID Hidden
+        document.getElementById('tglTransId').value = data.id;
+        document.getElementById('tglTransTipe').value = tipe;
+
+        // Reset Form
+        document.getElementById('formInputTanggal').reset();
+
+        // --- LOGIKA VALIDASI TANGGAL ---
+        // Ambil Tanggal Transaksi (Format YYYY-MM-DD dari backend)
+        const minDate = data.tanggal; 
+        
+        // Daftar ID Input yang ingin dibatasi
+        const dateFields = [
+          'tglSuratPenawaran', 
+          'tglBaPemeriksaan', 
+          'tglBaSerahTerima', 
+          'tglBaPembayaran'
+        ];
+
+        // Loop setiap field untuk set atribut 'min'
+        dateFields.forEach(id => {
+          const el = document.getElementById(id);
+          if(el) {
+            // Set batas minimum pemilihan tanggal
+            el.setAttribute('min', minDate);
+            
+            // Opsional: Tambahkan event listener jika user mengetik manual (bukan klik kalender)
+            el.onchange = function() {
+              if(this.value && this.value < minDate) {
+                Swal.fire('Tanggal Tidak Valid', 'Tanggal tidak boleh kurang dari tanggal transaksi (' + minDate + ')', 'warning');
+                this.value = minDate; // Reset ke tanggal minimal
+              }
+            };
+          }
+        });
+
+        // -------------------------------
+
+        // Field Kondisional (Penawaran)
+        const wrapPenawaran = document.getElementById('wrapTglPenawaran');
+        if (tipe === 'toko') {
+          wrapPenawaran.classList.remove('hidden');
+          document.getElementById('tglSuratPenawaran').value = t.penawaran || '';
+        } else {
+          wrapPenawaran.classList.add('hidden');
+          document.getElementById('tglSuratPenawaran').value = '';
+        }
+
+        // Isi Tanggal Permintaan (Readonly & Sesuai Transaksi)
+        document.getElementById('tglSuratPermintaan').value = data.tanggal;
+
+        // Isi Field Lainnya (jika ada di database)
+        document.getElementById('tglBaPemeriksaan').value = t.baPemeriksaan || '';
+        document.getElementById('tglBaSerahTerima').value = t.baSerahTerima || '';
+        document.getElementById('tglBaPembayaran').value = t.baPembayaran || '';
+
+        // Tampilkan Modal
+        const el = document.getElementById('modalTanggal');
+        modalTanggalBS = new bootstrap.Modal(el);
+        modalTanggalBS.show();
+      }
+
+      // 4. Simpan Data Tanggal
+      function simpanTanggal(e) {
+        e.preventDefault();
+        
+        const tipe = document.getElementById('tglTransTipe').value;
+        const id = document.getElementById('tglTransId').value;
+
+        // Ambil Data Form
+        const dataTanggal = {
+          permintaan: document.getElementById('tglSuratPermintaan').value, // Ambil dari input readonly
+          penawaran: document.getElementById('tglSuratPenawaran').value,
+          baPemeriksaan: document.getElementById('tglBaPemeriksaan').value,
+          baSerahTerima: document.getElementById('tglBaSerahTerima').value,
+          baPembayaran: document.getElementById('tglBaPembayaran').value
+        };
+
+        const payload = {
+          id: id,
+          dataTanggal: dataTanggal
+        };
+
+        const btn = document.getElementById('btnSimpanTanggal');
+        const txtAsli = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        const token = localStorage.getItem('userToken');
+
+        google.script.run.withSuccessHandler(function(res) {
+          btn.innerHTML = txtAsli;
+          btn.disabled = false;
+
+          if (res.status === 'success') {
+            if(modalTanggalBS) modalTanggalBS.hide();
+            
+            Swal.fire({
+              icon: 'success', title: 'Tersimpan', 
+              text: 'Data tanggal dokumen berhasil diperbarui.',
+              timer: 1500, showConfirmButton: false
+            });
+
+            loadDataTanggal(tipe);
+
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanTanggalSurat(token, payload);
       }
 
     </script>
