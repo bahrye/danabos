@@ -259,9 +259,9 @@
                       </div>
 
                       <div class="mb-3">
-                        <label class="form-label">Tempat TTD (Kota/Kab)</label>
+                        <label class="form-label">Tempat TTD (Alamat/Kota/Kab)</label>
                         <input type="text" class="form-control" id="tkTempat" placeholder="Contoh: Bulukumba">
-                        <small class="text-muted">Kota tempat penandatanganan nota.</small>
+                        <small class="text-muted">Alamat/Kota tempat penandatanganan nota.</small>
                       </div>
 
                       <div class="mb-3">
@@ -600,6 +600,11 @@
                       </div>
                     </div>
 
+                    <div class="mb-4">
+                      <label class="form-label">Keterangan <small class="text-muted">(Opsional)</small></label>
+                      <textarea class="form-control" id="trGuruKeterangan" rows="2" placeholder="Contoh: Honorarium bulan Januari 2025..."></textarea>
+                    </div>
+
                     <h5 class="border-bottom pb-2 mb-3">Rincian Penerima Honor</h5>
                     <div class="table-responsive">
                       <table class="table table-bordered align-middle" id="tabelItemGuru">
@@ -917,9 +922,9 @@
                   </div>
                   
                   <div class="mb-3">
-                    <label class="form-label fw-bold">Tempat TTD (Kota/Kab) <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold">Tempat TTD (Alamat/Kota/Kab) <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="dsTempatTTD" placeholder="Contoh: Bulukumba">
-                    <small class="text-muted">Hanya isi nama Kota/Kabupaten. Tanggal akan otomatis.</small>
+                    <small class="text-muted">Hanya isi nama Alamat/Kota/Kabupaten.</small>
                   </div>
 
                   <h5 class="text-primary border-bottom pb-2 mb-3 mt-4">Pejabat Sekolah</h5>
@@ -1160,7 +1165,7 @@
         
         // Validasi Tempat TTD
         if(!document.getElementById('dsTempatTTD').value) {
-          Swal.fire('Peringatan', 'Tempat TTD (Kota/Kab) Wajib diisi!', 'warning');
+          Swal.fire('Peringatan', 'Tempat TTD (Alamat/Kota/Kab) Wajib diisi!', 'warning');
           return;
         }
 
@@ -1960,7 +1965,7 @@
 
                     // Kolom Ke-3 berbeda untuk Guru (Bukan Pihak Ketiga, tapi Keterangan/Kosong)
                     // Untuk Guru, Pihak Ketiga di DB diisi "Honorarium Guru", jadi kita tampilkan item.pihakKetiga saja atau "-"
-                    const displayPihak = (tipe === 'GURU') ? '-' : item.pihakKetiga;
+                    const displayPihak = item.pihakKetiga; 
 
                     const row = `
                         <tr>
@@ -2012,17 +2017,25 @@
           setSelectValue('trTukangUraian', data.uraian);
           setSelectValue('trTukangNama', data.pihakKetiga);
           setSelectValue('trTukangPemesan', data.pemesan);
-          
+                
         } else if (tipe === 'guru') {
           formId = 'formBelanjaGuru';
           tableId = 'tabelItemGuru';
           btnSimpanId = 'btnSimpanGuruTrans';
           btnBatalId = 'btnBatalGuruTrans';
           
-          // Isi Header Guru (Hanya Tanggal & Uraian)
+          // Isi Header Guru
           document.getElementById('trGuruId').value = data.id;
           document.getElementById('trGuruTanggal').value = data.tanggal;
           setSelectValue('trGuruUraian', data.uraian);
+          
+          // PERBAIKAN DISINI: Isi Keterangan dari data.pihakKetiga
+          // Jika isinya "-" atau "Honorarium Guru" (data lama), kosongkan saja agar rapi
+          if(data.pihakKetiga === '-' || data.pihakKetiga === 'Honorarium Guru') {
+              document.getElementById('trGuruKeterangan').value = '';
+          } else {
+              document.getElementById('trGuruKeterangan').value = data.pihakKetiga;
+          }
         }
 
         // 3. Reset & Gambar Ulang Tabel Rincian Item
@@ -2146,21 +2159,38 @@
 
       // 4. Batal Edit (Reset Form & Mode)
       function batalEditTransaksi(tipe) {
-        // Reset Form
+        // 1. Reset Isi Form & Tabel
         resetFormTransaksi(tipe);
 
-        // Clear ID Hidden
-        const idField = tipe === 'toko' ? 'trTokoId' : 'trTukangId';
-        document.getElementById(idField).value = '';
+        // 2. Mapping ID Elemen berdasarkan Tipe
+        let idHidden, btnSimpanId, btnBatalId;
 
-        // Kembalikan Tombol
-        const btnSimpan = document.getElementById(tipe === 'toko' ? 'btnSimpanTokoTrans' : 'btnSimpanTukangTrans');
-        const btnBatal = document.getElementById(tipe === 'toko' ? 'btnBatalTokoTrans' : 'btnBatalTukangTrans');
+        if (tipe === 'toko') {
+          idHidden = 'trTokoId';
+          btnSimpanId = 'btnSimpanTokoTrans';
+          btnBatalId = 'btnBatalTokoTrans';
+        } else if (tipe === 'tukang') {
+          idHidden = 'trTukangId';
+          btnSimpanId = 'btnSimpanTukangTrans';
+          btnBatalId = 'btnBatalTukangTrans';
+        } else { // guru
+          idHidden = 'trGuruId';
+          btnSimpanId = 'btnSimpanGuruTrans';
+          btnBatalId = 'btnBatalGuruTrans';
+        }
 
+        // 3. Kosongkan ID Hidden (Indikator Mode Edit)
+        document.getElementById(idHidden).value = '';
+
+        // 4. Kembalikan Tombol Simpan ke Awal (Hijau)
+        const btnSimpan = document.getElementById(btnSimpanId);
         btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Transaksi';
-        btnSimpan.classList.add('btn-success');
         btnSimpan.classList.remove('btn-warning');
-        
+        btnSimpan.classList.add('btn-success');
+        btnSimpan.disabled = false;
+
+        // 5. Sembunyikan Tombol Batal
+        const btnBatal = document.getElementById(btnBatalId);
         btnBatal.classList.add('hidden');
       }
 
@@ -2221,11 +2251,12 @@
           tgl = document.getElementById('trGuruTanggal').value;
           uraian = document.getElementById('trGuruUraian').value;
           
-          // Set nilai default untuk database karena input ini tidak ada di header form Guru
-          // (Nama Guru ada di rincian tabel, bukan di header)
-          pihak = "Honorarium Guru"; 
-          pemesan = "-"; 
+          // PERBAIKAN DISINI: Ambil dari input Keterangan
+          // Jika kosong, isi tanda strip (-)
+          const ketVal = document.getElementById('trGuruKeterangan').value;
+          pihak = ketVal ? ketVal : "-"; 
           
+          pemesan = "-"; // Pemesan tetap strip karena rincian nama ada di tabel
           total = document.getElementById('trGuruTotalValue').value;
         } else {
           // Logika Umum (Toko & Tukang)
@@ -2529,6 +2560,7 @@
       function resetFormTransaksi(tipe) {
         let formId, tableId, dispId, valId;
 
+        // Mapping ID Form & Total
         if (tipe === 'toko') {
           formId='formBelanjaToko'; tableId='tabelItemToko'; dispId='trTokoTotalDisplay'; valId='trTokoTotalValue';
         } else if (tipe === 'tukang') {
@@ -2537,11 +2569,23 @@
           formId='formBelanjaGuru'; tableId='tabelItemGuru'; dispId='trGuruTotalDisplay'; valId='trGuruTotalValue';
         }
         
+        // 1. Reset Form Header
         document.getElementById(formId).reset();
+
+        // TAMBAHAN KHUSUS: Pastikan Textarea Keterangan Guru bersih
+        if(tipe === 'guru') {
+          document.getElementById('trGuruKeterangan').value = '';
+        }
+        
+        // 2. Kosongkan Tabel Rincian
         document.querySelector(`#${tableId} tbody`).innerHTML = '';
+        
+        // 3. Reset Angka Total
         document.getElementById(dispId).innerText = 'Rp 0';
         document.getElementById(valId).value = 0;
         
+        // 4. Tambahkan 1 Baris Kosong Default
+        // Ini penting agar dropdown guru / input manual ter-render ulang dengan benar
         tambahBaris(tipe);
       }
 
