@@ -3505,6 +3505,7 @@
       }
 
       // 2. Load Data List
+      // GANTI FUNGSI INI DI Index.html
       function loadDataSurat(tipe) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelSuratBody');
@@ -3521,11 +3522,9 @@
 
             res.data.forEach(item => {
               // Cek Kelengkapan Surat
-              const s = item.dataSurat; // Object surat dari backend
+              const s = item.dataSurat; 
               let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
               
-              // Logika sederhana: Jika ada surat permintaan & pembayaran terisi, dianggap "Diproses"
-              // Jika null, berarti belum pernah disimpan
               if (s) {
                 if (s.permintaan && s.baPembayaran) {
                     statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
@@ -3535,21 +3534,30 @@
               }
 
               const dataJson = encodeURIComponent(JSON.stringify(item));
-              const tipeUpper = tipe.toUpperCase(); // 'TOKO' atau 'TUKANG'
+              
+              // [BARU] Tombol Lihat Detail (Icon Mata)
+              const btnLihat = `
+                <button class="btn btn-sm btn-info text-white me-1" 
+                  onclick="lihatNomorSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Nomor">
+                  <i class="fas fa-eye"></i>
+                </button>
+              `;
 
-              const btnAksi = `
+              // Tombol Kelola (Edit)
+              const btnKelola = `
                 <button class="btn btn-sm btn-outline-primary" 
                   onclick="bukaModalSurat('${tipe}', '${dataJson}')">
-                  <i class="fas fa-edit me-1"></i> Kelola Dokumen
+                  <i class="fas fa-edit me-1"></i> Kelola
                 </button>
               `;
 
               const row = `
                 <tr>
-                  <td>${item.tanggalDisplay}</td> <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.tanggalDisplay}</td> 
+                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
                   <td>${item.pihakKetiga}</td>
                   <td>${statusBadge}</td>
-                  <td>${btnAksi}</td>
+                  <td style="white-space:nowrap;">${btnLihat} ${btnKelola}</td>
                 </tr>
               `;
               tbody.innerHTML += row;
@@ -3559,16 +3567,97 @@
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
           }
         }).getTransaksiList(token, tipe.toUpperCase()); 
-        // Kita reuse fungsi getTransaksiList yang sudah diupdate
+      }
+
+      // TAMBAHKAN FUNGSI INI (Fungsi Baru untuk Popup Lihat Nomor)
+      // GANTI FUNGSI INI DI Index.html
+      function lihatNomorSurat(tipe, encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const s = data.dataSurat || {}; // Data Surat tersimpan
+
+        let htmlContent = '<div class="text-start px-2">';
+        
+        // Helper styling baris info (Konsisten dengan lihatTanggalSurat)
+        const rowInfo = (label, valHtml) => {
+            return `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="fas fa-caret-right text-primary me-2"></i>
+                        <div class="text-secondary small text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">${label}</div>
+                    </div>
+                    <div class="ps-3 border-start border-3 border-light ms-1" style="font-size: 0.95rem;">${valHtml}</div>
+                </div>
+            `;
+        };
+
+        // Helper khusus format text nomor (Monospace font agar rapi seperti kode)
+        const fmtNomor = (val) => {
+            return val ? `<span class="fw-bold text-dark font-monospace">${val}</span>` : '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
+        };
+
+        // [BAGIAN BARU] Detail Utama (Uraian & Pihak Ketiga)
+        htmlContent += rowInfo('Uraian Pekerjaan', `<span class="fw-bold text-dark">${data.uraian}</span>`);
+        
+        let labelPihak = 'Pihak Ketiga';
+        if(tipe === 'guru') labelPihak = 'Keterangan / Honorarium';
+        
+        htmlContent += rowInfo(labelPihak, `<span class="fw-bold text-dark">${data.pihakKetiga}</span>`);
+
+        // Garis Pembatas
+        htmlContent += '<hr class="border-secondary opacity-25 my-3" style="border-style: dashed;">';
+
+        // [BAGIAN NOMOR SURAT]
+        htmlContent += rowInfo('Surat Permintaan', fmtNomor(s.permintaan));
+        
+        // Penawaran hanya untuk Toko
+        if (tipe === 'toko') {
+            htmlContent += rowInfo('Surat Penawaran', fmtNomor(s.penawaran));
+        }
+        
+        htmlContent += rowInfo('Berita Acara Pemeriksaan', fmtNomor(s.baPemeriksaan));
+        htmlContent += rowInfo('Berita Acara Serah Terima', fmtNomor(s.baSerahTerima));
+        htmlContent += rowInfo('Berita Acara Pembayaran', fmtNomor(s.baPembayaran));
+        
+        htmlContent += '</div>';
+
+        // Tampilkan SweetAlert
+        Swal.fire({
+            title: `<span class="fs-5"><i class="fas fa-list-ol text-primary me-2"></i> Daftar Nomor Surat</span>`,
+            html: htmlContent,
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '500px',
+            background: '#fff',
+            customClass: {
+              popup: 'rounded-4 shadow-lg'
+            }
+        });
       }
 
       // 3. Buka Modal & Isi Form
       let modalSuratBS = null; // Instance Bootstrap Modal
 
+      // GANTI FUNGSI INI
       function bukaModalSurat(tipe, encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         const s = data.dataSurat || {}; 
         const rawData = s.raw || {}; 
+        
+        // [PERBAIKAN 1] Ambil Data Tanggal Spesifik Dokumen
+        const tDocs = data.dataTanggal || {};
+        
+        // Mapping Tanggal Spesifik (Fallback ke Tanggal Transaksi jika kosong)
+        const dateMap = {
+          permintaan: tDocs.permintaan || data.tanggal,
+          penawaran: tDocs.penawaran || data.tanggal,
+          baPemeriksaan: tDocs.baPemeriksaan || data.tanggal,
+          baSerahTerima: tDocs.baSerahTerima || data.tanggal,
+          baPembayaran: tDocs.baPembayaran || data.tanggal
+        };
+
+        // Simpan Mapping Tanggal ke Dataset Form agar bisa dibaca oleh simpanSurat()
+        const formEl = document.getElementById('formInputSurat');
+        formEl.dataset.dateMap = JSON.stringify(dateMap);
 
         document.getElementById('suratTransId').value = data.id;
         document.getElementById('suratTransTipe').value = tipe;
@@ -3605,7 +3694,7 @@
           let htmlInput = '';
           
           if (isAuto && f.format && f.format.trim() !== '') {
-            // === MODE OTOMATIS (MODERN UI) ===
+            // === MODE OTOMATIS ===
             const regex = /\[(.*?)\]/g;
             let matches = [...f.format.matchAll(regex)]; 
             
@@ -3619,7 +3708,7 @@
             });
 
             uniqueTags.forEach(tag => {
-              if(tag === 'bulan' || tag === 'tahun') return;
+              if(tag === 'bulan' || tag === 'tahun') return; // Skip bulan/tahun karena otomatis
 
               placeholdersFound = true;
               let savedVal = rawData[f.key] && rawData[f.key][tag] ? rawData[f.key][tag] : '';
@@ -3642,15 +3731,10 @@
             const previewId = `preview-${f.key}`;
             
             if(placeholdersFound) {
-              // Tampilan Jika Ada Input
               htmlInput = `
                 <div class="p-3 bg-white rounded border" style="box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-                  <div class="row g-2 align-items-center mb-2">
-                    ${inputGroup}
-                  </div>
-                  
-                  <div class="mt-2 px-3 py-2 rounded d-flex align-items-center" 
-                      style="background-color: #f1f8ff; border-left: 4px solid #0d6efd;">
+                  <div class="row g-2 align-items-center mb-2">${inputGroup}</div>
+                  <div class="mt-2 px-3 py-2 rounded d-flex align-items-center" style="background-color: #f1f8ff; border-left: 4px solid #0d6efd;">
                     <div class="me-3 text-primary opacity-75"><i class="fas fa-eye"></i></div>
                     <div>
                       <div class="text-uppercase fw-bold text-primary opacity-50" style="font-size: 0.65rem; letter-spacing: 1px;">Hasil Preview</div>
@@ -3660,12 +3744,10 @@
                 </div>
               `;
             } else {
-              // Tampilan Statis (Hanya Preview)
               htmlInput = `
                 <div class="p-2 bg-white rounded border">
                   <input type="hidden" class="auto-input" data-key="${f.key}" data-tag="DUMMY"> 
-                  <div class="px-3 py-2 rounded d-flex align-items-center" 
-                      style="background-color: #f8f9fa; border-left: 4px solid #6c757d;">
+                  <div class="px-3 py-2 rounded d-flex align-items-center" style="background-color: #f8f9fa; border-left: 4px solid #6c757d;">
                     <div class="me-3 text-secondary opacity-50"><i class="fas fa-eye"></i></div>
                     <div>
                       <div class="text-uppercase fw-bold text-secondary opacity-50" style="font-size: 0.65rem; letter-spacing: 1px;">Hasil Preview (Otomatis)</div>
@@ -3686,7 +3768,6 @@
             `;
           }
 
-          // --- STRUKTUR LABEL & KONTEN ---
           const rowHtml = `
             <div class="mb-4">
               <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center">
@@ -3695,21 +3776,19 @@
                 </div>
                 ${f.label}
               </label>
-              <div class="ps-1">
-                ${htmlInput}
-              </div>
+              <div class="ps-1">${htmlInput}</div>
             </div>
           `;
           container.insertAdjacentHTML('beforeend', rowHtml);
         });
 
-        // Listener Preview
+        // [PERBAIKAN 2] Listener Preview - Pass dateMap, bukan tglTransaksi single
         if(isAuto) {
           const inputs = container.querySelectorAll('.auto-input');
           inputs.forEach(inp => {
-            inp.addEventListener('input', () => updatePreviews(config, data.tanggal));
+            inp.addEventListener('input', () => updatePreviews(config, dateMap));
           });
-          updatePreviews(config, data.tanggal);
+          updatePreviews(config, dateMap);
         }
 
         const el = document.getElementById('modalSurat');
@@ -3717,18 +3796,9 @@
         modalSuratBS.show();
       }
 
-      // Helper: Live Preview Logic
-      function updatePreviews(config, tglTransaksi) {
-        // Parsing Tanggal
-        let bulan = '00', tahun = '0000';
-        if(tglTransaksi) {
-          const d = new Date(tglTransaksi);
-          bulan = String(d.getMonth() + 1).padStart(2, '0');
-          tahun = d.getFullYear();
-        }
-
-        // --- MAPPING KUNCI: ID HTML -> KEY CONFIG ---
-        // Ini diperlukan agar preview bisa membaca format dari config yang benar
+      // GANTI FUNGSI INI
+      function updatePreviews(config, dateMap) {
+        // Mapping Key HTML ID ke Key Config & Key DateMap
         const keyMap = {
           'permintaan': 'permintaan',
           'penawaran': 'penawaran',
@@ -3737,13 +3807,22 @@
           'baPembayaran': 'bayar'         // HTML: baPembayaran -> Config: bayar
         };
 
+        // Mapping Key HTML ke Key DateMap (karena penamaan di DateMap sedikit beda di code bukaModalSurat)
+        const dateKeyMap = {
+          'permintaan': 'permintaan',
+          'penawaran': 'penawaran',
+          'baPemeriksaan': 'baPemeriksaan',
+          'baSerahTerima': 'baSerahTerima', 
+          'baPembayaran': 'baPembayaran'
+        };
+
         // Loop setiap field yang punya preview
         const previewSpans = document.querySelectorAll('[id^="preview-"]');
         previewSpans.forEach(span => {
           const htmlKey = span.id.replace('preview-', ''); // misal: baSerahTerima
-          const configKey = keyMap[htmlKey]; // diterjemahkan jadi: bast
+          const configKey = keyMap[htmlKey]; // misal: bast
           
-          // Ambil format mentah dari config menggunakan kunci yang sudah dipetakan
+          // Ambil format mentah dari config
           let formatStr = config ? config[configKey] : ''; 
 
           if(!formatStr) {
@@ -3751,14 +3830,25 @@
               return;
           }
 
-          // Ganti Bulan & Tahun
+          // [LOGIKA BARU] Ambil Tanggal SPESIFIK untuk field ini
+          const specificDateKey = dateKeyMap[htmlKey];
+          const dateString = dateMap[specificDateKey]; // Ambil tanggal dari map
+          
+          let bulan = '00', tahun = '0000';
+          if(dateString) {
+            const d = new Date(dateString);
+            bulan = String(d.getMonth() + 1).padStart(2, '0');
+            tahun = d.getFullYear();
+          }
+
+          // Replace Bulan & Tahun sesuai tanggal dokumen tersebut
           formatStr = formatStr.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
 
-          // Cari input terkait key ini (input menggunakan data-key sesuai htmlKey)
+          // Replace Input Tags (Nomor Urut, Kode, dll)
           const relatedInputs = document.querySelectorAll(`.auto-input[data-key="${htmlKey}"]`);
           relatedInputs.forEach(inp => {
             const tag = inp.getAttribute('data-tag');
-            const val = inp.value || `[${tag}]`; // Jika kosong tampilkan placeholder [tag]
+            const val = inp.value || `[${tag}]`; 
             
             if(tag !== 'DUMMY') {
               const regex = new RegExp(`\\[${tag}\\]`, 'g');
@@ -3771,37 +3861,55 @@
       }
 
       // 4. Simpan Data Surat
+      // GANTI FUNGSI INI
       function simpanSurat(e) {
         e.preventDefault();
         
         const tipe = document.getElementById('suratTransTipe').value;
         const id = document.getElementById('suratTransId').value;
-        const tgl = document.getElementById('suratTransTanggal').value;
-
+        
         // Ambil Config Toko/Tukang
         const config = (tipe === 'toko') ? globalAutoSettings.toko : globalAutoSettings.tukang;
         const isAuto = config && config.active;
 
         let dataSurat = {
-          raw: {} // Tempat simpan data mentah inputan user (001, dll)
+          raw: {} 
+        };
+        
+        // [PERBAIKAN] Ambil Map Tanggal dari Dataset Form
+        const formEl = document.getElementById('formInputSurat');
+        let dateMap = {};
+        try {
+          dateMap = JSON.parse(formEl.dataset.dateMap);
+        } catch(err) {
+          // Fallback jika error, pakai tanggal transaksi global
+          const tglGlobal = document.getElementById('suratTransTanggal').value;
+          dateMap = {
+            permintaan: tglGlobal, penawaran: tglGlobal, baPemeriksaan: tglGlobal, 
+            baSerahTerima: tglGlobal, baPembayaran: tglGlobal
+          };
+        }
+
+        // Helper untuk parsing tanggal
+        const getBulanTahun = (dateStr) => {
+          if(!dateStr) return { b: '00', t: '0000' };
+          const d = new Date(dateStr);
+          return {
+            b: String(d.getMonth() + 1).padStart(2, '0'),
+            t: d.getFullYear()
+          };
         };
 
-        // --- LOGIKA UTAMA DISINI ---
-        
         if (isAuto) {
-          // === MODE OTOMATIS AKTIF (Bisa Campuran Auto & Manual) ===
+          // === MODE OTOMATIS (Bisa Campuran Auto & Manual) ===
           
-          // Parsing Tanggal Transaksi
-          let bulan = '00', tahun = '0000';
-          if(tgl) {
-              const d = new Date(tgl);
-              bulan = String(d.getMonth() + 1).padStart(2, '0');
-              tahun = d.getFullYear();
-          }
-
           // Fungsi internal untuk memproses format placeholder
-          const processAutoFormat = (key, format) => {
-              let result = format.replace(/\[bulan\]/g, bulan).replace(/\[tahun\]/g, tahun);
+          // Menerima parameter 'keyDate' untuk menentukan tanggal mana yang dipakai
+          const processAutoFormat = (key, format, keyDate) => {
+              const tglDoc = dateMap[keyDate]; // Ambil tanggal spesifik
+              const { b, t } = getBulanTahun(tglDoc);
+
+              let result = format.replace(/\[bulan\]/g, b).replace(/\[tahun\]/g, t);
               
               // Ambil input kecil (auto-input)
               const inputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
@@ -3816,7 +3924,6 @@
                   // Simpan nilai mentah
                   if(tag !== 'DUMMY') {
                       dataSurat.raw[key][tag] = val; 
-                      
                       const regex = new RegExp(`\\[${tag}\\]`, 'g');
                       result = result.replace(regex, val);
                   }
@@ -3824,31 +3931,28 @@
               return result;
           };
 
-          // Fungsi Pengambil Nilai Pintar (Cek apakah field ini Auto atau Manual?)
-          const getFinalValue = (key, formatSetting) => {
-              // Cek 1: Apakah ada format settingnya?
+          const getFinalValue = (key, formatSetting, keyDateMap) => {
               if (formatSetting && formatSetting.trim() !== '') {
-                  // JIKA ADA FORMAT -> Proses secara Otomatis
-                  return processAutoFormat(key, formatSetting);
+                  return processAutoFormat(key, formatSetting, keyDateMap);
               } else {
-                  // JIKA FORMAT KOSONG -> Ambil dari Input Manual (Full Text)
                   const elManual = document.getElementById('manual_' + key);
                   return elManual ? elManual.value : '';
               }
           };
 
-          // Eksekusi untuk setiap field
-          dataSurat.permintaan = getFinalValue('permintaan', config.permintaan);
-          dataSurat.baPemeriksaan = getFinalValue('baPemeriksaan', config.pemeriksaan);
-          dataSurat.baSerahTerima = getFinalValue('baSerahTerima', config.bast);
-          dataSurat.baPembayaran = getFinalValue('baPembayaran', config.bayar);
+          // Eksekusi dengan Mapping Tanggal yang Benar
+          // Parameter ke-3 adalah key di dalam dateMap
+          dataSurat.permintaan = getFinalValue('permintaan', config.permintaan, 'permintaan');
+          dataSurat.baPemeriksaan = getFinalValue('baPemeriksaan', config.pemeriksaan, 'baPemeriksaan');
+          dataSurat.baSerahTerima = getFinalValue('baSerahTerima', config.bast, 'baSerahTerima');
+          dataSurat.baPembayaran = getFinalValue('baPembayaran', config.bayar, 'baPembayaran');
           
           if(tipe === 'toko') {
-              dataSurat.penawaran = getFinalValue('penawaran', config.penawaran);
+              dataSurat.penawaran = getFinalValue('penawaran', config.penawaran, 'penawaran');
           }
 
         } else {
-          // === MODE MANUAL TOTAL (Global Toggle OFF) ===
+          // === MODE MANUAL TOTAL ===
           dataSurat.permintaan = document.getElementById('manual_permintaan').value;
           dataSurat.baPemeriksaan = document.getElementById('manual_baPemeriksaan').value;
           dataSurat.baSerahTerima = document.getElementById('manual_baSerahTerima').value;
@@ -3862,7 +3966,6 @@
         // --- PROSES KIRIM KE SERVER ---
         const payload = { id: id, dataSurat: dataSurat };
         
-        // Update Tombol Loading
         const btn = document.getElementById('btnSimpanSurat');
         const txtAsli = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
@@ -3877,13 +3980,10 @@
           if (res.status === 'success') {
             if(modalSuratBS) modalSuratBS.hide();
             Swal.fire({ 
-              icon: 'success', 
-              title: 'Tersimpan', 
-              text: 'Data nomor surat berhasil diperbarui.', 
-              timer: 1500, 
-              showConfirmButton: false 
+              icon: 'success', title: 'Tersimpan', 
+              text: 'Data nomor surat berhasil diperbarui.', timer: 1500, showConfirmButton: false 
             });
-            loadDataSurat(tipe); // Refresh Tabel
+            loadDataSurat(tipe);
           } else {
             Swal.fire('Gagal', res.message, 'error');
           }
@@ -3907,6 +4007,7 @@
       }
 
       // 2. Load Data List untuk Tanggal
+      // GANTI FUNGSI INI DI Index.html
       function loadDataTanggal(tipe) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelTanggalBody');
@@ -3925,7 +4026,7 @@
               const t = item.dataTanggal; // Object tanggal dari backend
               let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
               
-              // Logika Status: Jika BA Pembayaran ada isinya -> Selesai
+              // Logika Status
               if (t && t.baPembayaran) {
                 statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
               } else if (t) {
@@ -3934,19 +4035,29 @@
 
               const dataJson = encodeURIComponent(JSON.stringify(item));
               
-              const btnAksi = `
+              // [BARU] Tombol Lihat Detail (Icon Mata) - Warna Hijau/Teal agar senada dengan tema Tanggal
+              const btnLihat = `
+                <button class="btn btn-sm btn-info text-white me-1" 
+                  onclick="lihatTanggalSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Tanggal">
+                  <i class="fas fa-eye"></i>
+                </button>
+              `;
+
+              // Tombol Atur (Edit)
+              const btnAtur = `
                 <button class="btn btn-sm btn-outline-success" 
                   onclick="bukaModalTanggal('${tipe}', '${dataJson}')">
-                  <i class="fas fa-calendar-check me-1"></i> Atur Tanggal
+                  <i class="fas fa-calendar-check me-1"></i> Atur
                 </button>
               `;
 
               const row = `
                 <tr>
-                  <td>${item.tanggalDisplay}</td> <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.tanggalDisplay}</td> 
+                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
                   <td>${item.pihakKetiga}</td>
                   <td>${statusBadge}</td>
-                  <td>${btnAksi}</td>
+                  <td style="white-space:nowrap;">${btnLihat} ${btnAtur}</td>
                 </tr>
               `;
               tbody.innerHTML += row;
@@ -3956,6 +4067,84 @@
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
           }
         }).getTransaksiList(token, tipe.toUpperCase());
+      }
+
+      // TAMBAHKAN FUNGSI INI (Fungsi Baru untuk Popup Lihat Tanggal)
+      // GANTI FUNGSI INI DI Index.html
+      function lihatTanggalSurat(tipe, encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const t = data.dataTanggal || {}; 
+
+        // Helper Format Tanggal Indonesia (dd-mm-yyyy)
+        const fmt = (dateStr) => {
+            if(!dateStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
+            
+            const d = new Date(dateStr);
+            if(isNaN(d.getTime())) return '-';
+            
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            
+            return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
+        };
+
+        let htmlContent = '<div class="text-start px-2">';
+        
+        // Reuse styling baris info
+        const rowInfo = (label, valHtml) => {
+            return `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="fas fa-caret-right text-success me-2"></i>
+                        <div class="text-secondary small text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">${label}</div>
+                    </div>
+                    <div class="ps-3 border-start border-3 border-light ms-1" style="font-size: 0.95rem;">${valHtml}</div>
+                </div>
+            `;
+        };
+
+        // [BAGIAN BARU] Info Detail Utama (Uraian & Pihak Ketiga)
+        htmlContent += rowInfo('Uraian Pekerjaan', `<span class="fw-bold text-dark">${data.uraian}</span>`);
+        
+        // Label Pihak Ketiga menyesuaikan Tipe
+        let labelPihak = 'Pihak Ketiga';
+        if(tipe === 'guru') labelPihak = 'Keterangan / Honorarium';
+        
+        htmlContent += rowInfo(labelPihak, `<span class="fw-bold text-dark">${data.pihakKetiga}</span>`);
+
+        // Garis Pembatas (Divider)
+        htmlContent += '<hr class="border-secondary opacity-25 my-3" style="border-style: dashed;">';
+
+        // [BAGIAN TANGGAL]
+        // 1. Tanggal Permintaan
+        const tglMinta = t.permintaan || data.tanggal;
+        htmlContent += rowInfo('Tgl. Surat Permintaan', fmt(tglMinta));
+        
+        // 2. Tanggal Penawaran (Khusus Toko)
+        if (tipe === 'toko') {
+            htmlContent += rowInfo('Tgl. Surat Penawaran', fmt(t.penawaran));
+        }
+        
+        // 3. Tanggal Berita Acara
+        htmlContent += rowInfo('Tgl. BA Pemeriksaan', fmt(t.baPemeriksaan));
+        htmlContent += rowInfo('Tgl. BA Serah Terima', fmt(t.baSerahTerima));
+        htmlContent += rowInfo('Tgl. BA Pembayaran', fmt(t.baPembayaran));
+        
+        htmlContent += '</div>';
+
+        // Tampilkan SweetAlert
+        Swal.fire({
+            title: `<span class="fs-5"><i class="fas fa-calendar-alt text-success me-2"></i> Rincian Tanggal Dokumen</span>`,
+            html: htmlContent,
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '500px',
+            background: '#fff',
+            customClass: {
+              popup: 'rounded-4 shadow-lg'
+            }
+        });
       }
 
       // 3. Buka Modal Tanggal (UPDATE: Dengan Validasi Tanggal Minimum)
