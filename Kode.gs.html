@@ -838,14 +838,12 @@ function getTransaksiList(token, tipe) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
-    if (!sheet) return { status: 'success', data: [] }; // Return kosong jika sheet belum ada
+    if (!sheet) return { status: 'success', data: [] };
 
     const data = sheet.getDataRange().getValues();
-    // Filter data berdasarkan Tipe (Kolom index 2)
-    // Lewati header (baris 1)
     const result = [];
     
-    // Format tanggal helper
+    // Helper format tanggal (YYYY-MM-DD)
     const formatDate = (dateObj) => {
       if(!dateObj) return "";
       return Utilities.formatDate(new Date(dateObj), "GMT+7", "yyyy-MM-dd");
@@ -853,27 +851,37 @@ function getTransaksiList(token, tipe) {
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][2] === tipe) {
-        let items = [];
-        try {
-          items = JSON.parse(data[i][6]); // Parse JSON string kembali ke object
-        } catch (err) { items = []; }
+        let items = [], surat = null, tglSurat = null;
+
+        // Parse JSON dengan aman
+        try { items = JSON.parse(data[i][6]); } catch (err) { items = []; }
+        
+        // Ambil Data Nomor Surat (Index 9)
+        if (data[i][9]) {
+          try { surat = JSON.parse(data[i][9]); } catch (err) { surat = null; }
+        }
+        
+        // Ambil Data Tanggal Surat (Index 10) - BARU
+        if (data[i][10]) {
+          try { tglSurat = JSON.parse(data[i][10]); } catch (err) { tglSurat = null; }
+        }
 
         result.push({
           id: data[i][0],
-          tanggal: formatDate(data[i][1]),
+          tanggal: formatDate(data[i][1]), // Tanggal Transaksi Asli
           tipe: data[i][2],
           uraian: data[i][3],
           pihakKetiga: data[i][4],
           pemesan: data[i][5],
           items: items,
-          total: data[i][7]
+          total: data[i][7],
+          dataSurat: surat,      // Data Nomor
+          dataTanggal: tglSurat  // Data Tanggal
         });
       }
     }
     
-    // Urutkan dari yang terbaru (opsional)
     result.reverse();
-
     return { status: 'success', data: result };
   } catch (e) {
     return { status: 'error', message: e.toString() };
@@ -923,6 +931,77 @@ function hapusTransaksiItem(token, idToDelete) {
       }
     }
     return { status: 'error', message: 'ID tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- TAMBAHAN FITUR NOMOR SURAT --- */
+
+// 1. Simpan Data Nomor Surat ke Transaksi
+function simpanDataSurat(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const data = sheet.getDataRange().getValues();
+
+    // Loop cari ID Transaksi
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == form.id) { // Cek ID
+        const rowIdx = i + 1;
+        
+        // Kita simpan data surat dalam format JSON di Kolom ke-10 (Index 9)
+        // Struktur Sheet DataTransaksi sebelumnya sampai Index 8 (Waktu Input)
+        // Jadi kita taruh di kolom J (Index 10 di sheet / 9 di array 0-based)
+        
+        const suratJson = JSON.stringify(form.dataSurat);
+        
+        // Pastikan kolom header ada (Opsional, untuk kerapian)
+        if(i === 1 && sheet.getLastColumn() < 10) {
+           sheet.getRange(1, 10).setValue("Data_Surat_JSON");
+        }
+
+        sheet.getRange(rowIdx, 10).setValue(suratJson);
+        
+        return { status: 'success', message: 'Nomor Surat berhasil disimpan!' };
+      }
+    }
+    return { status: 'error', message: 'Transaksi tidak ditemukan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- TAMBAHAN FITUR TANGGAL SURAT --- */
+
+// 1. Simpan Data Tanggal Surat ke Transaksi
+function simpanTanggalSurat(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    const data = sheet.getDataRange().getValues();
+
+    // Loop cari ID Transaksi
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == form.id) {
+        const rowIdx = i + 1;
+        
+        // Simpan data tanggal dalam format JSON di Kolom ke-11 (Index 10)
+        // Struktur: [0..8]=Data Utama, [9]=Nomor Surat, [10]=Tanggal Surat
+        
+        const tglJson = JSON.stringify(form.dataTanggal);
+        
+        // Pastikan kolom header ada
+        if(i === 1 && sheet.getLastColumn() < 11) {
+           sheet.getRange(1, 11).setValue("Data_Tanggal_JSON");
+        }
+
+        sheet.getRange(rowIdx, 11).setValue(tglJson);
+        
+        return { status: 'success', message: 'Tanggal Surat berhasil disimpan!' };
+      }
+    }
+    return { status: 'error', message: 'Transaksi tidak ditemukan.' };
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
