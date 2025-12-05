@@ -1,17 +1,18 @@
 /**
  * KONFIGURASI ID FILE
- * Masukkan ID file yang sudah Anda siapkan di Google Drive
+ * Tambahkan ID Folder Utama disini
  */
 const CONFIG = {
   MASTER_DB_ID: '1ysd6zCjs7gE76LKG7S-PjvrbZroPh6ekGz6RB2dxTcc', 
   TEMPLATE_DB_ID: '1I1oIcDCQTGO-fJJBTcCgWwgNC-cOKUg_ES0b9ZAKwok',
   
-  // MASUKKAN ID TEMPLATE YANG BARU DIBUAT DISINI:
+  // ID FOLDER MASTER (Tempat menampung folder-folder sekolah)
+  MASTER_PARENT_FOLDER_ID: '1jUXnLd0IR4v8kMzcu49PIFGncNoIoBQp',
+  
+  // ID TEMPLATE DOKUMEN
   TEMPLATE_ID_TOKO: '1Fl8Jaf4j6XIyF8TghkwUsmrqEKU7obVbuOWDxlIa56o',
   TEMPLATE_ID_GURU: '1pC4xjpoGpsCaidPqoWHjJAAFgwnuDnKPsONUrd3IeFg',
-  TEMPLATE_ID_TUKANG: '1vNWFUOKIKob8SI0VX0ROxhZQ02Tl6eboiR2TZ7mzRqE',
-  
-  FOLDER_PDF_ID: '' // Opsional
+  TEMPLATE_ID_TUKANG: '1vNWFUOKIKob8SI0VX0ROxhZQ02Tl6eboiR2TZ7mzRqE'
 };
 
 /* --- ROUTING HALAMAN --- */
@@ -25,21 +26,56 @@ function doGet(e) {
 
 /* --- FUNGSI REGISTRASI & LOGIN --- */
 
-/* --- FUNGSI AUTH --- */
+/* --- FUNGSI REGISTRASI (UPDATE: BUAT STRUKTUR FOLDER) --- */
 function registerSchool(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
+  
+  // Cek Duplikasi Email
   for (let i = 1; i < data.length; i++) {
     if (data[i][2] == form.email) return { status: 'error', message: 'Email sudah terdaftar!' };
   }
+
   try {
+    // 1. Ambil Folder Utama
+    const parentFolder = DriveApp.getFolderById(CONFIG.MASTER_PARENT_FOLDER_ID);
+
+    // 2. Buat Folder [Nama Sekolah]
+    const schoolFolder = parentFolder.createFolder(form.namaSekolah);
+    const schoolFolderId = schoolFolder.getId();
+
+    // 3. Buat Sub-Folder [Kop Sekolah] & [File Generate]
+    const folderKop = schoolFolder.createFolder("Kop Sekolah");
+    const folderGenerate = schoolFolder.createFolder("File Generate");
+
+    // 4. Copy Template DB ke dalam Folder Sekolah
     const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
-    const newFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah);
-    newFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
-    ssMaster.appendRow([new Date(), form.namaSekolah, form.email, form.password, newFile.getId()]);
-    return { status: 'success', message: 'Registrasi berhasil! Silakan Login.' };
+    const newDbFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah, schoolFolder);
+    const newDbId = newDbFile.getId();
+
+    // 5. Set Permission File DB (Agar bisa diedit user)
+    newDbFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+
+    // 6. SIMPAN ID FOLDER KE DATABASE SEKOLAH (Sheet DataPengaturan)
+    const ssNew = SpreadsheetApp.openById(newDbId);
+    let sheetSet = ssNew.getSheetByName('DataPengaturan');
+    if (!sheetSet) {
+      sheetSet = ssNew.insertSheet('DataPengaturan');
+      sheetSet.appendRow(['KEY', 'VALUE']);
+    }
+
+    // Simpan Konfigurasi Folder agar bisa dipanggil fungsi lain
+    sheetSet.appendRow(['FOLDER_SEKOLAH_ID', schoolFolderId]);
+    sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
+    sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
+
+    // 7. Simpan User ke Master Database
+    ssMaster.appendRow([new Date(), form.namaSekolah, form.email, form.password, newDbId]);
+
+    return { status: 'success', message: 'Registrasi berhasil! Folder & Database telah dibuat.' };
+
   } catch (e) {
-    return { status: 'error', message: 'Error: ' + e.toString() };
+    return { status: 'error', message: 'Error Register: ' + e.toString() };
   }
 }
 
@@ -81,126 +117,82 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF (UPDATE: NOMOR BUKTI DARI DATA URAIAN) --- */
+/* --- FUNGSI GENERATE PDF (UPDATE: SIMPAN ID FILE & HAPUS FILE LAMA) --- */
 
+/* --- FUNGSI GENERATE PDF (UPDATE: SIMPAN KE FOLDER GENERATE SEKOLAH) --- */
 function generateLPJ(token, dataForm) {
   try {
-    // 1. Tentukan Template ID berdasarkan Tipe
+    // 1. Tentukan Template
     let templateId = '';
-    const tipe = dataForm.tipe; // 'TOKO', 'GURU', atau 'TUKANG'
-
+    const tipe = dataForm.tipe; 
     if (tipe === 'TOKO') templateId = CONFIG.TEMPLATE_ID_TOKO;
     else if (tipe === 'GURU') templateId = CONFIG.TEMPLATE_ID_GURU;
     else if (tipe === 'TUKANG') templateId = CONFIG.TEMPLATE_ID_TUKANG;
-    else return { status: 'error', message: 'Tipe template tidak dikenali.' };
+    
+    if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan.' };
 
-    if (!templateId) return { status: 'error', message: 'ID Template belum diatur di CONFIG.' };
-
-    // --- AMBIL DATA SEKOLAH ---
+    // --- AMBIL DATA ---
     const resSekolah = getDataSekolah(token);
     const ds = resSekolah.data || {}; 
-
-    // --- [BARU] AMBIL DATA URAIAN UNTUK CARI NOMOR BUKTI ---
-    // Kita ambil semua list uraian, lalu cari yang namanya cocok dengan transaksi ini
     let nomorBuktiUraian = "-";
     const resUraian = getUraianList(token);
-    
     if (resUraian.status === 'success' && resUraian.data) {
-        // Cari item yang uraiannya sama dengan dataForm.uraian
-        // Kita gunakan trim() agar spasi tidak mempengaruhi pencarian
         const uraianFound = resUraian.data.find(u => u.uraian.trim() === dataForm.uraian.trim());
-        if (uraianFound) {
-            nomorBuktiUraian = uraianFound.noBukti; // Ambil kolom 'noBukti' dari master
-        }
+        if (uraianFound) nomorBuktiUraian = uraianFound.noBukti;
     }
-    // -------------------------------------------------------
 
-    // 2. Copy Template
+    // 2. Buat Doc Sementara
     const docFile = DriveApp.getFileById(templateId);
     const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
     const docId = tempDocFile.getId();
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
-
-    // 3. Helper Replace
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // --- PENGISIAN DATA UMUM ---
+    // --- REPLACE DATA ---
     safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
-    
-    // [UPDATE] Menggunakan Nomor Bukti hasil pencarian di atas
     safeReplace('<<Nomor Bukti Uraian>>', nomorBuktiUraian);
-    
-    // Identitas Madrasah
     safeReplace('<<Nama Madrasah>>', ds.namaSekolah);
     safeReplace('<<Kecamatan>>', ds.kecamatan);
     safeReplace('<<Kabupaten>>', ds.kabupaten);
     safeReplace('<<Provinsi>>', ds.provinsi);
-    
-    // Keuangan
     safeReplace('<<Total>>', formatRupiah(dataForm.total));
     safeReplace('<<Total Terbilang>>', terbilang(dataForm.total) + ' Rupiah');
     safeReplace('<<Nama Dana BOS>>', ds.danaBOS);
     safeReplace('<<Periode>>', ds.periodeAnggaran);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
-
-    // Pejabat
     safeReplace('<<NAMA KEPALA SEKOLAH>>', ds.namaKepala);
     safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
-    
-    // Tanggal
     let tglIndo = dataForm.tanggal; 
-    try {
-        if(dataForm.tanggal) {
-            const d = new Date(dataForm.tanggal);
-            tglIndo = Utilities.formatDate(d, "GMT+7", "dd MMMM yyyy");
-        }
-    } catch(e) {}
-    
+    try { if(dataForm.tanggal) tglIndo = Utilities.formatDate(new Date(dataForm.tanggal), "GMT+7", "dd MMMM yyyy"); } catch(e){}
     safeReplace('<<Tanggal Transaksi>>', tglIndo);
     safeReplace('<<Tanggal BA.Bayar>>', tglIndo);
 
-    // --- PENGISIAN KHUSUS PER TIPE ---
-    if (tipe === 'TOKO') {
-        safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
-
-    } else if (tipe === 'GURU') {
+    if (tipe === 'TOKO') safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
+    else if (tipe === 'GURU') {
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
         safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
-        
-        let namaPenerima = "-";
-        if(dataForm.items && dataForm.items.length > 0) {
-            namaPenerima = dataForm.items[0].nama; 
-        }
+        let namaPenerima = (dataForm.items && dataForm.items.length > 0) ? dataForm.items[0].nama : "-";
         safeReplace('<<Nama Guru 1>>', namaPenerima);
-
     } else if (tipe === 'TUKANG') {
         safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
         safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
     }
 
-    // 4. Mengisi Tabel Item
+    // Tabel Item
     if (dataForm.items && dataForm.items.length > 0) {
       const tables = body.getTables();
-      let targetTable = null;
-      let rowIndexTemplate = -1;
-
+      let targetTable = null, rowIndexTemplate = -1;
       for (let t = 0; t < tables.length; t++) {
-        const table = tables[t];
-        const numRows = table.getNumRows();
-        for (let r = 0; r < numRows; r++) {
-          if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
-            targetTable = table;
-            rowIndexTemplate = r;
-            break;
+        for (let r = 0; r < tables[t].getNumRows(); r++) {
+          if (tables[t].getRow(r).getText().includes('<<TABLE_ROW>>')) {
+            targetTable = tables[t]; rowIndexTemplate = r; break;
           }
         }
         if (targetTable) break;
       }
-
       if (targetTable) {
         const templateRow = targetTable.getRow(rowIndexTemplate);
-        
         dataForm.items.forEach((item, index) => {
            const newRow = targetTable.insertRow(rowIndexTemplate + index, templateRow.copy());
            try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
@@ -210,27 +202,53 @@ function generateLPJ(token, dataForm) {
            try { newRow.getCell(4).setText(formatRupiah(item.harga)); } catch(e){}
            try { newRow.getCell(5).setText(formatRupiah(item.jumlah)); } catch(e){}
         });
-
         targetTable.removeRow(rowIndexTemplate + dataForm.items.length);
       }
     }
-
     doc.saveAndClose();
 
-    // 5. Konversi ke PDF
+    // 3. Konversi PDF & PINDAHKAN KE FOLDER GENERATE SEKOLAH
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
     const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ_' + tipe + '_' + dataForm.nomorSurat + '.pdf');
     
-    if (CONFIG.FOLDER_PDF_ID) {
-       const folder = DriveApp.getFolderById(CONFIG.FOLDER_PDF_ID);
-       folder.addFile(pdfFile);
-       DriveApp.getRootFolder().removeFile(pdfFile);
-    }
+    // --> CARI ID FOLDER 'File Generate' DARI DB SEKOLAH MENGGUNAKAN HELPER
+    const folderGenerateId = getSettingValue(token, 'FOLDER_PDF_ID');
     
+    if (folderGenerateId) {
+       try {
+         const folder = DriveApp.getFolderById(folderGenerateId);
+         folder.addFile(pdfFile);
+         DriveApp.getRootFolder().removeFile(pdfFile); // Hapus dari root
+       } catch(e) {
+         // Jika gagal pindah (misal folder terhapus), biarkan di root
+       }
+    }
     tempDocFile.setTrashed(true);
 
+    // 4. Update Database (Simpan PDF ID & Hapus File PDF Lama)
+    const newFileId = pdfFile.getId();
+    const ss = SpreadsheetApp.openById(token);
+    let sheetTrans = ss.getSheetByName('DataTransaksi');
+    
+    if (sheetTrans) {
+      const dataTrans = sheetTrans.getDataRange().getValues();
+      for (let i = 1; i < dataTrans.length; i++) {
+        if (dataTrans[i][0] == dataForm.idTransaksi) {
+          const rowIdx = i + 1;
+          const oldFileId = (dataTrans[i].length > 11) ? dataTrans[i][11] : null;
+          
+          // Hapus file lama jika ada
+          if (oldFileId && oldFileId !== "" && oldFileId !== "-") {
+             try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
+          }
+          
+          if (i === 1 && sheetTrans.getLastColumn() < 12) sheetTrans.getRange(1, 12).setValue("Generated_PDF_ID");
+          sheetTrans.getRange(rowIdx, 12).setValue(newFileId);
+          break;
+        }
+      }
+    }
     return { status: 'success', url: pdfFile.getUrl() };
-
   } catch (e) {
     return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
   }
@@ -772,56 +790,56 @@ function hapusGuruItem(token, idToDelete) {
 /* --- FUNGSI PENGATURAN KOP SURAT --- */
 
 // 1. Simpan Kop Surat (Upload ke Drive & Simpan ID ke DB)
+/* --- FUNGSI SIMPAN KOP SURAT (UPDATE: SIMPAN KE FOLDER KOP SEKOLAH) --- */
 function simpanKopSurat(token, fileData) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheet = ss.getSheetByName('DataPengaturan');
-    
-    // Buat sheet jika belum ada
-    if (!sheet) {
-      sheet = ss.insertSheet('DataPengaturan');
-      sheet.appendRow(['KEY', 'VALUE']); // Header
-    }
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
 
-    // 1. Hapus File Lama di Drive jika ada (Supaya tidak numpuk)
     const data = sheet.getDataRange().getValues();
-    let oldFileId = null;
-    let rowIdx = -1;
+    let oldFileId = null; 
+    let rowIdxKop = -1;
+    let folderKopId = null;
 
+    // Cari ID File Lama dan ID Folder Kop dari Sheet Pengaturan
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] === 'KOP_SURAT_ID') {
         oldFileId = data[i][1];
-        rowIdx = i + 1;
-        break;
+        rowIdxKop = i + 1;
+      }
+      if (data[i][0] === 'FOLDER_KOP_ID') {
+        folderKopId = data[i][1];
       }
     }
 
-    if (oldFileId) {
-      try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
+    // Hapus File Lama
+    if (oldFileId) { try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {} }
+
+    // Upload File Baru
+    const blob = Utilities.newBlob(Utilities.base64Decode(fileData.base64), fileData.mimeType, "KopSurat_" + Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss"));
+    const file = DriveApp.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // --> PINDAHKAN KE FOLDER 'Kop Sekolah' JIKA ADA CONFIG ID-NYA
+    if (folderKopId) {
+      try {
+        const folder = DriveApp.getFolderById(folderKopId);
+        folder.addFile(file);
+        DriveApp.getRootFolder().removeFile(file);
+      } catch(e) {}
     }
 
-    // 2. Upload File Baru ke Drive
-    // Decode Base64 string
-    const contentType = fileData.mimeType;
-    const base64Data = fileData.base64;
-    const decoded = Utilities.base64Decode(base64Data);
-    const blob = Utilities.newBlob(decoded, contentType, "KopSurat_" + Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss"));
-    
-    const file = DriveApp.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // Agar bisa dilihat di tag <img>
     const newFileId = file.getId();
 
-    // 3. Simpan ID ke Spreadsheet
-    if (rowIdx !== -1) {
-      // Update baris yang ada
-      sheet.getRange(rowIdx, 2).setValue(newFileId);
+    // Simpan ID File ke Spreadsheet
+    if (rowIdxKop !== -1) {
+      sheet.getRange(rowIdxKop, 2).setValue(newFileId);
     } else {
-      // Buat baris baru
       sheet.appendRow(['KOP_SURAT_ID', newFileId]);
     }
 
     return { status: 'success', message: 'Kop Surat berhasil diupload!', fileId: newFileId };
-
   } catch (e) {
     return { status: 'error', message: 'Upload gagal: ' + e.toString() };
   }
@@ -957,7 +975,7 @@ function simpanTransaksiBaru(token, data) {
 
 /* --- TAMBAHAN UPDATE: FUNGSI CRUD TRANSAKSI --- */
 
-// 1. Ambil List Transaksi berdasarkan Tipe (TOKO/TUKANG)
+/* --- UPDATE FUNGSI GET TRANSAKSI LIST (TAMBAHKAN RETURN PDF ID) --- */
 function getTransaksiList(token, tipe) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -967,13 +985,10 @@ function getTransaksiList(token, tipe) {
     const data = sheet.getDataRange().getValues();
     const result = [];
     
-    // 1. Format Standar (YYYY-MM-DD) untuk Value Input HTML5
     const formatDate = (dateObj) => {
       if(!dateObj) return "";
       return Utilities.formatDate(new Date(dateObj), "GMT+7", "yyyy-MM-dd");
     };
-
-    // 2. Format Tampilan Indonesia (DD-MM-YYYY) - BARU
     const formatDateDisplay = (dateObj) => {
       if(!dateObj) return "";
       return Utilities.formatDate(new Date(dateObj), "GMT+7", "dd-MM-yyyy");
@@ -982,15 +997,17 @@ function getTransaksiList(token, tipe) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][2] === tipe) {
         let items = [], surat = null, tglSurat = null;
-
         try { items = JSON.parse(data[i][6]); } catch (err) { items = []; }
         if (data[i][9]) { try { surat = JSON.parse(data[i][9]); } catch (err) { surat = null; } }
         if (data[i][10]) { try { tglSurat = JSON.parse(data[i][10]); } catch (err) { tglSurat = null; } }
 
+        // [BARU] Ambil PDF ID dari kolom Index 11 (Kolom L)
+        const pdfId = (data[i].length > 11) ? data[i][11] : null;
+
         result.push({
           id: data[i][0],
-          tanggal: formatDate(data[i][1]),          // PENTING: Untuk Input Form (YYYY-MM-DD)
-          tanggalDisplay: formatDateDisplay(data[i][1]), // PENTING: Untuk Tampilan Tabel (DD-MM-YYYY)
+          tanggal: formatDate(data[i][1]),
+          tanggalDisplay: formatDateDisplay(data[i][1]),
           tipe: data[i][2],
           uraian: data[i][3],
           pihakKetiga: data[i][4],
@@ -998,22 +1015,18 @@ function getTransaksiList(token, tipe) {
           items: items,
           total: data[i][7],
           dataSurat: surat,
-          dataTanggal: tglSurat
+          dataTanggal: tglSurat,
+          pdfId: pdfId // <-- Dikirim ke frontend
         });
       }
     }
     
-    // --- PERUBAHAN DISINI (SORTING) ---
-    // HAPUS atau comment baris ini: result.reverse();
-    
-    // GANTI dengan ini untuk urutan Tanggal Kecil (Jan) -> Besar (Des):
+    // Sort Date Ascending
     result.sort((a, b) => {
-      // Bandingkan string tanggal (format yyyy-MM-dd bisa langsung dibandingkan stringnya)
       if (a.tanggal < b.tanggal) return -1;
       if (a.tanggal > b.tanggal) return 1;
       return 0;
     });
-    // ----------------------------------
 
     return { status: 'success', data: result };
   } catch (e) {
@@ -1205,4 +1218,19 @@ function getDashboardStats(token) {
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
+}
+
+/* --- FUNGSI BARU: HELPER UNTUK BACA SETTING FOLDER --- */
+function getSettingValue(token, keyName) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return null;
+    
+    const data = sheet.getDataRange().getValues();
+    for(let i=0; i<data.length; i++) {
+      if(data[i][0] === keyName) return data[i][1];
+    }
+    return null;
+  } catch(e) { return null; }
 }
