@@ -168,6 +168,16 @@
                 <i class="fas fa-shopping-cart me-2"></i> Transaksi Belanja
               </a>
             </li>
+
+            <li class="nav-item mt-2">
+              <small class="text-secondary ms-3 text-uppercase" style="font-size:0.7rem; letter-spacing:1px;">Cetak</small>
+            </li>
+
+            <li class="nav-item">
+              <a onclick="navigasiKe('panel-cetak-pdf', this)" class="nav-link" style="cursor: pointer;">
+                <i class="fas fa-print me-2"></i> Cetak PDF
+              </a>
+            </li>
             
             <li class="nav-item mt-5 pt-5 border-top">
               <a onclick="logout()" class="nav-link text-danger" style="cursor: pointer;">
@@ -1059,6 +1069,94 @@
             </div>
           </div>
 
+          <div id="panel-cetak-pdf" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-print text-primary"></i> Cetak Laporan PDF</h2>
+
+            <ul class="nav nav-tabs mb-4">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-cetak-toko" onclick="bukaTabCetak('toko')">
+                  <i class="fas fa-store me-2"></i> LPJ Toko
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-cetak-guru" onclick="bukaTabCetak('guru')">
+                  <i class="fas fa-chalkboard-teacher me-2"></i> Honor Guru
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-cetak-tukang" onclick="bukaTabCetak('tukang')">
+                  <i class="fas fa-hammer me-2"></i> Upah Tukang
+                </button>
+              </li>
+            </ul>
+
+            <div class="card shadow-sm border-0">
+              <div class="card-body">
+                
+                <div id="view-cetak-toko" class="view-cetak">
+                  <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Transaksi Belanja Toko Siap Cetak</div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian Belanja</th>
+                          <th>Nama Toko</th>
+                          <th>Total</th>
+                          <th width="15%">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-cetak-toko">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div id="view-cetak-guru" class="view-cetak hidden">
+                  <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Pembayaran Honor Guru Siap Cetak</div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian Kegiatan</th>
+                          <th>Keterangan</th>
+                          <th>Total</th>
+                          <th width="15%">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-cetak-guru">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div id="view-cetak-tukang" class="view-cetak hidden">
+                  <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Upah Tukang Siap Cetak</div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian Pekerjaan</th>
+                          <th>Nama Tukang</th>
+                          <th>Total</th>
+                          <th width="15%">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-cetak-tukang">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
           <div id="panel-uraian" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-list-ul text-primary"></i> Data Uraian Pekerjaan</h2>
             
@@ -1344,6 +1442,10 @@
         // LOGIKA TANGGAL SURAT
         if(panelId === 'panel-tanggal-surat') {
           bukaTabTanggal('toko');
+        }
+
+        if(panelId === 'panel-cetak-pdf') {
+          bukaTabCetak('toko'); // Default buka tab toko
         }
       }
 
@@ -3431,6 +3533,165 @@
 
           }
         }).getDashboardStats(token);
+      }
+
+      /* --- LOGIKA MENU CETAK PDF --- */
+
+      // 1. Fungsi Ganti Tab Cetak
+      function bukaTabCetak(tipe) {
+        // Reset Tab Active Class
+        document.getElementById('tab-cetak-toko').classList.remove('active');
+        document.getElementById('tab-cetak-guru').classList.remove('active');
+        document.getElementById('tab-cetak-tukang').classList.remove('active');
+        
+        // Set Active Tab Button
+        document.getElementById('tab-cetak-' + tipe).classList.add('active');
+
+        // Sembunyikan semua tabel view
+        document.querySelectorAll('.view-cetak').forEach(el => el.classList.add('hidden'));
+        
+        // Munculkan tabel yang dipilih
+        document.getElementById('view-cetak-' + tipe).classList.remove('hidden');
+
+        // Load Data
+        loadListCetak(tipe);
+      }
+
+      // 2. Load Data ke Tabel Cetak
+      function loadListCetak(tipeRaw) {
+        const tipe = tipeRaw.toUpperCase(); // 'TOKO', 'GURU', 'TUKANG'
+        const targetId = 'tbody-cetak-' + tipeRaw;
+        const tbody = document.getElementById(targetId);
+        const token = localStorage.getItem('userToken');
+
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Sedang memuat data...</td></tr>';
+
+        // Kita reuse fungsi backend yang sudah ada: getTransaksiList
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            tbody.innerHTML = '';
+            if(res.data.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada data transaksi.</td></tr>';
+              return;
+            }
+
+            res.data.forEach(item => {
+              // Encode data untuk tombol "Lihat"
+              const dataJson = encodeURIComponent(JSON.stringify(item));
+              
+              // Tentukan teks kolom ke-3 (Pihak Ketiga / Keterangan)
+              let displayPihak = item.pihakKetiga;
+              if (tipeRaw === 'guru' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
+                  displayPihak = "-"; // Atau kosongkan jika ingin bersih
+              }
+
+              // Tombol Aksi: Lihat (Mata) & Cetak (Printer)
+              const btnLihat = `
+                <button class="btn btn-sm btn-outline-info me-1" 
+                  onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+                  <i class="fas fa-eye"></i>
+                </button>
+              `;
+
+              const btnCetak = `
+                <button class="btn btn-sm btn-dark" 
+                  onclick="prosesCetakPDF('${item.id}', '${dataJson}')" title="Generate PDF">
+                  <i class="fas fa-print"></i>
+                </button>
+              `;
+
+              const row = `
+                <tr>
+                  <td>${item.tanggalDisplay}</td>
+                  <td><div class="text-truncate" style="max-width: 250px;">${item.uraian}</div></td>
+                  <td>${displayPihak}</td>
+                  <td class="fw-bold">${formatRupiahJS(item.total)}</td>
+                  <td style="white-space: nowrap;">${btnLihat} ${btnCetak}</td>
+                </tr>
+              `;
+              tbody.innerHTML += row;
+            });
+
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
+          }
+        }).getTransaksiList(token, tipe);
+      }
+
+      // 3. Fungsi Proses Cetak
+      /* --- FUNGSI PROSES CETAK PDF (UPDATE MULTI-TEMPLATE) --- */
+      function prosesCetakPDF(id, encodedData) {
+        // 1. Decode Data Transaksi dari JSON
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const token = localStorage.getItem('userToken');
+
+        // 2. Konfirmasi User sebelum Cetak
+        Swal.fire({
+          title: 'Cetak PDF?',
+          text: `Sistem akan membuat laporan PDF untuk: ${data.uraian}`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#0d6efd',
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: '<i class="fas fa-print"></i> Ya, Buat PDF',
+          cancelButtonText: 'Batal'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            
+            // 3. Tampilkan Loading
+            Swal.fire({
+              title: 'Sedang Memproses...',
+              html: 'Mohon tunggu, sedang menyusun dokumen PDF sesuai template.',
+              allowOutsideClick: false,
+              didOpen: () => { Swal.showLoading() }
+            });
+
+            // 4. Persiapkan Data (Payload) untuk Dikirim ke Backend
+            // Kita pastikan 'tipe' terkirim agar backend bisa memilih ID Template yang benar
+            
+            let tipeTransaksi = 'TOKO'; // Default fallback
+            if (data.tipe) {
+                tipeTransaksi = data.tipe; // Nilai ini biasanya: 'TOKO', 'GURU', atau 'TUKANG'
+            }
+
+            // Ambil Nama Madrasah dari cache tampilan dashboard (agar tidak perlu request ulang)
+            const namaMadrasah = document.getElementById('dashNamaSekolah').innerText || 'Madrasah';
+
+            // Cek Nomor Surat (Jika user sudah setting di menu Nomor Surat, pakai itu. Jika belum, pakai DRAFT)
+            const nomorSurat = (data.dataSurat && data.dataSurat.permintaan) ? data.dataSurat.permintaan : 'DRAFT';
+
+            const formUntukPDF = {
+              tipe: tipeTransaksi,       // KUNCI UTAMA: Penentu Template
+              
+              nomorSurat: nomorSurat,
+              pihakKetiga: data.pihakKetiga, // Digunakan sebagai Nama Toko / Nama Tukang / Keterangan Guru
+              uraian: data.uraian,           // Digunakan sebagai Uraian Belanja / Kegiatan
+              tanggal: data.tanggal,         // Format YYYY-MM-DD
+              namaMadrasah: namaMadrasah,
+              total: data.total,             // Angka murni untuk terbilang
+              items: data.items              // Array rincian barang untuk tabel
+            };
+
+            // 5. Panggil Fungsi Backend (Google Apps Script)
+            google.script.run.withSuccessHandler(function(res) {
+              if (res.status === 'success') {
+                // Sukses: Tampilkan Link Download
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Selesai!',
+                  text: 'Dokumen PDF berhasil dibuat.',
+                  // Tombol untuk membuka file PDF baru
+                  footer: `<a href="${res.url}" target="_blank" class="btn btn-primary btn-lg"><i class="fas fa-external-link-alt me-2"></i>Buka PDF Sekarang</a>`,
+                  showConfirmButton: true,
+                  confirmButtonText: 'Tutup'
+                });
+              } else {
+                // Gagal: Tampilkan Pesan Error
+                Swal.fire('Gagal', 'Terjadi kesalahan saat generate PDF: ' + res.message, 'error');
+              }
+            }).generateLPJ(token, formUntukPDF);
+          }
+        });
       }
 
     </script>
