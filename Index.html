@@ -61,7 +61,7 @@
     <div id="view-login" class="container view-section">
       <div class="card card-login p-4">
         <h3 class="text-center mb-4 text-primary"><i class="fas fa-book-open"></i> LPJ BOS</h3>
-        <p class="text-center text-muted">Sistem Manajemen LPJ Madrasah</p>
+        <p class="text-center text-muted">Sistem Manajemen LPJ Sekolah</p>
         <form id="formLogin" onsubmit="handleLogin(event)">
           <div class="mb-3">
             <label class="form-label">Email Sekolah</label>
@@ -84,7 +84,7 @@
         <h3 class="text-center mb-4 text-success"><i class="fas fa-school"></i> Daftar Sekolah</h3>
         <form id="formRegister" onsubmit="handleRegister(event)">
           <div class="mb-3">
-            <label class="form-label">Nama Madrasah</label>
+            <label class="form-label">Nama Sekolah</label>
             <input type="text" class="form-control" id="regNama" placeholder="Contoh: MTS Negeri 1..." required>
           </div>
           <div class="mb-3">
@@ -261,10 +261,10 @@
               <div class="card-body">
                 <div class="row">
                   <div class="col-md-6 border-end-md">
-                     <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Profil Madrasah</h6>
+                     <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Profil Sekolah</h6>
                      <table class="table table-borderless table-sm mb-0" style="font-size: 0.95rem;">
                        <tr>
-                         <td width="35%" class="text-muted">Nama Madrasah</td>
+                         <td width="35%" class="text-muted">Nama Sekolah</td>
                          <td class="fw-bold" id="dashNamaSekolah">-</td>
                        </tr>
                        <tr>
@@ -294,7 +294,7 @@
                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Pejabat Sekolah</h6>
                      <table class="table table-borderless table-sm mb-0" style="font-size: 0.95rem;">
                        <tr>
-                         <td width="35%" class="text-muted">Kepala Madrasah</td>
+                         <td width="35%" class="text-muted">Kepala Sekolah</td>
                          <td class="fw-bold" id="dashKepala">-</td>
                        </tr>
                        <tr>
@@ -1220,11 +1220,11 @@
               <div class="card-body">
                 <form>
                   <div class="mb-3">
-                    <label class="form-label">Nama Kepala Madrasah</label>
+                    <label class="form-label">Nama Kepala Sekolah</label>
                     <input type="text" class="form-control" placeholder="Nama Lengkap & Gelar">
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">NIP Kepala Madrasah</label>
+                    <label class="form-label">NIP Kepala Sekolah</label>
                     <input type="text" class="form-control">
                   </div>
                   <div class="mb-3">
@@ -1251,7 +1251,7 @@
               <div class="card-body p-4">
                 <form id="formDataSekolah">
                         
-                  <h5 class="text-primary border-bottom pb-2 mb-3">Identitas Madrasah</h5>
+                  <h5 class="text-primary border-bottom pb-2 mb-3">Identitas Sekolah</h5>
                   <div class="row mb-3">
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Nama Sekolah <span class="text-danger">*</span></label>
@@ -1262,7 +1262,7 @@
                       <input type="text" class="form-control" id="dsNpsn" required placeholder="Contoh: 40319868">
                     </div>
                     <div class="col-md-4">
-                      <label class="form-label">NSM <small>(Opsional)</small></label>
+                      <label class="form-label">NSM <small>(Opsional Bagi Madrasah)</small></label>
                       <input type="text" class="form-control" id="dsNsm" placeholder="Contoh: 1212...">
                     </div>
                   </div>
@@ -1337,15 +1337,27 @@
                     
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Nama Dana BOS</label>
-                      <select class="form-select" id="dsDanaBos">
+                      
+                      <select class="form-select" id="dsDanaBos" onchange="cekPeriodeBos()">
                         <option value="">-- Pilih Jenis --</option>
-                        <option value="BOS.1">BOS.1</option>
-                        <option value="BOS.2">BOS.2</option>
-                        <option value="BOS.TRW.1">BOS.TRW.1</option>
-                        <option value="BOS.TRW.2">BOS.TRW.2</option>
-                        <option value="BOS.TRW.3">BOS.TRW.3</option>
-                        <option value="BOS.TRW.4">BOS.TRW.4</option>
+                        <option value="Lainnya">Lainnya (Manual)</option>
+                        <option value="Dana BOS Tahap 1">Dana BOS Tahap 1</option>
+                        <option value="Dana BOS Tahap 2">Dana BOS Tahap 2</option>
+                        <option value="Dana BOS Triwulan 1">Dana BOS Triwulan 1</option>
+                        <option value="Dana BOS Triwulan 2">Dana BOS Triwulan 2</option>
+                        <option value="Dana BOS Triwulan 3">Dana BOS Triwulan 3</option>
+                        <option value="Dana BOS Triwulan 4">Dana BOS Triwulan 4</option>
                       </select>
+
+                      <small id="infoPeriode" class="text-muted fst-italic d-block mt-1"></small>
+
+                      <div id="wrapManualBos" class="hidden mt-2">
+                        <label class="form-label text-muted" style="font-size: 0.8rem;">Nama Dana BOS:</label>
+                        <input type="text" class="form-control mb-2" id="dsDanaBosManual" placeholder="Contoh: BOS Afirmasi">
+                        
+                        <label class="form-label text-muted" style="font-size: 0.8rem;">Ketik Periode:</label>
+                        <input type="text" class="form-control" id="dsPeriodeManual" placeholder="Contoh: Januari - Juni">
+                      </div>
                     </div>
 
                     <div class="col-md-4">
@@ -1565,7 +1577,43 @@
             document.getElementById('dsNipBendahara').value = String(d.nipBendahara).replace(/'/g, '');
             document.getElementById('dsTelp').value = String(d.noTelp).replace(/'/g, '');
             document.getElementById('dsEmail').value = d.email;
-            document.getElementById('dsDanaBos').value = d.danaBOS;
+
+            /* --- LOGIKA LOAD DANA BOS & PERIODE (TERPISAH) --- */
+            const savedBos = d.danaBOS; 
+            const savedPeriode = d.periodeAnggaran; // Ambil data periode dari kolom baru
+            
+            const selectBos = document.getElementById('dsDanaBos');
+            const inputBosManual = document.getElementById('dsDanaBosManual');
+            const inputPeriodeManual = document.getElementById('dsPeriodeManual');
+
+            // 1. Cek apakah Nama BOS ada di pilihan dropdown standar?
+            let isMatch = false;
+            for (let i = 0; i < selectBos.options.length; i++) {
+              if (selectBos.options[i].value === savedBos) {
+                isMatch = true;
+                break;
+              }
+            }
+
+            if (isMatch) {
+              // KASUS 1: Pilihan Standar (misal: Dana BOS Tahap 1)
+              selectBos.value = savedBos;
+              inputBosManual.value = "";       // Kosongkan manual
+              inputPeriodeManual.value = "";   // Kosongkan manual
+            } else if (savedBos) {
+              // KASUS 2: Pilihan Manual (misal: BOS Tulang)
+              selectBos.value = "Lainnya";     // Set dropdown ke Lainnya
+              inputBosManual.value = savedBos; // Isi kotak nama manual
+              inputPeriodeManual.value = savedPeriode; // Isi kotak periode manual
+            } else {
+              // KASUS 3: Belum ada data
+              selectBos.value = "";
+            }
+
+            // Update UI (Keterangan text dll)
+            cekPeriodeBos();
+            /* --- AKHIR LOGIKA LOAD --- */
+
             document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
             document.getElementById('dsTahun').value = d.tahunAnggaran;
           } 
@@ -1575,43 +1623,70 @@
       function submitDataSekolah() {
         const token = localStorage.getItem('userToken');
         
+        // Validasi
         if(!document.getElementById('dsNpsn').value) {
-          Swal.fire('Peringatan', 'NPSN Wajib diisi!', 'warning');
-          return;
+          Swal.fire('Peringatan', 'NPSN Wajib diisi!', 'warning'); return;
         }
-        
-        // Validasi Tempat TTD
         if(!document.getElementById('dsTempatTTD').value) {
-          Swal.fire('Peringatan', 'Tempat TTD (Alamat/Kota/Kab) Wajib diisi!', 'warning');
-          return;
+          Swal.fire('Peringatan', 'Tempat TTD Wajib diisi!', 'warning'); return;
         }
 
+        /* --- LOGIKA BARU: DATA TERPISAH --- */
+        let finalNamaBos = "";
+        let finalPeriode = "";
+
+        const dropdownVal = document.getElementById('dsDanaBos').value;
+
+        if (dropdownVal === 'Lainnya') {
+            // Jika Manual: Ambil dari Input Ketikan User
+            finalNamaBos = document.getElementById('dsDanaBosManual').value.trim();
+            finalPeriode = document.getElementById('dsPeriodeManual').value.trim();
+            
+            if (!finalNamaBos || !finalPeriode) {
+                Swal.fire('Peringatan', 'Nama Dana BOS dan Periode manual wajib diisi!', 'warning');
+                return;
+            }
+        } else {
+            // Jika Standar: Ambil Nama dari Dropdown, Tentukan Periode Otomatis
+            finalNamaBos = dropdownVal;
+            
+            // Mapping Periode Otomatis (Sesuai fungsi cekPeriodeBos)
+            if (dropdownVal === 'Dana BOS Tahap 1') finalPeriode = "Januari - Juni";
+            else if (dropdownVal === 'Dana BOS Tahap 2') finalPeriode = "Juli - Desember";
+            else if (dropdownVal === 'Dana BOS Triwulan 1') finalPeriode = "Januari - Maret";
+            else if (dropdownVal === 'Dana BOS Triwulan 2') finalPeriode = "April - Juni";
+            else if (dropdownVal === 'Dana BOS Triwulan 3') finalPeriode = "Juli - September";
+            else if (dropdownVal === 'Dana BOS Triwulan 4') finalPeriode = "Oktober - Desember";
+        }
+
+        // Susun Form Data
         const formData = {
           namaSekolah: document.getElementById('dsNamaSekolah').value,
-          npsn: document.getElementById('dsNpsn').value, // Kirim sebagai string biasa, backend nambahin '
+          npsn: document.getElementById('dsNpsn').value, 
           nsm: document.getElementById('dsNsm').value,
           alamat: document.getElementById('dsAlamat').value,
           provinsi: document.getElementById('dsProvinsi').value,
           kabupaten: document.getElementById('dsKabupaten').value,
           kecamatan: document.getElementById('dsKecamatan').value,
           kelurahan: document.getElementById('dsKelurahan').value,
-          
-          // Update Key
           tempatTTD: document.getElementById('dsTempatTTD').value,
-          
           namaKepala: document.getElementById('dsKepala').value,
           nipKepala: document.getElementById('dsNipKepala').value,
           namaBendahara: document.getElementById('dsBendahara').value,
           nipBendahara: document.getElementById('dsNipBendahara').value,
           noTelp: document.getElementById('dsTelp').value,
           email: document.getElementById('dsEmail').value,
-          danaBOS: document.getElementById('dsDanaBos').value,
+          
+          // KIRIM TERPISAH
+          danaBOS: finalNamaBos,          
+          periodeAnggaran: finalPeriode,  
+          
           jumlahAnggaran: cleanRibuan(document.getElementById('dsJumlahAnggaran').value),
           tahunAnggaran: document.getElementById('dsTahun').value
         };
 
+        // Kirim
         toggleLoading(true);
-
         google.script.run.withSuccessHandler(function(res) {
           toggleLoading(false);
           if (res.status === 'success') {
@@ -1620,6 +1695,46 @@
             Swal.fire('Gagal', res.message, 'error');
           }
         }).simpanDataSekolah(token, formData);
+      }
+
+      /* --- FUNGSI LOGIKA PERIODE BOS (DIPERBARUI PISAH KOLOM) --- */
+      function cekPeriodeBos() {
+        const select = document.getElementById('dsDanaBos');
+        const info = document.getElementById('infoPeriode');
+        const wrapManual = document.getElementById('wrapManualBos');
+        
+        const inputNama = document.getElementById('dsDanaBosManual');
+        const inputPeriode = document.getElementById('dsPeriodeManual');
+        
+        const val = select.value;
+        let teksInfo = "";
+        let isManual = false;
+
+        // Set teks info periode untuk pilihan standar
+        if (val === 'Dana BOS Tahap 1') teksInfo = "Periode Januari - Juni";
+        else if (val === 'Dana BOS Tahap 2') teksInfo = "Periode Juli - Desember";
+        else if (val === 'Dana BOS Triwulan 1') teksInfo = "Periode Januari - Maret";
+        else if (val === 'Dana BOS Triwulan 2') teksInfo = "Periode April - Juni";
+        else if (val === 'Dana BOS Triwulan 3') teksInfo = "Periode Juli - September";
+        else if (val === 'Dana BOS Triwulan 4') teksInfo = "Periode Oktober - Desember";
+        else if (val === 'Lainnya') {
+          teksInfo = ""; // Info kosong jika manual, user ketik sendiri
+          isManual = true;
+        }
+
+        // Tampilkan teks info kecil di bawah dropdown
+        info.innerText = teksInfo;
+
+        // Atur Visibilitas Input Manual
+        if (isManual) {
+          wrapManual.classList.remove('hidden');
+          inputNama.required = true;
+          inputPeriode.required = true;
+        } else {
+          wrapManual.classList.add('hidden');
+          inputNama.required = false;
+          inputPeriode.required = false;
+        }
       }
 
       /* --- LOGIC URAIAN PEKERJAAN (UPDATE) --- */
