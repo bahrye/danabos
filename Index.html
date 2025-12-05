@@ -2189,7 +2189,7 @@
 
                     const row = `
                         <tr>
-                            <td>${item.tanggal}</td>
+                            <td>${item.tanggalDisplay}</td> 
                             <td><div class="text-truncate" style="max-width: 200px;" title="${item.uraian}">${item.uraian}</div></td>
                             <td>${displayPihak}</td> 
                             <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
@@ -2206,10 +2206,10 @@
 
       // 3. Mode Edit Transaksi (FUNGSI BARU & KOMPLEKS)
       function modeEditTransaksi(tipe, encodedData) {
-        // 1. Decode Data JSON dari parameter
+        // 1. Decode Data JSON
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // 2. Mapping ID Form Header & Button berdasarkan Tipe
+        // 2. Mapping ID Form Header & Button
         let formId, tableId, btnSimpanId, btnBatalId;
         
         if (tipe === 'toko') {
@@ -2249,8 +2249,6 @@
           document.getElementById('trGuruTanggal').value = data.tanggal;
           setSelectValue('trGuruUraian', data.uraian);
           
-          // PERBAIKAN DISINI: Isi Keterangan dari data.pihakKetiga
-          // Jika isinya "-" atau "Honorarium Guru" (data lama), kosongkan saja agar rapi
           if(data.pihakKetiga === '-' || data.pihakKetiga === 'Honorarium Guru') {
               document.getElementById('trGuruKeterangan').value = '';
           } else {
@@ -2258,7 +2256,7 @@
           }
         }
 
-        // 3. Reset & Gambar Ulang Tabel Rincian Item
+        // 3. Reset & Gambar Ulang Tabel Rincian
         const tbody = document.getElementById(tableId).querySelector('tbody');
         tbody.innerHTML = ''; // Kosongkan tabel dulu
 
@@ -2267,25 +2265,17 @@
             const rowId = new Date().getTime() + Math.random();
             let colNamaInput = '';
 
-            // LOGIKA UTAMA: Deteksi apakah Item ini Guru Manual atau Dropdown
+            // --- LOGIKA KOLOM NAMA (Dropdown Guru vs Input Biasa) ---
             if (tipe === 'guru') {
-              let isManual = true; // Asumsi awal manual
-              
-              // Cek apakah nama di item ini ada di database cacheDataGuru?
+              let isManual = true; 
               if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
                   cacheDataGuru.forEach(g => {
-                      // Bandingkan nama (trim spasi agar akurat)
-                      if (g.nama.trim() === item.nama.trim()) {
-                          isManual = false; // Ketemu! Berarti bukan manual
-                      }
+                      if (g.nama.trim() === item.nama.trim()) isManual = false;
                   });
               }
 
-              // --- RENDER KOLOM NAMA ---
               if (isManual) {
-                  // A. Jika Manual -> Tampilkan INPUT GROUP dengan Tombol X
                   const val = String(item.nama).replace(/"/g, '&quot;');
-                  
                   colNamaInput = `
                     <div class="input-group">
                       <input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Guru (Manual)">
@@ -2294,44 +2284,48 @@
                       </button>
                     </div>
                   `;
-                  
               } else {
-                  // B. Jika Ada di Database -> Tampilkan DROPDOWN (Sama seperti sebelumnya)
                   let opts = '<option value="">-- Pilih Guru --</option>';
                   opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
-                  
                   cacheDataGuru.forEach(g => {
                       const isSelected = (g.nama.trim() === item.nama.trim()) ? 'selected' : '';
                       const val = String(g.nama).replace(/"/g, '&quot;');
                       opts += `<option value="${val}" ${isSelected}>${g.nama}</option>`;
                   });
-                  
                   colNamaInput = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
               }
-
             } else {
-              // Jika Tipe Toko/Tukang -> Selalu Input Text
+              // Input Biasa (Toko/Tukang)
               const val = String(item.nama).replace(/"/g, '&quot;');
               colNamaInput = `<input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang">`;
             }
 
-            // 4. Template Baris Tabel
+            // --- LOGIKA FORMAT HARGA (Titik Ribuan) ---
+            // Pastikan harga diformat dengan titik saat ditampilkan kembali
+            const hargaTampil = formatRibuanInput(item.harga);
+
+            // --- TEMPLATE BARIS (HARUS 6 KOLOM TD) ---
             const row = `
               <tr id="row-${rowId}">
                 <td>${colNamaInput}</td>
+                
                 <td>
                   <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
                 </td>
+                
                 <td>
                   <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan">
                 </td>
+                
                 <td>
-                  <input type="number" class="form-control item-harga" value="${item.harga}" oninput="hitungBaris(this, '${tipe}')">
+                  <input type="text" class="form-control item-harga" value="${hargaTampil}" oninput="hitungBaris(this, '${tipe}')">
                 </td>
+                
                 <td>
                   <input type="text" class="form-control item-jumlah-display" readonly value="${formatRupiahJS(item.jumlah)}">
                   <input type="hidden" class="item-jumlah-value" value="${item.jumlah}">
                 </td>
+                
                 <td class="text-center">
                   <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBaris(this, '${tipe}')">
                     <i class="fas fa-trash"></i>
@@ -2343,14 +2337,12 @@
             tbody.insertAdjacentHTML('beforeend', row);
           });
         } else {
-          // Jika data item kosong (error case), tambahkan 1 baris kosong default
           tambahBaris(tipe);
         }
 
-        // 5. Hitung Ulang Total
+        // 4. Hitung Ulang & Update UI
         hitungTotalSemua(tipe);
 
-        // 6. Ubah Tampilan Tombol Simpan & Batal (Mode Edit)
         const btnSimpan = document.getElementById(btnSimpanId);
         const btnBatal = document.getElementById(btnBatalId);
         
@@ -2360,7 +2352,6 @@
         
         btnBatal.classList.remove('hidden');
 
-        // 7. Scroll ke Form agar user melihat data yang diedit
         document.getElementById(formId).scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
@@ -2504,13 +2495,15 @@
         // 5. Ambil Rincian Item dari Tabel
         let items = [];
         rows.forEach(row => {
-          // .item-nama bisa berupa Input Text (Toko/Tukang) atau Select (Guru)
-          // .value akan mengambil nilai yang benar dari keduanya
           items.push({
             nama: row.querySelector('.item-nama').value, 
             vol: row.querySelector('.item-vol').value,
             sat: row.querySelector('.item-sat').value,
-            harga: row.querySelector('.item-harga').value,
+            
+            // --- PERUBAHAN PENTING DISINI ---
+            // Bersihkan titik sebelum disimpan ke database
+            harga: cleanRibuan(row.querySelector('.item-harga').value),
+            
             jumlah: row.querySelector('.item-jumlah-value').value
           });
         });
@@ -2710,7 +2703,7 @@
             <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
             <td><input type="text" class="form-control item-sat" placeholder="Bln/Keg"></td>
-            <td><input type="number" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
+            <td><input type="text" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
             <td>
               <input type="text" class="form-control item-jumlah-display" readonly value="0">
               <input type="hidden" class="item-jumlah-value" value="0">
@@ -2731,15 +2724,27 @@
         hitungTotalSemua(tipe); // Recalculate total
       }
 
-      // 5. Kalkulasi Per Baris (Vol * Harga)
+      // 5. Kalkulasi Per Baris (Vol * Harga) - DENGAN FORMAT RIBUAN
       function hitungBaris(input, tipe) {
         const row = input.closest('tr');
+        
+        // A. Jika yang diketik adalah kolom Harga, format tampilannya
+        if (input.classList.contains('item-harga')) {
+          // Simpan posisi kursor (opsional, agar nyaman saat edit di tengah)
+          // Untuk simpelnya, kita langsung format value-nya
+          input.value = formatRibuanInput(input.value);
+        }
+
+        // B. Ambil Nilai untuk Kalkulasi (Gunakan cleanRibuan)
         const vol = parseFloat(row.querySelector('.item-vol').value) || 0;
-        const harga = parseFloat(row.querySelector('.item-harga').value) || 0;
+        
+        // Ambil teks harga (misal: "15.000"), bersihkan jadi 15000
+        const hargaStr = row.querySelector('.item-harga').value;
+        const harga = cleanRibuan(hargaStr); 
         
         const total = vol * harga;
         
-        // Tampilkan format Rupiah di input readonly
+        // Tampilkan format Rupiah di input readonly (Total Jumlah)
         row.querySelector('.item-jumlah-display').value = formatRupiahJS(total);
         // Simpan nilai asli di hidden input
         row.querySelector('.item-jumlah-value').value = total;
@@ -2819,7 +2824,7 @@
             <table class="table table-borderless table-sm mb-0">
               <tr>
                 <td width="30%" class="fw-bold">Tanggal</td>
-                <td>: ${data.tanggal}</td>
+                <td>: ${data.tanggalDisplay}</td> 
               </tr>
               <tr>
                 <td class="fw-bold">Uraian</td>
@@ -2953,8 +2958,7 @@
 
               const row = `
                 <tr>
-                  <td>${item.tanggal}</td>
-                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.tanggalDisplay}</td> <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
                   <td>${item.pihakKetiga}</td>
                   <td>${statusBadge}</td>
                   <td>${btnAksi}</td>
@@ -3112,8 +3116,7 @@
 
               const row = `
                 <tr>
-                  <td>${item.tanggal}</td>
-                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+                  <td>${item.tanggalDisplay}</td> <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
                   <td>${item.pihakKetiga}</td>
                   <td>${statusBadge}</td>
                   <td>${btnAksi}</td>
@@ -3244,6 +3247,25 @@
             Swal.fire('Gagal', res.message, 'error');
           }
         }).simpanTanggalSurat(token, payload);
+      }
+
+      /* --- HELPER FORMAT ANGKA INPUT --- */
+
+      // Mengubah "10000" menjadi "10.000"
+      function formatRibuanInput(angka) {
+        if (!angka && angka !== 0) return '';
+        // Hapus karakter selain angka
+        let raw = String(angka).replace(/[^\d]/g, '');
+        if(!raw) return '';
+        // Format jadi 1.000.000
+        return new Intl.NumberFormat('id-ID').format(raw);
+      }
+
+      // Mengubah "10.000" menjadi angka murni 10000 (untuk kalkulasi)
+      function cleanRibuan(str) {
+        if (!str) return 0;
+        // Hapus tanda titik, lalu jadikan Float/Int
+        return parseFloat(String(str).replace(/\./g, '')) || 0;
       }
 
     </script>
