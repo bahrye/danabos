@@ -5,8 +5,13 @@
 const CONFIG = {
   MASTER_DB_ID: '1ysd6zCjs7gE76LKG7S-PjvrbZroPh6ekGz6RB2dxTcc', 
   TEMPLATE_DB_ID: '1I1oIcDCQTGO-fJJBTcCgWwgNC-cOKUg_ES0b9ZAKwok',
-  TEMPLATE_DOC_ID: 'MASUKKAN_ID_GOOGLE_DOC_TEMPLATE_DISINI',
-  FOLDER_PDF_ID: '' // Opsional: Jika ingin menyimpan PDF di folder tertentu
+  
+  // MASUKKAN ID TEMPLATE YANG BARU DIBUAT DISINI:
+  TEMPLATE_ID_TOKO: '1Fl8Jaf4j6XIyF8TghkwUsmrqEKU7obVbuOWDxlIa56o',
+  TEMPLATE_ID_GURU: '1pC4xjpoGpsCaidPqoWHjJAAFgwnuDnKPsONUrd3IeFg',
+  TEMPLATE_ID_TUKANG: '1vNWFUOKIKob8SI0VX0ROxhZQ02Tl6eboiR2TZ7mzRqE',
+  
+  FOLDER_PDF_ID: '' // Opsional
 };
 
 /* --- ROUTING HALAMAN --- */
@@ -76,37 +81,126 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF --- */
+/* --- FUNGSI GENERATE PDF (UPDATE MULTI-TEMPLATE) --- */
 
 function generateLPJ(token, dataForm) {
   try {
-    // 1. Copy Template Google Doc
-    const docTemplate = DriveApp.getFileById(CONFIG.TEMPLATE_DOC_ID);
-    const tempDocFile = docTemplate.makeCopy('LPJ_TEMP_' + new Date().getTime());
+    // 1. Tentukan Template ID berdasarkan Tipe
+    let templateId = '';
+    const tipe = dataForm.tipe; // 'TOKO', 'GURU', atau 'TUKANG'
+
+    if (tipe === 'TOKO') templateId = CONFIG.TEMPLATE_ID_TOKO;
+    else if (tipe === 'GURU') templateId = CONFIG.TEMPLATE_ID_GURU;
+    else if (tipe === 'TUKANG') templateId = CONFIG.TEMPLATE_ID_TUKANG;
+    else return { status: 'error', message: 'Tipe template tidak dikenali.' };
+
+    if (!templateId) return { status: 'error', message: 'ID Template belum diatur di CONFIG.' };
+
+    // 2. Copy Template
+    const docFile = DriveApp.getFileById(templateId);
+    const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
     const docId = tempDocFile.getId();
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
 
-    // 2. Replace Placeholders Dasar
-    // Data ini diambil dari input form di sisi client
-    body.replaceText('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
-    body.replaceText('<<Nama Toko>>', dataForm.namaToko);
-    body.replaceText('<<Nama Madrasah>>', dataForm.namaMadrasah);
-    body.replaceText('<<Total>>', formatRupiah(dataForm.total));
-    body.replaceText('<<Total Terbilang>>', terbilang(dataForm.total));
-    // ... tambahkan replaceText lain sesuai PDF Anda ...
+    // 3. Replace Placeholder Umum (Header Dokumen)
+    // Gunakan replaceText dengan aman (cek jika data null ganti string kosong)
+    const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // 3. Mengisi Tabel Item (Logic kompleks disederhanakan)
-    // Mencari placeholder tabel pertama dan mengisi baris
-    // (Ini butuh penyesuaian manual tergantung struktur Doc Anda)
+    safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
+    safeReplace('<<Nama Madrasah>>', dataForm.namaMadrasah);
+    safeReplace('<<Total>>', formatRupiah(dataForm.total));
+    safeReplace('<<Total Terbilang>>', terbilang(dataForm.total) + ' Rupiah');
     
+    // Format Tanggal (asumsi format input YYYY-MM-DD)
+    let tglIndo = dataForm.tanggal; 
+    try {
+        if(dataForm.tanggal) {
+            const d = new Date(dataForm.tanggal);
+            tglIndo = Utilities.formatDate(d, "GMT+7", "dd MMMM yyyy"); // Format: 05 Desember 2025
+        }
+    } catch(e) {}
+    safeReplace('<<Tanggal Transaksi>>', tglIndo);
+
+    // Replace Khusus per Tipe
+    if (tipe === 'TOKO') {
+        safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
+    } else if (tipe === 'GURU') {
+        safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
+        safeReplace('<<Keterangan>>', dataForm.pihakKetiga); // Di Guru, pihakKetiga berisi Keterangan
+    } else if (tipe === 'TUKANG') {
+        safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
+        safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
+    }
+
+    // 4. Mengisi Tabel Item (Logic Dinamis)
+    if (dataForm.items && dataForm.items.length > 0) {
+      // Cari tabel yang memiliki placeholder <<TABLE_ROW>>
+      const tables = body.getTables();
+      let targetTable = null;
+      let rowIndexTemplate = -1;
+
+      // Loop cari tabel yang pas
+      for (let t = 0; t < tables.length; t++) {
+        const table = tables[t];
+        const numRows = table.getNumRows();
+        for (let r = 0; r < numRows; r++) {
+          const rowText = table.getRow(r).getText();
+          if (rowText.includes('<<TABLE_ROW>>')) {
+            targetTable = table;
+            rowIndexTemplate = r;
+            break;
+          }
+        }
+        if (targetTable) break;
+      }
+
+      if (targetTable) {
+        // Ambil style baris template untuk dicopy
+        const templateRow = targetTable.getRow(rowIndexTemplate);
+        
+        // Loop Items dan tambah baris
+        dataForm.items.forEach((item, index) => {
+           // Insert baris baru sebelum baris template (agar urutan benar)
+           // Atau insert setelah baris header. 
+           // Cara paling aman: Insert copy dari templateRow di index yang sama, lalu geser.
+           
+           const newRow = targetTable.insertRow(rowIndexTemplate + index, templateRow.copy());
+           
+           // Isi Cell (Sesuaikan dengan urutan kolom di Template Anda)
+           // Asumsi Urutan Standar: [No] [Nama] [Vol] [Sat] [Harga] [Jumlah]
+           
+           // Kolom 0: No
+           newRow.getCell(0).setText((index + 1).toString());
+           
+           // Kolom 1: Nama Item
+           newRow.getCell(1).setText(item.nama);
+           
+           // Kolom 2: Volume
+           newRow.getCell(2).setText(item.vol.toString());
+           
+           // Kolom 3: Satuan
+           newRow.getCell(3).setText(item.sat);
+           
+           // Kolom 4: Harga Satuan
+           newRow.getCell(4).setText(formatRupiah(item.harga));
+           
+           // Kolom 5: Jumlah
+           newRow.getCell(5).setText(formatRupiah(item.jumlah));
+        });
+
+        // Hapus baris template asli (yang ada tulisan <<TABLE_ROW>>)
+        targetTable.removeRow(rowIndexTemplate + dataForm.items.length);
+      }
+    }
+
     doc.saveAndClose();
 
-    // 4. Konversi ke PDF
+    // 5. Konversi ke PDF
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ - ' + dataForm.nomorSurat + '.pdf');
+    const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ_' + tipe + '_' + dataForm.nomorSurat + '.pdf');
     
-    // 5. Hapus file doc sementara
+    // Hapus file doc sementara
     tempDocFile.setTrashed(true);
 
     return { status: 'success', url: pdfFile.getUrl() };
