@@ -1793,40 +1793,56 @@
       function handleLogin(e) {
         e.preventDefault();
         toggleLoading(true);
+        
         const form = {
           email: document.getElementById('loginEmail').value,
           password: document.getElementById('loginPass').value
         };
-        google.script.run.withSuccessHandler(function(res){
-          toggleLoading(false);
-          if(res.status === 'success') {
-            localStorage.setItem('userToken', res.token);
-            localStorage.setItem('userName', res.namaSekolah);
-            document.getElementById('schoolNameDisplay').innerText = "(" + res.namaSekolah + ")";
-            switchView('view-admin');
-          } else {
-            Swal.fire('Login Gagal', res.message, 'error');
-          }
-        }).loginUser(form);
+
+        google.script.run
+          .withFailureHandler(handleServerError) // [PERBAIKAN] Handler Error
+          .withSuccessHandler(function(res){
+            toggleLoading(false);
+            if(res.status === 'success') {
+              localStorage.setItem('userToken', res.token);
+              localStorage.setItem('userName', res.namaSekolah);
+              
+              // Update tampilan nama sekolah di dashboard
+              const elName = document.getElementById('schoolNameDisplay');
+              if(elName) elName.innerText = "(" + res.namaSekolah + ")";
+              
+              // Pindah ke halaman admin dan load data dashboard
+              switchView('view-admin');
+              loadDashboardStats(); // Pastikan dashboard ter-load saat login
+            } else {
+              Swal.fire('Login Gagal', res.message, 'error');
+            }
+          })
+          .loginUser(form);
       }
 
       function handleRegister(e) {
         e.preventDefault();
         toggleLoading(true);
+        
         const form = {
           namaSekolah: document.getElementById('regNama').value,
           email: document.getElementById('regEmail').value,
           password: document.getElementById('regPass').value
         };
-        google.script.run.withSuccessHandler(function(res){
-          toggleLoading(false);
-          if(res.status === 'success') {
-            Swal.fire('Berhasil', res.message, 'success');
-            switchView('view-login');
-          } else {
-            Swal.fire('Gagal', res.message, 'error');
-          }
-        }).registerSchool(form);
+
+        google.script.run
+          .withFailureHandler(handleServerError) // [PERBAIKAN] Handler Error
+          .withSuccessHandler(function(res){
+            toggleLoading(false);
+            if(res.status === 'success') {
+              Swal.fire('Berhasil', res.message, 'success');
+              switchView('view-login');
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .registerSchool(form);
       }
 
       function logout() {
@@ -1883,7 +1899,7 @@
 
         toggleLoading(true);
         
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           toggleLoading(false);
           if (res.status === 'success') {
             const d = res.data;
@@ -2016,7 +2032,7 @@
 
         // Kirim
         toggleLoading(true);
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           toggleLoading(false);
           if (res.status === 'success') {
             Swal.fire('Sukses', 'Data Sekolah berhasil disimpan!', 'success');
@@ -2075,7 +2091,7 @@
         
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = ''; 
             
@@ -2183,12 +2199,12 @@
         // LOGIC CABANG: Jika ada ID -> Edit, Jika tidak -> Baru
         if (idEdit) {
           // --- MODE EDIT ---
-          google.script.run.withSuccessHandler(function(res) {
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
             finishSubmit(res, btn, originalText);
           }).editUraianItem(token, formData);
         } else {
           // --- MODE BARU ---
-          google.script.run.withSuccessHandler(function(res) {
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
             finishSubmit(res, btn, originalText);
           }).simpanUraianBaru(token, formData);
         }
@@ -2221,7 +2237,9 @@
         
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if (res.data.length === 0) {
@@ -2230,12 +2248,10 @@
             }
 
             res.data.forEach(item => {
-              const cleanTelp = String(item.telp).replace(/'/g, '');
-              
-              // Escape string untuk tombol edit agar tidak error jika ada tanda kutip di nama
+              // [FIX] Gunakan escapeJsAttribute untuk data yang masuk ke onclick
               const btnEdit = `
                 <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditToko('${item.id}', '${escapeHtml(item.nama)}', '${escapeHtml(item.jenis)}', '${escapeHtml(item.alamat)}', '${cleanTelp}', '${escapeHtml(item.pemilik)}', '${escapeHtml(item.tempat)}')" 
+                  onclick="modeEditToko('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.jenis)}', '${escapeJsAttribute(item.alamat)}', '${escapeJsAttribute(item.telp)}', '${escapeJsAttribute(item.pemilik)}', '${escapeJsAttribute(item.tempat)}')" 
                   title="Edit">
                   <i class="fas fa-pencil-alt"></i>
                 </button>
@@ -2247,11 +2263,12 @@
                 </button>
               `;
 
+              // [FIX] Gunakan escapeHtml untuk tampilan tabel
               const row = `
                 <tr>
-                  <td class="fw-bold text-primary">${item.nama}</td>
-                  <td>${item.pemilik}<br><small class="text-muted">${cleanTelp}</small></td>
-                  <td><span class="badge bg-light text-dark border">${item.jenis}</span></td>
+                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+                  <td>${escapeHtml(item.pemilik)}<br><small class="text-muted">${escapeHtml(item.telp)}</small></td>
+                  <td><span class="badge bg-light text-dark border">${escapeHtml(item.jenis)}</span></td>
                   <td>${btnEdit} ${btnHapus}</td>
                 </tr>
               `;
@@ -2298,22 +2315,22 @@
         };
 
         if (idEdit) {
-          google.script.run.withSuccessHandler(handler).editTokoItem(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).editTokoItem(token, formData);
         } else {
-          google.script.run.withSuccessHandler(handler).simpanTokoBaru(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).simpanTokoBaru(token, formData);
         }
       }
 
       // 3. Mode Edit
       function modeEditToko(id, nama, jenis, alamat, telp, pemilik, tempat) {
-        // Isi form seperti biasa
+        // [FIX] Data diterima sudah bersih (karena sudah di-escape di onclick), langsung pakai.
         document.getElementById('tkId').value = id;
-        document.getElementById('tkNama').value = unescapeHtml(nama);
-        document.getElementById('tkJenis').value = unescapeHtml(jenis);
-        document.getElementById('tkAlamat').value = unescapeHtml(alamat);
+        document.getElementById('tkNama').value = nama;
+        document.getElementById('tkJenis').value = jenis;
+        document.getElementById('tkAlamat').value = alamat;
         document.getElementById('tkTelp').value = telp;
-        document.getElementById('tkPemilik').value = unescapeHtml(pemilik);
-        document.getElementById('tkTempat').value = unescapeHtml(tempat);
+        document.getElementById('tkPemilik').value = pemilik;
+        document.getElementById('tkTempat').value = tempat;
 
         // Ubah tombol menjadi mode Edit
         const btn = document.getElementById('btnSimpanToko');
@@ -2321,11 +2338,8 @@
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalToko').classList.remove('hidden');
         
-        // PERBAIKAN SCROLL: Gunakan setTimeout dan block: 'center'
         setTimeout(() => {
-          const form = document.getElementById('formToko');
-          // 'center' membuat form berada di tengah layar, lebih aman dari 'start' yang sering tertutup header
-          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('formToko').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
       }
 
@@ -2348,7 +2362,7 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
                 loadTokoData();
                 Swal.fire('Terhapus!', 'Data toko dihapus.', 'success');
@@ -2388,7 +2402,9 @@
         
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if (res.data.length === 0) {
@@ -2397,10 +2413,10 @@
             }
 
             res.data.forEach(item => {
-              // Escape string agar aman di fungsi onclick
+              // [FIX] Gunakan escapeJsAttribute
               const btnEdit = `
                 <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditTukang('${item.id}', '${escapeHtml(item.nama)}', '${escapeHtml(item.alamat)}')" 
+                  onclick="modeEditTukang('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.alamat)}')" 
                   title="Edit">
                   <i class="fas fa-pencil-alt"></i>
                 </button>
@@ -2412,10 +2428,11 @@
                 </button>
               `;
 
+              // [FIX] Gunakan escapeHtml
               const row = `
                 <tr>
-                  <td class="fw-bold text-primary">${item.nama}</td>
-                  <td>${item.alamat}</td>
+                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+                  <td>${escapeHtml(item.alamat)}</td>
                   <td>${btnEdit} ${btnHapus}</td>
                 </tr>
               `;
@@ -2458,27 +2475,25 @@
         };
 
         if (idEdit) {
-          google.script.run.withSuccessHandler(handler).editTukangItem(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).editTukangItem(token, formData);
         } else {
-          google.script.run.withSuccessHandler(handler).simpanTukangBaru(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).simpanTukangBaru(token, formData);
         }
       }
 
       // 3. Mode Edit
       function modeEditTukang(id, nama, alamat) {
         document.getElementById('tkgId').value = id;
-        document.getElementById('tkgNama').value = unescapeHtml(nama);
-        document.getElementById('tkgAlamat').value = unescapeHtml(alamat);
+        document.getElementById('tkgNama').value = nama;
+        document.getElementById('tkgAlamat').value = alamat;
 
         const btn = document.getElementById('btnSimpanTukang');
         btn.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalTukang').classList.remove('hidden');
         
-        // PERBAIKAN SCROLL
         setTimeout(() => {
-          const form = document.getElementById('formTukang');
-          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('formTukang').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
       }
 
@@ -2501,7 +2516,7 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
                 loadTukangData();
                 Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
@@ -2520,7 +2535,9 @@
         
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if (res.data.length === 0) {
@@ -2529,12 +2546,10 @@
             }
 
             res.data.forEach(item => {
-              // Bersihkan tanda kutip dari NIP
-              const cleanNip = item.nip ? String(item.nip).replace(/'/g, '') : '-';
-
+              // [FIX] Gunakan escapeJsAttribute
               const btnEdit = `
                 <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditGuru('${item.id}', '${escapeHtml(item.nama)}', '${cleanNip}')" 
+                  onclick="modeEditGuru('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.nip)}')" 
                   title="Edit">
                   <i class="fas fa-pencil-alt"></i>
                 </button>
@@ -2546,10 +2561,11 @@
                 </button>
               `;
 
+              // [FIX] Gunakan escapeHtml
               const row = `
                 <tr>
-                  <td class="fw-bold text-primary">${item.nama}</td>
-                  <td>${cleanNip}</td>
+                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+                  <td>${escapeHtml(item.nip)}</td>
                   <td>${btnEdit} ${btnHapus}</td>
                 </tr>
               `;
@@ -2592,29 +2608,26 @@
         };
 
         if (idEdit) {
-          google.script.run.withSuccessHandler(handler).editGuruItem(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).editGuruItem(token, formData);
         } else {
-          google.script.run.withSuccessHandler(handler).simpanGuruBaru(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).simpanGuruBaru(token, formData);
         }
       }
 
       // 3. Mode Edit
       function modeEditGuru(id, nama, nip) {
         document.getElementById('grId').value = id;
-        document.getElementById('grNama').value = unescapeHtml(nama);
-        
-        // Jika NIP adalah '-', kosongkan form, jika tidak isi dengan nilai
-        document.getElementById('grNip').value = (nip === '-') ? '' : nip;
+        document.getElementById('grNama').value = nama;
+        // Handle jika NIP kosong/dash
+        document.getElementById('grNip').value = (nip === '-' || !nip) ? '' : nip;
 
         const btn = document.getElementById('btnSimpanGuru');
         btn.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Perubahan';
         btn.classList.replace('btn-primary', 'btn-warning');
         document.getElementById('btnBatalGuru').classList.remove('hidden');
         
-        // PERBAIKAN SCROLL
         setTimeout(() => {
-          const form = document.getElementById('formGuru');
-          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('formGuru').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
       }
 
@@ -2637,7 +2650,7 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
                 loadGuruData();
                 Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
@@ -2661,7 +2674,7 @@
         txtEl.style.display = 'block';
         btnHapus.classList.add('hidden');
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success' && res.fileId) {
             // Trik menampilkan gambar dari Drive: gunakan endpoint thumbnail
             // atau export=view. Thumbnail lebih aman dari CORS biasanya.
@@ -2726,7 +2739,7 @@
 
           const token = localStorage.getItem('userToken');
 
-          google.script.run.withSuccessHandler(function(res) {
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
             btn.innerHTML = originalText;
             btn.disabled = false;
 
@@ -2754,7 +2767,7 @@
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
             
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if (res.status === 'success') {
                 Swal.fire('Terhapus', 'Kop surat telah dihapus', 'success');
                 loadKopSettings(); // Refresh tampilan
@@ -2805,7 +2818,7 @@
 
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
             if (res.status === 'success') {
                 tbody.innerHTML = '';
                 if(res.data.length === 0) {
@@ -3084,7 +3097,7 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
                 Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
                 loadTransaksiData(tipe); // Reload tabel
@@ -3224,9 +3237,9 @@
 
         // Percabangan: Panggil fungsi Edit atau Simpan Baru
         if (idEdit) {
-          google.script.run.withSuccessHandler(handleResult).editTransaksiItem(token, payload);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handleResult).editTransaksiItem(token, payload);
         } else {
-          google.script.run.withSuccessHandler(handleResult).simpanTransaksiBaru(token, payload);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handleResult).simpanTransaksiBaru(token, payload);
         }
       }
 
@@ -3234,7 +3247,7 @@
       function loadTransaksiOptions() {
         const token = localStorage.getItem('userToken');
         
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             const d = res.data;
             
@@ -3623,7 +3636,7 @@
         
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data transaksi...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if(res.data.length === 0) {
@@ -4084,7 +4097,7 @@
 
         const token = localStorage.getItem('userToken');
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           btn.innerHTML = txtAsli;
           btn.disabled = false;
 
@@ -4125,7 +4138,7 @@
         
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if(res.data.length === 0) {
@@ -4355,7 +4368,7 @@
 
         const token = localStorage.getItem('userToken');
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           btn.innerHTML = txtAsli;
           btn.disabled = false;
 
@@ -4376,23 +4389,47 @@
         }).simpanTanggalSurat(token, payload);
       }
 
-      /* --- HELPER FORMAT ANGKA INPUT --- */
+      /* --- HELPER FORMAT ANGKA INPUT (FIXED COPY-PASTE) --- */
 
-      // Mengubah "10000" menjadi "10.000"
+      // Mengubah input "10000" atau "10.000,00" menjadi tampilan "10.000"
       function formatRibuanInput(angka) {
         if (!angka && angka !== 0) return '';
-        // Hapus karakter selain angka
-        let raw = String(angka).replace(/[^\d]/g, '');
-        if(!raw) return '';
-        // Format jadi 1.000.000
+        
+        let str = String(angka);
+
+        // 1. [PERBAIKAN UTAMA] Cek Koma (Desimal)
+        // Jika ada koma, buang semua angka dibelakangnya.
+        // Contoh: "100.000,00" -> diambil "100.000" saja.
+        if (str.indexOf(',') > -1) {
+          str = str.split(',')[0];
+        }
+        
+        // 2. Hapus karakter selain angka (0-9)
+        // Contoh: "Rp 100.000" -> "100000"
+        let raw = str.replace(/[^\d]/g, '');
+        
+        if (!raw) return '';
+        
+        // 3. Format jadi 1.000.000 (Style Indonesia)
         return new Intl.NumberFormat('id-ID').format(raw);
       }
 
-      // Mengubah "10.000" menjadi angka murni 10000 (untuk kalkulasi)
+      // Mengubah tampilan "10.000" menjadi angka murni 10000 (untuk kalkulasi matematika)
       function cleanRibuan(str) {
         if (!str) return 0;
-        // Hapus tanda titik, lalu jadikan Float/Int
-        return parseFloat(String(str).replace(/\./g, '')) || 0;
+        
+        let s = String(str);
+        
+        // 1. Buang desimal jika ada (Sama seperti di atas)
+        if (s.indexOf(',') > -1) {
+          s = s.split(',')[0];
+        }
+        
+        // 2. Hapus tanda titik (ribuan) dan simbol mata uang
+        // Kita sisakan angka dan tanda minus (jika ada diskon/potongan)
+        let bersih = s.replace(/\./g, '').replace(/[^\d-]/g, '');
+        
+        return parseFloat(bersih) || 0;
       }
 
       /* --- LOGIKA DASHBOARD (UPDATE LENGKAP) --- */
@@ -4402,7 +4439,7 @@
         
         document.getElementById('dashAnggaran').innerText = '...';
         
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             const d = res.data;
             const p = d.profile || {}; // Data Profil Sekolah
@@ -4495,7 +4532,7 @@
 
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Sedang memuat data...</td></tr>';
 
-        google.script.run.withSuccessHandler(function(res) {
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             tbody.innerHTML = '';
             if(res.data.length === 0) {
@@ -4632,7 +4669,7 @@
               items: data.items              
             };
 
-            google.script.run.withSuccessHandler(function(res) {
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if (res.status === 'success') {
                 Swal.fire({
                   icon: 'success',
@@ -4730,7 +4767,7 @@
       // Load Setting dari Server ke Form
       function loadSettingNomor() {
         const token = localStorage.getItem('userToken');
-        google.script.run.withSuccessHandler(function(res){
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res){
           if(res.status === 'success' && res.data) {
             const s = res.data;
             globalAutoSettings = s; // Update Global Cache
@@ -4795,7 +4832,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
         btn.disabled = true;
 
-        google.script.run.withSuccessHandler(function(res){
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res){
           // Kembalikan tombol ke semula
           btn.innerHTML = originalText;
           btn.disabled = false;
@@ -4818,7 +4855,7 @@
       // Helper: Refresh Cache diam-diam saat buka tab list
       function refreshAutoSettingsCache() {
         const token = localStorage.getItem('userToken');
-        google.script.run.withSuccessHandler(function(res){
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res){
           if(res.status === 'success' && res.data) globalAutoSettings = res.data;
         }).getSettingNomor(token);
       }
@@ -4864,7 +4901,7 @@
           if (result.isConfirmed) {
             toggleLoading(true);
             
-            google.script.run
+            google.script.run.withFailureHandler(handleServerError)
               .withSuccessHandler(function(res) {
                 toggleLoading(false);
                 if (res.status === 'success') {
@@ -4910,6 +4947,29 @@
             btn.innerHTML = '<i class="fas fa-redo"></i> Coba Lagi'; 
           }
         });
+      }
+
+      /* --- HELPER: SANITASI DATA (FIX TANDA KUTIP) --- */
+
+      // 1. Untuk Tampilan di Tabel (Mencegah HTML Injection)
+      function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      // 2. Untuk Parameter Tombol Edit (Mencegah JS Error)
+      // Mengubah ' menjadi \' agar aman masuk ke fungsi onclick="edit('...')"
+      function escapeJsAttribute(text) {
+        if (!text) return "";
+        return String(text)
+          .replace(/\\/g, "\\\\")   // Escape backslash dulu
+          .replace(/'/g, "\\'")     // Escape kutip satu untuk JS
+          .replace(/"/g, "&quot;"); // Escape kutip dua untuk HTML Attr
       }
 
     </script>
