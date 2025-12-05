@@ -18,7 +18,7 @@ const CONFIG = {
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Aplikasi LPJ BOS Madrasah')
+    .setTitle('Aplikasi LPJ BOS Sekolah')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -243,7 +243,7 @@ function terbilang(nilai) {
 
 /* --- FUNGSI DATA SEKOLAH --- */
 
-// 1. Ambil Data Sekolah (Saat menu dibuka)
+// 1. Ambil Data Sekolah (Update: Ambil kolom ke-19 / Periode)
 function getDataSekolah(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -253,15 +253,16 @@ function getDataSekolah(token) {
       sheet = ss.insertSheet('DataSekolah');
       const headers = [
         "Nama Sekolah", "NPSN", "NSM", "Alamat Lengkap", "Provinsi", 
-        "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD", // Update Header
+        "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD",
         "Nama Kepala", "NIP Kepala", "Nama Bendahara", "NIP Bendahara", 
         "No Telp", "Email", "Nama Dana BOS",
-        "Jumlah Anggaran", "Tahun Anggaran"
+        "Jumlah Anggaran", "Tahun Anggaran", "Periode Anggaran" // <-- Kolom Baru (Index 18)
       ];
       sheet.appendRow(headers);
     }
 
-    const data = sheet.getRange(2, 1, 1, 17).getValues()[0];
+    // Ambil range diperluas jadi 19 kolom (A sampai S)
+    const data = sheet.getRange(2, 1, 1, 19).getValues()[0];
     
     return {
       status: 'success',
@@ -274,7 +275,7 @@ function getDataSekolah(token) {
         kabupaten: data[5] || '',
         kecamatan: data[6] || '',
         kelurahan: data[7] || '',
-        tempatTTD: data[8] || '', // Ubah key jadi tempatTTD
+        tempatTTD: data[8] || '',
         namaKepala: data[9] || '',
         nipKepala: data[10] || '',
         namaBendahara: data[11] || '',
@@ -283,7 +284,8 @@ function getDataSekolah(token) {
         email: data[14] || '',
         danaBOS: data[15] || '',
         jumlahAnggaran: data[16] || 0,
-        tahunAnggaran: data[17] || ''
+        tahunAnggaran: data[17] || '',
+        periodeAnggaran: data[18] || '' // <-- Data Baru
       }
     };
   } catch (e) {
@@ -291,28 +293,29 @@ function getDataSekolah(token) {
   }
 }
 
-// 2. Simpan Data Sekolah
+// 2. Simpan Data Sekolah (Update: Simpan kolom Periode terpisah)
 function simpanDataSekolah(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheet = ss.getSheetByName('DataSekolah');
     if (!sheet) return { status: 'error', message: 'Sheet DataSekolah tidak ditemukan!' };
 
-    // PERBAIKAN: Format Text untuk NPSN, NSM, dan No. Telp
-    // Menggunakan ternary operator ( ? : ) untuk NSM karena sifatnya opsional
-    // Jika ada isinya, tambahkan kutip ('). Jika kosong, biarkan kosong.
+    // Format Text
     const npsnText = "'" + form.npsn; 
-    const nsmText = form.nsm ? "'" + form.nsm : "";  // <--- NSM diformat Text
+    const nsmText = form.nsm ? "'" + form.nsm : "";
     const telpText = "'" + form.noTelp;
-    
-    // Format Text juga untuk NIP (Opsional)
     const nipKepalaText = form.nipKepala ? "'" + form.nipKepala : "";
     const nipBendaharaText = form.nipBendahara ? "'" + form.nipBendahara : "";
 
+    // Pastikan header kolom periode ada (jika user lama)
+    if(sheet.getLastColumn() < 19) {
+       sheet.getRange(1, 19).setValue("Periode Anggaran");
+    }
+
     const rowData = [
       form.namaSekolah,
-      npsnText,       // Save as Text
-      nsmText,        // Save as Text
+      npsnText,
+      nsmText,
       form.alamat,
       form.provinsi,
       form.kabupaten,
@@ -320,14 +323,15 @@ function simpanDataSekolah(token, form) {
       form.kelurahan,
       form.tempatTTD, 
       form.namaKepala,
-      nipKepalaText,  // Save as Text
+      nipKepalaText,
       form.namaBendahara,
-      nipBendaharaText, // Save as Text
-      telpText,       // Save as Text
+      nipBendaharaText,
+      telpText,
       form.email,
-      form.danaBOS,
+      form.danaBOS,       // Nama BOS murni
       form.jumlahAnggaran,
-      form.tahunAnggaran
+      form.tahunAnggaran,
+      form.periodeAnggaran // <-- Simpan Periode disini
     ];
 
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
