@@ -1005,33 +1005,52 @@ function simpanTanggalSurat(token, form) {
   }
 }
 
-/* --- FUNGSI DASHBOARD (BARU) --- */
+/* --- FUNGSI DASHBOARD (UPDATE LENGKAP) --- */
 
 function getDashboardStats(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Anggaran dari Sheet DataSekolah
+    // 1. Ambil Data Sekolah Lengkap (Profil & Anggaran)
     let sheetSekolah = ss.getSheetByName('DataSekolah');
+    let schoolProfile = {};
     let anggaran = 0;
     
     if (sheetSekolah) {
-      // Jumlah Anggaran ada di Kolom Q (Index 17, array index 16)
-      // Cek header di fungsi getDataSekolah sebelumnya
-      const dataSekolah = sheetSekolah.getRange(2, 1, 1, 17).getValues()[0];
-      anggaran = Number(dataSekolah[16]) || 0; 
+      // Ambil range A2:R2 (18 Kolom)
+      // Struktur kolom lihat di fungsi simpanDataSekolah
+      const data = sheetSekolah.getRange(2, 1, 1, 18).getValues()[0];
+      
+      // Mapping Data untuk Tampilan Dashboard
+      schoolProfile = {
+        nama: data[0] || '-',
+        npsn: String(data[1]).replace(/'/g, '') || '-',
+        nsm: String(data[2]).replace(/'/g, '') || '-',
+        alamat: data[3] || '-',
+        // Gabung lokasi: Kec. X, Kab. Y, Prov. Z
+        lokasi: (data[6] ? 'Kec. ' + data[6] + ', ' : '') + 
+                (data[5] ? data[5] : '') + 
+                (data[4] ? ', ' + data[4] : ''),
+        
+        kepala: data[9] || '-',
+        nipKepala: String(data[10]).replace(/'/g, '') || '-',
+        bendahara: data[11] || '-',
+        nipBendahara: String(data[12]).replace(/'/g, '') || '-',
+        email: data[14] || '-'
+      };
+      
+      // Ambil Jumlah Anggaran (Kolom Index 16 / Q)
+      anggaran = Number(data[16]) || 0; 
     }
 
-    // 2. Hitung Total Pengeluaran & Jumlah Transaksi dari Sheet DataTransaksi
+    // 2. Hitung Total Pengeluaran & Jumlah Transaksi
     let sheetTrans = ss.getSheetByName('DataTransaksi');
     let totalPengeluaran = 0;
     let jumlahTransaksi = 0;
 
     if (sheetTrans) {
       const dataTrans = sheetTrans.getDataRange().getValues();
-      // Mulai dari baris ke-2 (index 1) karena baris 1 adalah Header
       for (let i = 1; i < dataTrans.length; i++) {
-        // Kolom Total_Biaya ada di index 7 (Kolom H)
         let biaya = Number(dataTrans[i][7]) || 0;
         totalPengeluaran += biaya;
         jumlahTransaksi++;
@@ -1043,7 +1062,8 @@ function getDashboardStats(token) {
       data: {
         anggaran: anggaran,
         pengeluaran: totalPengeluaran,
-        jumlahTransaksi: jumlahTransaksi
+        jumlahTransaksi: jumlahTransaksi,
+        profile: schoolProfile // Data Profil dikirim disini
       }
     };
 
