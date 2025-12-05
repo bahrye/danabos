@@ -121,12 +121,12 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF (UPDATE: SIMPAN ID FILE & HAPUS FILE LAMA) --- */
-
-/* --- FUNGSI GENERATE PDF (UPDATE: SIMPAN KE FOLDER GENERATE SEKOLAH) --- */
+/* --- FUNGSI GENERATE PDF (UPDATE FIX PLACEHOLDER TUKANG) --- */
 function generateLPJ(token, dataForm) {
   try {
-    // 1. Tentukan Template
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Tentukan Template ID
     let templateId = '';
     const tipe = dataForm.tipe; 
     if (tipe === 'TOKO') templateId = CONFIG.TEMPLATE_ID_TOKO;
@@ -135,9 +135,23 @@ function generateLPJ(token, dataForm) {
     
     if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan.' };
 
-    // --- AMBIL DATA ---
+    // --- AMBIL DATA DARI DATABASE (SURAT & TANGGAL) ---
+    const sheetTrans = ss.getSheetByName('DataTransaksi');
+    const rowsTrans = sheetTrans.getDataRange().getValues();
+    let dbSurat = {}, dbTanggal = {};
+    
+    // Cari baris transaksi berdasarkan ID
+    const transRow = rowsTrans.find(r => r[0] === dataForm.idTransaksi);
+    if (transRow) {
+        try { dbSurat = JSON.parse(transRow[9]); } catch(e) {}
+        try { dbTanggal = JSON.parse(transRow[10]); } catch(e) {}
+    }
+
+    // Ambil Data Sekolah
     const resSekolah = getDataSekolah(token);
     const ds = resSekolah.data || {}; 
+
+    // Ambil Nomor Bukti Uraian
     let nomorBuktiUraian = "-";
     const resUraian = getUraianList(token);
     if (resUraian.status === 'success' && resUraian.data) {
@@ -145,45 +159,125 @@ function generateLPJ(token, dataForm) {
         if (uraianFound) nomorBuktiUraian = uraianFound.noBukti;
     }
 
-    // 2. Buat Doc Sementara
+    // 2. Buat Dokumen Sementara
     const docFile = DriveApp.getFileById(templateId);
     const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
-    const docId = tempDocFile.getId();
-    const doc = DocumentApp.openById(docId);
+    const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // --- REPLACE DATA ---
-    safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat);
+    // --- REPLACE DATA UMUM ---
     safeReplace('<<Nomor Bukti Uraian>>', nomorBuktiUraian);
+    safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
     safeReplace('<<Nama Madrasah>>', ds.namaSekolah);
+    safeReplace('<<Alamat Lengkap Sekolah>>', ds.alamat + ', ' + ds.kecamatan + ', ' + ds.kabupaten);
+    safeReplace('<<Alamat TTD Sekolah>>', ds.tempatTTD);
     safeReplace('<<Kecamatan>>', ds.kecamatan);
     safeReplace('<<Kabupaten>>', ds.kabupaten);
     safeReplace('<<Provinsi>>', ds.provinsi);
+    
     safeReplace('<<Total>>', formatRupiah(dataForm.total));
     safeReplace('<<Total Terbilang>>', terbilang(dataForm.total) + ' Rupiah');
+    
     safeReplace('<<Nama Dana BOS>>', ds.danaBOS);
     safeReplace('<<Periode>>', ds.periodeAnggaran);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+    
     safeReplace('<<NAMA KEPALA SEKOLAH>>', ds.namaKepala);
+    safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
     safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
-    let tglIndo = dataForm.tanggal; 
-    try { if(dataForm.tanggal) tglIndo = Utilities.formatDate(new Date(dataForm.tanggal), "GMT+7", "dd MMMM yyyy"); } catch(e){}
-    safeReplace('<<Tanggal Transaksi>>', tglIndo);
-    safeReplace('<<Tanggal BA.Bayar>>', tglIndo);
 
-    if (tipe === 'TOKO') safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
-    else if (tipe === 'GURU') {
+    // --- LOGIKA KHUSUS BERDASARKAN TIPE ---
+    
+    if (tipe === 'TUKANG') {
+        // A. DATA TUKANG
+        let alamatTukang = "................................";
+        const sheetTukang = ss.getSheetByName('DataTukang');
+        if (sheetTukang) {
+            const dataTukang = sheetTukang.getDataRange().getValues();
+            const tkg = dataTukang.find(r => r[1] === dataForm.pihakKetiga);
+            if (tkg) alamatTukang = tkg[2];
+        }
+
+        safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
+        safeReplace('<<NAMA TUKANG>>', dataForm.pihakKetiga.toUpperCase());
+        safeReplace('<<Alamat Lengkap Tukang>>', alamatTukang);
+        safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
+
+        // B. DATA PEMESAN / GURU (DIPERBAIKI DENGAN PLACEHOLDER BARU)
+        let namaPemesan = dataForm.pemesan || "-"; 
+        let nipPemesan = "-";
+
+        const sheetGuru = ss.getSheetByName('DataGuru');
+        if (sheetGuru) {
+             const dataGuru = sheetGuru.getDataRange().getValues();
+             const guruFound = dataGuru.find(r => String(r[1]).trim() === String(namaPemesan).trim());
+             if (guruFound) {
+                 nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
+             }
+        }
+
+        // --> PERUBAHAN DISINI: Targetkan placeholder baru <--
+        safeReplace('<<NAMA PEMESAN TUKANG>>', namaPemesan);
+        safeReplace('<<NIP PEMESAN TUKANG>>', nipPemesan);
+
+        // C. NOMOR SURAT & TANGGAL
+        safeReplace('<<Surat Permintaan Tukang>>', dbSurat.permintaan || '-');
+        safeReplace('<<Nomor Surat BA.PP>>', dbSurat.baPemeriksaan || '-');
+        safeReplace('<<Nomor Surat BA.STP>>', dbSurat.baSerahTerima || '-');
+        safeReplace('<<Nomor Surat BA.Bayar>>', dbSurat.baPembayaran || '-');
+
+        const tglTrans = dataForm.tanggal;
+        const tglMinta = dbTanggal.permintaan || tglTrans;
+        safeReplace('<<Tanggal Surat Permintaan Tukang>>', formatTanggalIndo(tglMinta));
+
+        const tglPP = dbTanggal.baPemeriksaan || tglTrans;
+        const detPP = getIndonesianDateDetails(tglPP);
+        safeReplace('<<Tgl BA.PP>>', formatTanggalIndo(tglPP));
+        safeReplace('<<Tanggal BA.PP>>', formatTanggalIndo(tglPP));
+        safeReplace('<<Hari Huruf Tanggal BA.PP>>', detPP.hari);
+        safeReplace('<<Tanggal Huruf BA.PP>>', detPP.tanggal);
+        safeReplace('<<Bulan Huruf Tanggal BA.PP>>', detPP.bulan);
+        safeReplace('<<Tahun Huruf Tanggal BA.PP>>', detPP.tahun);
+
+        const tglSTP = dbTanggal.baSerahTerima || tglTrans;
+        const detSTP = getIndonesianDateDetails(tglSTP);
+        safeReplace('<<Tanggal BA.STP>>', formatTanggalIndo(tglSTP));
+        safeReplace('<<Hari Huruf Tanggal BA.STP>>', detSTP.hari);
+        safeReplace('<<Tanggal Huruf BA.STP>>', detSTP.tanggal);
+        safeReplace('<<Bulan Huruf Tanggal BA.STP>>', detSTP.bulan);
+        safeReplace('<<Tahun Huruf Tanggal BA.STP>>', detSTP.tahun);
+
+        const tglBayar = dbTanggal.baPembayaran || tglTrans;
+        const detBayar = getIndonesianDateDetails(tglBayar);
+        safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(tglBayar));
+        safeReplace('<<Hari Huruf Tanggal BA.Bayar Tukang>>', detBayar.hari);
+        safeReplace('<<Tanggal Huruf BA.Bayar Tukang>>', detBayar.tanggal);
+        safeReplace('<<Bulan Huruf Tanggal BA.Bayar Tukang>>', detBayar.bulan);
+        safeReplace('<<Tahun Huruf Tanggal BA.Bayar Tukang>>', detBayar.tahun);
+
+    } else if (tipe === 'TOKO') {
+        // TOKO
+        safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat); 
+        safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
+        safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
+        safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(dataForm.tanggal));
+
+    } else if (tipe === 'GURU') {
+        // GURU
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
         safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
+        safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
+        
+        // Lookup NIP untuk Guru Penerima (Tambahan agar lengkap)
         let namaPenerima = (dataForm.items && dataForm.items.length > 0) ? dataForm.items[0].nama : "-";
         safeReplace('<<Nama Guru 1>>', namaPenerima);
-    } else if (tipe === 'TUKANG') {
-        safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
-        safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
+        
+        // Khusus Guru, pemesan biasanya Kepala Sekolah, tapi jika ada placeholder pemesan:
+        safeReplace('<<NAMA PEMESAN/GURU>>', dataForm.pemesan || "-");
     }
 
-    // Tabel Item
+    // --- TABEL ITEM ---
     if (dataForm.items && dataForm.items.length > 0) {
       const tables = body.getTables();
       let targetTable = null, rowIndexTemplate = -1;
@@ -209,56 +303,101 @@ function generateLPJ(token, dataForm) {
         targetTable.removeRow(rowIndexTemplate + dataForm.items.length);
       }
     }
+    
     doc.saveAndClose();
 
-    // 3. Konversi PDF & PINDAHKAN KE FOLDER GENERATE SEKOLAH
+    // 3. Konversi & Save PDF (Sama seperti sebelumnya)
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    const pdfFile = DriveApp.createFile(pdfBlob).setName('LPJ_' + tipe + '_' + dataForm.nomorSurat + '.pdf');
+    const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || dataForm.nomorSurat) + '.pdf';
+    const pdfFile = DriveApp.createFile(pdfBlob).setName(namaPdf);
     
-    // --> CARI ID FOLDER 'File Generate' DARI DB SEKOLAH MENGGUNAKAN HELPER
     const folderGenerateId = getSettingValue(token, 'FOLDER_PDF_ID');
-    
     if (folderGenerateId) {
        try {
          const folder = DriveApp.getFolderById(folderGenerateId);
          folder.addFile(pdfFile);
-         DriveApp.getRootFolder().removeFile(pdfFile); // Hapus dari root
-       } catch(e) {
-         // Jika gagal pindah (misal folder terhapus), biarkan di root
-       }
+         DriveApp.getRootFolder().removeFile(pdfFile);
+       } catch(e) {}
     }
     tempDocFile.setTrashed(true);
 
-    // 4. Update Database (Simpan PDF ID & Hapus File PDF Lama)
+    // 4. Update Database
     const newFileId = pdfFile.getId();
-    const ss = SpreadsheetApp.openById(token);
-    let sheetTrans = ss.getSheetByName('DataTransaksi');
-    
-    if (sheetTrans) {
-      const dataTrans = sheetTrans.getDataRange().getValues();
-      for (let i = 1; i < dataTrans.length; i++) {
-        if (dataTrans[i][0] == dataForm.idTransaksi) {
-          const rowIdx = i + 1;
-          const oldFileId = (dataTrans[i].length > 11) ? dataTrans[i][11] : null;
-          
-          // Hapus file lama jika ada
-          if (oldFileId && oldFileId !== "" && oldFileId !== "-") {
+    let sheetUpdate = ss.getSheetByName('DataTransaksi');
+    if (sheetUpdate) {
+      const allData = sheetUpdate.getDataRange().getValues();
+      for (let i = 1; i < allData.length; i++) {
+        if (allData[i][0] == dataForm.idTransaksi) {
+          sheetUpdate.getRange(i + 1, 12).setValue(newFileId);
+          const oldFileId = (allData[i].length > 11) ? allData[i][11] : null;
+          if (oldFileId && oldFileId !== "-" && oldFileId !== newFileId) {
              try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
           }
-          
-          if (i === 1 && sheetTrans.getLastColumn() < 12) sheetTrans.getRange(1, 12).setValue("Generated_PDF_ID");
-          sheetTrans.getRange(rowIdx, 12).setValue(newFileId);
           break;
         }
       }
     }
+    
     return { status: 'success', url: pdfFile.getUrl() };
   } catch (e) {
     return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
   }
 }
 
-/* --- HELPER FUNCTIONS --- */
+/* --- HELPER DATE FORMATTING UNTUK SURAT --- */
+
+function formatTanggalIndo(dateString) {
+  if (!dateString) return "-";
+  return Utilities.formatDate(new Date(dateString), "GMT+7", "dd MMMM yyyy");
+}
+
+function getIndonesianDateDetails(dateString) {
+  if (!dateString) return { hari: '-', tanggal: '-', bulan: '-', tahun: '-' };
+  
+  const d = new Date(dateString);
+  const hariArr = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const bulanArr = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  
+  const hariIndex = parseInt(Utilities.formatDate(d, "GMT+7", "u")) == 7 ? 0 : parseInt(Utilities.formatDate(d, "GMT+7", "u")); // Apps Script 'u' 1=Mon, 7=Sun
+  
+  // Ambil komponen
+  const hariNama = hariArr[new Date(Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd")).getDay()]; // getDay() 0=Sun
+  const tglAngka = parseInt(Utilities.formatDate(d, "GMT+7", "d"));
+  const blnIndex = parseInt(Utilities.formatDate(d, "GMT+7", "M")) - 1;
+  const thnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "yyyy"));
+  
+  return {
+    hari: hariNama,
+    tanggal: angkaKeTeks(tglAngka), // Fungsi konversi angka 1-31 ke teks
+    bulan: bulanArr[blnIndex],
+    tahun: angkaKeTeks(thnAngka)
+  };
+}
+
+// Konversi Angka ke Teks Sederhana (Untuk Tanggal/Tahun)
+// Bedanya dengan Terbilang Rupiah: ini tidak pakai "Rupiah" di belakang
+function angkaKeTeks(nilai) {
+  const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  let temp = "";
+  
+  if (nilai < 12) {
+    temp = " " + angka[nilai];
+  } else if (nilai < 20) {
+    temp = angkaKeTeks(nilai - 10) + " Belas";
+  } else if (nilai < 100) {
+    temp = angkaKeTeks(Math.floor(nilai / 10)) + " Puluh" + angkaKeTeks(nilai % 10);
+  } else if (nilai < 200) {
+    temp = " Seratus" + angkaKeTeks(nilai - 100);
+  } else if (nilai < 1000) {
+    temp = angkaKeTeks(Math.floor(nilai / 100)) + " Ratus" + angkaKeTeks(nilai % 100);
+  } else if (nilai < 2000) {
+    temp = " Seribu" + angkaKeTeks(nilai - 1000);
+  } else if (nilai < 1000000) {
+    temp = angkaKeTeks(Math.floor(nilai / 1000)) + " Ribu" + angkaKeTeks(nilai % 1000);
+  }
+  return temp.trim(); // Hapus spasi di awal/akhir
+}
+
 function formatRupiah(angka) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
 }
