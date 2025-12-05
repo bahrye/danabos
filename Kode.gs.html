@@ -977,7 +977,18 @@ function getTransaksiList(token, tipe) {
       }
     }
     
-    result.reverse();
+    // --- PERUBAHAN DISINI (SORTING) ---
+    // HAPUS atau comment baris ini: result.reverse();
+    
+    // GANTI dengan ini untuk urutan Tanggal Kecil (Jan) -> Besar (Des):
+    result.sort((a, b) => {
+      // Bandingkan string tanggal (format yyyy-MM-dd bisa langsung dibandingkan stringnya)
+      if (a.tanggal < b.tanggal) return -1;
+      if (a.tanggal > b.tanggal) return 1;
+      return 0;
+    });
+    // ----------------------------------
+
     return { status: 'success', data: result };
   } catch (e) {
     return { status: 'error', message: e.toString() };
