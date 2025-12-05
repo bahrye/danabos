@@ -186,46 +186,63 @@
           <div id="panel-dashboard" class="panel-content">
             <div class="d-flex justify-content-between align-items-center mb-4">
               <h2>Dashboard <span id="schoolNameDisplay" class="text-primary fs-5"></span></h2>
-              <button class="btn btn-primary" onclick="triggerMenuBuatLPJ()"><i class="fas fa-plus"></i> Transaksi Baru</button>
+              <button class="btn btn-primary" onclick="navigasiKe('panel-transaksi')">
+                <i class="fas fa-plus me-1"></i> Transaksi Belanja
+              </button>
             </div>
 
             <div class="row g-3 mb-4">
-              <div class="col-12 col-md-6">
-                <div class="card bg-primary text-white p-3 shadow-sm">
-                  <h5>Total LPJ</h5>
-                  <h2 class="fw-bold">12 Dokumen</h2>
+              
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card bg-primary text-white p-3 shadow-sm h-100">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-white-50">Jumlah Anggaran</h6>
+                    <i class="fas fa-wallet fa-lg opacity-50"></i>
+                  </div>
+                  <h3 class="fw-bold mb-0" id="dashAnggaran">Rp 0</h3>
+                  <small class="text-white-50" style="font-size: 0.75rem;">Dana BOS Tahunan</small>
                 </div>
               </div>
-              <div class="col-12 col-md-6">
-                <div class="card bg-success text-white p-3 shadow-sm">
-                  <h5>Total Pengeluaran</h5>
-                  <h2 class="fw-bold">Rp 15.000.000</h2>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card bg-danger text-white p-3 shadow-sm h-100">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-white-50">Total Pengeluaran</h6>
+                    <i class="fas fa-shopping-cart fa-lg opacity-50"></i>
+                  </div>
+                  <h3 class="fw-bold mb-0" id="dashPengeluaran">Rp 0</h3>
+                  <small class="text-white-50" style="font-size: 0.75rem;">Toko, Tukang & Guru</small>
                 </div>
               </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card p-3 shadow-sm h-100 text-white" id="cardSisaAnggaran" style="background-color: #ffc107;"> <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-white-50">Sisa Anggaran</h6>
+                    <i class="fas fa-chart-pie fa-lg opacity-50"></i>
+                  </div>
+                  <h3 class="fw-bold mb-0" id="dashSisa">Rp 0</h3>
+                  <small class="text-white-50" style="font-size: 0.75rem;">Saldo Tersedia</small>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card bg-info text-white p-3 shadow-sm h-100">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-white-50">Jumlah Transaksi</h6>
+                    <i class="fas fa-list-ol fa-lg opacity-50"></i>
+                  </div>
+                  <h3 class="fw-bold mb-0" id="dashJmlTrans">0</h3>
+                  <small class="text-white-50" style="font-size: 0.75rem;">Total Item Data</small>
+                </div>
+              </div>
+
             </div>
 
-            <div class="card shadow-sm border-0">
-              <div class="card-body">
-                <h5 class="card-title mb-3">Riwayat Transaksi Terakhir</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                      <tr><th>Tanggal</th><th>No Surat</th><th>Toko</th><th>Total</th><th>Aksi</th></tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>01 Des 2025</td>
-                        <td>001/MTS/XII/2025</td>
-                        <td>Toko Barokah</td>
-                        <td>Rp 1.500.000</td>
-                        <td><button class="btn btn-sm btn-outline-danger"><i class="fas fa-file-pdf"></i> PDF</button></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div class="text-center text-muted py-5 mt-5">
+              <i class="fas fa-school fa-4x mb-3 text-secondary opacity-25"></i>
+              <p>Selamat Datang di Sistem Manajemen LPJ BOS</p>
             </div>
-          </div> 
+          </div>
 
           <div id="panel-toko" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-store text-primary"></i> Data Toko / Rekanan</h2>
@@ -1174,7 +1191,7 @@
                       <label class="form-label fw-bold">Jumlah Anggaran</label>
                       <div class="input-group">
                         <span class="input-group-text">Rp</span>
-                        <input type="number" class="form-control" id="dsJumlahAnggaran" placeholder="0">
+                        <input type="text" class="form-control" id="dsJumlahAnggaran" placeholder="0" oninput="this.value = formatRibuanInput(this.value)">
                       </div>
                     </div>
 
@@ -1231,6 +1248,11 @@
           document.querySelectorAll('.sidebar .nav-link').forEach(el => el.classList.remove('active'));
           linkElement.classList.add('active');
         }
+
+        // --- TAMBAHAN PEMANGGILAN DASHBOARD ---
+        if(panelId === 'panel-dashboard') {
+          loadDashboardStats();
+        }
         
         // 5. Load Data sesuai Panel
         if(panelId === 'panel-data-sekolah') loadDataSekolah();
@@ -1274,11 +1296,13 @@
       window.onload = function() {
         const token = localStorage.getItem('userToken');
         if(token) {
-          // Jika sudah login, langsung ke Admin Panel
           switchView('view-admin');
           document.getElementById('schoolNameDisplay').innerText = "(" + localStorage.getItem('userName') + ")";
+          
+          // Tambahkan ini agar saat login/refresh, data dashboard langsung muncul
+          loadDashboardStats(); 
+          
         } else {
-          // Jika belum, ke halaman Login
           switchView('view-login');
         }
       };
@@ -1377,7 +1401,7 @@
             document.getElementById('dsTelp').value = String(d.noTelp).replace(/'/g, '');
             document.getElementById('dsEmail').value = d.email;
             document.getElementById('dsDanaBos').value = d.danaBOS;
-            document.getElementById('dsJumlahAnggaran').value = d.jumlahAnggaran;
+            document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
             document.getElementById('dsTahun').value = d.tahunAnggaran;
           } 
         }).getDataSekolah(token);
@@ -1417,7 +1441,7 @@
           noTelp: document.getElementById('dsTelp').value,
           email: document.getElementById('dsEmail').value,
           danaBOS: document.getElementById('dsDanaBos').value,
-          jumlahAnggaran: document.getElementById('dsJumlahAnggaran').value,
+          jumlahAnggaran: cleanRibuan(document.getElementById('dsJumlahAnggaran').value),
           tahunAnggaran: document.getElementById('dsTahun').value
         };
 
@@ -3275,6 +3299,84 @@
         if (!str) return 0;
         // Hapus tanda titik, lalu jadikan Float/Int
         return parseFloat(String(str).replace(/\./g, '')) || 0;
+      }
+
+      /* --- LOGIKA DASHBOARD (UPDATE PEWARNAAN KONTRAS) --- */
+
+      function loadDashboardStats() {
+        const token = localStorage.getItem('userToken');
+        
+        // Reset angka sementara loading
+        document.getElementById('dashAnggaran').innerText = '...';
+        
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            const d = res.data;
+            const anggaran = parseFloat(d.anggaran) || 0;
+            const pengeluaran = parseFloat(d.pengeluaran) || 0;
+            const jmlTrans = d.jumlahTransaksi || 0;
+            
+            // Hitung Sisa
+            const sisa = anggaran - pengeluaran;
+
+            // 1. Render Angka
+            document.getElementById('dashAnggaran').innerText = formatRupiahJS(anggaran);
+            document.getElementById('dashPengeluaran').innerText = formatRupiahJS(pengeluaran);
+            document.getElementById('dashSisa').innerText = formatRupiahJS(sisa);
+            document.getElementById('dashJmlTrans').innerText = jmlTrans + " Item";
+
+            // 2. Logika Warna & Kontras Sisa Anggaran
+            const cardSisa = document.getElementById('cardSisaAnggaran');
+            
+            // Ambil elemen teks di dalam kartu untuk diubah warnanya
+            const titleSisa = cardSisa.querySelector('h6');      // Tulisan "Sisa Anggaran"
+            const iconSisa = cardSisa.querySelector('i');        // Icon Chart
+            const angkaSisa = cardSisa.querySelector('h3');      // Nominal Rupiah
+            const ketSisa = cardSisa.querySelector('small');     // Tulisan "Saldo Tersedia"
+            
+            // Reset Class Dasar
+            cardSisa.className = 'card p-3 shadow-sm h-100'; 
+
+            if (sisa > 0) {
+              // --- KONDISI SISA (KUNING) ---
+              // Masih ada sisa -> Kuning (#ffc107)
+              // Agar terbaca jelas, SEMUA teks harus HITAM/GELAP
+              
+              cardSisa.style.backgroundColor = '#ffc107'; 
+              
+              // Ubah warna elemen anak menjadi gelap
+              if(titleSisa) { titleSisa.className = 'mb-0 text-dark fw-bold opacity-75'; } // Hitam agak transparan
+              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-dark opacity-50'; }
+              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-dark'; } // Hitam Pekat
+              if(ketSisa)   { ketSisa.className = 'text-dark opacity-75'; }
+
+            } else if (sisa === 0) {
+              // --- KONDISI PAS (HIJAU) ---
+              // Sisa 0 -> Hijau (#198754)
+              // Teks harus PUTIH
+              
+              cardSisa.style.backgroundColor = '#198754';
+              
+              if(titleSisa) { titleSisa.className = 'mb-0 text-white-50'; } // Putih agak transparan
+              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50'; }
+              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-white'; } // Putih Pekat
+              if(ketSisa)   { ketSisa.className = 'text-white-50'; }
+
+            } else {
+              // --- KONDISI MINUS (MERAH) ---
+              // Minus -> Merah (#dc3545)
+              // Teks harus PUTIH
+              
+              cardSisa.style.backgroundColor = '#dc3545';
+              
+              if(titleSisa) { titleSisa.className = 'mb-0 text-white-50'; }
+              if(iconSisa)  { iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50'; }
+              if(angkaSisa) { angkaSisa.className = 'fw-bold mb-0 text-white'; }
+              if(ketSisa)   { ketSisa.className = 'text-white-50'; }
+            }
+
+          }
+        }).getDashboardStats(token);
       }
 
     </script>
