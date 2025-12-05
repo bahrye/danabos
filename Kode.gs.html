@@ -161,7 +161,8 @@ function getDataSekolah(token) {
         "Nama Sekolah", "NPSN", "NSM", "Alamat Lengkap", "Provinsi", 
         "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD", // Update Header
         "Nama Kepala", "NIP Kepala", "Nama Bendahara", "NIP Bendahara", 
-        "No Telp", "Email", "Nama Dana BOS", "Tahun Anggaran"
+        "No Telp", "Email", "Nama Dana BOS",
+        "Jumlah Anggaran", "Tahun Anggaran"
       ];
       sheet.appendRow(headers);
     }
@@ -187,7 +188,8 @@ function getDataSekolah(token) {
         noTelp: data[13] || '',
         email: data[14] || '',
         danaBOS: data[15] || '',
-        tahunAnggaran: data[16] || ''
+        jumlahAnggaran: data[16] || 0,
+        tahunAnggaran: data[17] || ''
       }
     };
   } catch (e) {
@@ -230,6 +232,7 @@ function simpanDataSekolah(token, form) {
       telpText,       // Save as Text
       form.email,
       form.danaBOS,
+      form.jumlahAnggaran,
       form.tahunAnggaran
     ];
 
