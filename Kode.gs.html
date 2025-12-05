@@ -121,12 +121,15 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF (UPDATE FIX PLACEHOLDER TUKANG) --- */
+/* --- FUNGSI GENERATE PDF (UPDATE FIX: ITEM SAFETY & GAMBAR KOP SURAT) --- */
 function generateLPJ(token, dataForm) {
   try {
+    // [FIX A] Sanitasi Data Items (Mencegah crash jika items null)
+    const itemsSafe = Array.isArray(dataForm.items) ? dataForm.items : [];
+
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Tentukan Template ID
+    // Tentukan Template ID
     let templateId = '';
     const tipe = dataForm.tipe; 
     if (tipe === 'TOKO') templateId = CONFIG.TEMPLATE_ID_TOKO;
@@ -140,18 +143,16 @@ function generateLPJ(token, dataForm) {
     const rowsTrans = sheetTrans.getDataRange().getValues();
     let dbSurat = {}, dbTanggal = {};
     
-    // Cari baris transaksi berdasarkan ID
     const transRow = rowsTrans.find(r => r[0] === dataForm.idTransaksi);
     if (transRow) {
         try { dbSurat = JSON.parse(transRow[9]); } catch(e) {}
         try { dbTanggal = JSON.parse(transRow[10]); } catch(e) {}
     }
 
-    // Ambil Data Sekolah
+    // Ambil Data Sekolah & Uraian
     const resSekolah = getDataSekolah(token);
     const ds = resSekolah.data || {}; 
 
-    // Ambil Nomor Bukti Uraian
     let nomorBuktiUraian = "-";
     const resUraian = getUraianList(token);
     if (resUraian.status === 'success' && resUraian.data) {
@@ -159,71 +160,76 @@ function generateLPJ(token, dataForm) {
         if (uraianFound) nomorBuktiUraian = uraianFound.noBukti;
     }
 
-    // 2. Buat Dokumen Sementara
+    // Buat Dokumen Sementara
     const docFile = DriveApp.getFileById(templateId);
     const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
     const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // --- LOGIKA GANTI <<KOP SURAT>> DENGAN GAMBAR ---
-    const kopSuratId = getSettingValue(token, 'KOP_SURAT_ID');
+    // =========================================================================
+    // [FIX B] PERBAIKAN LOGIKA PENGGANTIAN GAMBAR KOP SURAT
+    // =========================================================================
     
-    // Fungsi Helper: Cari SEMUA teks di container dan ganti gambar
+    // Fungsi Helper Lokal: Ganti Placeholder dengan Gambar (Dengan Safety Loop)
     const replaceAllWithImage = (container, placeholderText, blobImage) => {
       if (!container) return; 
 
-      // 1. Cari kejadian pertama
       let searchResult = container.findText(placeholderText);
-      
-      // 2. Lakukan Looping selama teks masih ditemukan
-      while (searchResult) {
+      let safetyCounter = 0;
+      const MAX_LOOPS = 20; // Batasi maksimal 20 gambar per container untuk mencegah hang
+
+      while (searchResult && safetyCounter < MAX_LOOPS) {
+        safetyCounter++; 
+        
         const textElement = searchResult.getElement();
         const parent = textElement.getParent();
         
-        // Hapus teks placeholder <<KOP SURAT>> agar tidak ditemukan lagi di loop berikutnya
-        textElement.removeFromParent();
-        
-        // Masukkan Gambar
         try {
-          // Karena kita melakukan loop, kita perlu blob baru (copy) untuk setiap gambar 
-          // agar tidak terjadi konflik referensi di beberapa kasus PDF rendering
+          // Hapus teks placeholder
+          textElement.removeFromParent();
+          
+          // Masukkan Gambar
           const imgBlobCopy = blobImage.copyBlob(); 
+          // Insert di index 0 (paling atas dari elemen parent placeholder)
           const img = parent.insertInlineImage(0, imgBlobCopy);
           
-          // Resize Logika
+          // Resize Logika (Max Lebar 600px)
           if (img.getWidth() > 600) {
              const ratio = img.getHeight() / img.getWidth();
              img.setWidth(600);
              img.setHeight(600 * ratio);
           }
         } catch(err) {
-          // Error handling
+          // Jika gagal insert gambar, biarkan kosong agar tidak error fatal
+          console.error("Gagal insert gambar: " + err);
         }
 
-        // 3. Cari lagi kejadian berikutnya (Loop berlanjut)
+        // Cari lagi kejadian berikutnya
         searchResult = container.findText(placeholderText);
       }
     };
 
-    // Eksekusi Penggantian
+    // Eksekusi Penggantian Kop Surat
+    const kopSuratId = getSettingValue(token, 'KOP_SURAT_ID');
     if (kopSuratId) {
       try {
         const kopFile = DriveApp.getFileById(kopSuratId);
         const kopBlob = kopFile.getBlob();
 
-        // 1. Ganti Semua di Header (Jika ada)
+        // Ganti di Header & Body
         replaceAllWithImage(doc.getHeader(), '<<KOP SURAT>>', kopBlob);
-        
-        // 2. Ganti Semua di Body (Halaman 1, 2, 3, dst)
         replaceAllWithImage(body, '<<KOP SURAT>>', kopBlob);
 
       } catch (e) {
+        // Jika file kop tidak ketemu/error, hapus teksnya saja
         safeReplace('<<KOP SURAT>>', ''); 
       }
     } else {
        safeReplace('<<KOP SURAT>>', '');
     }
+    // =========================================================================
+
 
     // --- REPLACE DATA UMUM ---
     safeReplace('<<Nomor Bukti Uraian>>', nomorBuktiUraian);
@@ -247,9 +253,7 @@ function generateLPJ(token, dataForm) {
     safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
 
     // --- LOGIKA KHUSUS BERDASARKAN TIPE ---
-    
     if (tipe === 'TUKANG') {
-        // A. DATA TUKANG
         let alamatTukang = "................................";
         const sheetTukang = ss.getSheetByName('DataTukang');
         if (sheetTukang) {
@@ -263,24 +267,18 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Alamat Lengkap Tukang>>', alamatTukang);
         safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
 
-        // B. DATA PEMESAN / GURU (DIPERBAIKI DENGAN PLACEHOLDER BARU)
         let namaPemesan = dataForm.pemesan || "-"; 
         let nipPemesan = "-";
-
         const sheetGuru = ss.getSheetByName('DataGuru');
         if (sheetGuru) {
              const dataGuru = sheetGuru.getDataRange().getValues();
              const guruFound = dataGuru.find(r => String(r[1]).trim() === String(namaPemesan).trim());
-             if (guruFound) {
-                 nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
-             }
+             if (guruFound) nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
         }
-
-        // --> PERUBAHAN DISINI: Targetkan placeholder baru <--
         safeReplace('<<NAMA PEMESAN TUKANG>>', namaPemesan);
         safeReplace('<<NIP PEMESAN TUKANG>>', nipPemesan);
 
-        // C. NOMOR SURAT & TANGGAL
+        // Surat & Tanggal Tukang
         safeReplace('<<Surat Permintaan Tukang>>', dbSurat.permintaan || '-');
         safeReplace('<<Nomor Surat BA.PP>>', dbSurat.baPemeriksaan || '-');
         safeReplace('<<Nomor Surat BA.STP>>', dbSurat.baSerahTerima || '-');
@@ -316,30 +314,28 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tahun Huruf Tanggal BA.Bayar Tukang>>', detBayar.tahun);
 
     } else if (tipe === 'TOKO') {
-        // TOKO
         safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat); 
         safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
         safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
         safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(dataForm.tanggal));
 
     } else if (tipe === 'GURU') {
-        // GURU
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
         safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
         safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
         
-        // Lookup NIP untuk Guru Penerima (Tambahan agar lengkap)
-        let namaPenerima = (dataForm.items && dataForm.items.length > 0) ? dataForm.items[0].nama : "-";
+        // [FIX A] Gunakan itemsSafe
+        let namaPenerima = (itemsSafe.length > 0) ? itemsSafe[0].nama : "-";
         safeReplace('<<Nama Guru 1>>', namaPenerima);
         
-        // Khusus Guru, pemesan biasanya Kepala Sekolah, tapi jika ada placeholder pemesan:
         safeReplace('<<NAMA PEMESAN/GURU>>', dataForm.pemesan || "-");
     }
 
-    // --- TABEL ITEM ---
-    if (dataForm.items && dataForm.items.length > 0) {
+    // --- TABEL ITEM (FIX A) ---
+    if (itemsSafe.length > 0) {
       const tables = body.getTables();
       let targetTable = null, rowIndexTemplate = -1;
+      
       for (let t = 0; t < tables.length; t++) {
         for (let r = 0; r < tables[t].getNumRows(); r++) {
           if (tables[t].getRow(r).getText().includes('<<TABLE_ROW>>')) {
@@ -348,26 +344,30 @@ function generateLPJ(token, dataForm) {
         }
         if (targetTable) break;
       }
+
       if (targetTable) {
         const templateRow = targetTable.getRow(rowIndexTemplate);
-        dataForm.items.forEach((item, index) => {
+        
+        itemsSafe.forEach((item, index) => {
            const newRow = targetTable.insertRow(rowIndexTemplate + index, templateRow.copy());
            try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
-           try { newRow.getCell(1).setText(item.nama); } catch(e){}
-           try { newRow.getCell(2).setText(item.vol.toString()); } catch(e){}
-           try { newRow.getCell(3).setText(item.sat); } catch(e){}
-           try { newRow.getCell(4).setText(formatRupiah(item.harga)); } catch(e){}
-           try { newRow.getCell(5).setText(formatRupiah(item.jumlah)); } catch(e){}
+           try { newRow.getCell(1).setText(item.nama || ""); } catch(e){} 
+           try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){}
+           try { newRow.getCell(3).setText(item.sat || ""); } catch(e){}
+           try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){}
+           try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
         });
-        targetTable.removeRow(rowIndexTemplate + dataForm.items.length);
+        targetTable.removeRow(rowIndexTemplate + itemsSafe.length);
       }
     }
     
     doc.saveAndClose();
 
-    // 3. Konversi & Save PDF (Sama seperti sebelumnya)
+    // Konversi & Save PDF
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || dataForm.nomorSurat) + '.pdf';
+    const uniqueSuffix = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss");
+    const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || 'DRAFT') + '_' + uniqueSuffix + '.pdf';
+    
     const pdfFile = DriveApp.createFile(pdfBlob).setName(namaPdf);
     
     const folderGenerateId = getSettingValue(token, 'FOLDER_PDF_ID');
@@ -380,15 +380,22 @@ function generateLPJ(token, dataForm) {
     }
     tempDocFile.setTrashed(true);
 
-    // 4. Update Database
+    // Update Database dengan ID File PDF Baru
     const newFileId = pdfFile.getId();
     let sheetUpdate = ss.getSheetByName('DataTransaksi');
     if (sheetUpdate) {
+      // [FIX C] Pastikan kolom File_PDF_ID ada
+      const colIdxPdf = ensureColumn(sheetUpdate, 'File_PDF_ID');
+      const colIdxId = ensureColumn(sheetUpdate, 'ID_Transaksi');
+
       const allData = sheetUpdate.getDataRange().getValues();
       for (let i = 1; i < allData.length; i++) {
-        if (allData[i][0] == dataForm.idTransaksi) {
-          sheetUpdate.getRange(i + 1, 12).setValue(newFileId);
-          const oldFileId = (allData[i].length > 11) ? allData[i][11] : null;
+        if (allData[i][colIdxId] == dataForm.idTransaksi) {
+          // Update kolom PDF
+          sheetUpdate.getRange(i + 1, colIdxPdf + 1).setValue(newFileId);
+          
+          // Hapus file PDF lama (Cek isi kolom PDF sebelumnya)
+          const oldFileId = allData[i][colIdxPdf];
           if (oldFileId && oldFileId !== "-" && oldFileId !== newFileId) {
              try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
           }
@@ -398,6 +405,7 @@ function generateLPJ(token, dataForm) {
     }
     
     return { status: 'success', url: pdfFile.getUrl() };
+
   } catch (e) {
     return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
   }
@@ -1210,12 +1218,18 @@ function simpanTransaksiBaru(token, data) {
 
 /* --- TAMBAHAN UPDATE: FUNGSI CRUD TRANSAKSI --- */
 
-/* --- UPDATE FUNGSI GET TRANSAKSI LIST (TAMBAHKAN RETURN PDF ID) --- */
+/* --- UPDATE: GET TRANSAKSI LIST (DYNAMIC COLUMNS) --- */
 function getTransaksiList(token, tipe) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
     if (!sheet) return { status: 'success', data: [] };
+
+    // [FIX C] PETA HEADER
+    const h = getHeaderMap(sheet);
+    
+    // Cek kolom wajib, jika tidak ada berarti sheet kosong/rusak
+    if (h['ID_Transaksi'] === undefined) return { status: 'success', data: [] };
 
     const data = sheet.getDataRange().getValues();
     const result = [];
@@ -1229,29 +1243,55 @@ function getTransaksiList(token, tipe) {
       return Utilities.formatDate(new Date(dateObj), "GMT+7", "dd-MM-yyyy");
     };
 
+    // Loop data mulai dari baris 2 (index 1)
     for (let i = 1; i < data.length; i++) {
-      if (data[i][2] === tipe) {
+      const row = data[i];
+      
+      // Ambil data menggunakan Map Index
+      const rowTipe = row[h['Tipe']];
+      
+      if (rowTipe === tipe) {
         let items = [], surat = null, tglSurat = null;
-        try { items = JSON.parse(data[i][6]); } catch (err) { items = []; }
-        if (data[i][9]) { try { surat = JSON.parse(data[i][9]); } catch (err) { surat = null; } }
-        if (data[i][10]) { try { tglSurat = JSON.parse(data[i][10]); } catch (err) { tglSurat = null; } }
+        
+        // Ambil JSON Items dengan aman
+        if (h['Items_JSON'] !== undefined) {
+           try { items = JSON.parse(row[h['Items_JSON']]); } catch (err) { items = []; }
+        }
 
-        // [BARU] Ambil PDF ID dari kolom Index 11 (Kolom L)
-        const pdfId = (data[i].length > 11) ? data[i][11] : null;
+        // Ambil Data Surat
+        // Header "Data_Surat_JSON" mungkin belum ada di file lama, jadi cek undefined
+        if (h['Data_Surat_JSON'] !== undefined && row[h['Data_Surat_JSON']]) { 
+            try { surat = JSON.parse(row[h['Data_Surat_JSON']]); } catch (err) { surat = null; } 
+        }
+
+        // Ambil Data Tanggal
+        if (h['Data_Tanggal_JSON'] !== undefined && row[h['Data_Tanggal_JSON']]) { 
+            try { tglSurat = JSON.parse(row[h['Data_Tanggal_JSON']]); } catch (err) { tglSurat = null; } 
+        }
+
+        // Ambil PDF ID (Header mungkin "File_PDF_ID" atau kolom ke-12 manual sebelumnya)
+        // Kita standarkan nama kolom PDF menjadi "File_PDF_ID"
+        let pdfId = null;
+        if (h['File_PDF_ID'] !== undefined) {
+           pdfId = row[h['File_PDF_ID']];
+        } else if (row.length > 11) { 
+           // Fallback untuk data lama yang belum punya header File_PDF_ID (kolom L / index 11)
+           pdfId = row[11]; 
+        }
 
         result.push({
-          id: data[i][0],
-          tanggal: formatDate(data[i][1]),
-          tanggalDisplay: formatDateDisplay(data[i][1]),
-          tipe: data[i][2],
-          uraian: data[i][3],
-          pihakKetiga: data[i][4],
-          pemesan: data[i][5],
+          id: row[h['ID_Transaksi']],
+          tanggal: formatDate(row[h['Tanggal']]),
+          tanggalDisplay: formatDateDisplay(row[h['Tanggal']]),
+          tipe: rowTipe,
+          uraian: row[h['Uraian']],
+          pihakKetiga: row[h['Pihak_Ketiga']],
+          pemesan: row[h['Pemesan']],
           items: items,
-          total: data[i][7],
+          total: row[h['Total_Biaya']],
           dataSurat: surat,
           dataTanggal: tglSurat,
-          pdfId: pdfId // <-- Dikirim ke frontend
+          pdfId: pdfId
         });
       }
     }
@@ -1269,25 +1309,39 @@ function getTransaksiList(token, tipe) {
   }
 }
 
-// 2. Edit Transaksi
+/* --- UPDATE: EDIT TRANSAKSI (DYNAMIC COLUMNS) --- */
 function editTransaksiItem(token, data) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
+    
+    // [FIX C] PETA HEADER
+    const h = getHeaderMap(sheet);
     const allData = sheet.getDataRange().getValues();
 
+    // Pastikan ID ada
+    if (h['ID_Transaksi'] === undefined) return { status: 'error', message: 'Struktur Data Transaksi rusak (ID_Transaksi hilang).' };
+
     for (let i = 1; i < allData.length; i++) {
-      if (allData[i][0] == data.id) { // Cek ID
+      // Cek ID menggunakan index dari Map
+      if (allData[i][h['ID_Transaksi']] == data.id) { 
         const rowIdx = i + 1;
         const itemsString = JSON.stringify(data.items);
 
-        // Update Kolom (Sesuaikan urutan kolom di simpanTransaksiBaru)
-        sheet.getRange(rowIdx, 2).setValue("'" + data.tanggal); // Tanggal
-        sheet.getRange(rowIdx, 4).setValue(data.uraian);        // Uraian
-        sheet.getRange(rowIdx, 5).setValue(data.pihakKetiga);   // Pihak Ketiga
-        sheet.getRange(rowIdx, 6).setValue(data.pemesan);       // Pemesan
-        sheet.getRange(rowIdx, 7).setValue(itemsString);        // Items JSON
-        sheet.getRange(rowIdx, 8).setValue(data.total);         // Total
+        // Fungsi helper lokal untuk update sel jika kolom ada
+        const updateCell = (headerName, val) => {
+          if (h[headerName] !== undefined) {
+            // index map 0-based, getRange kolom 1-based, jadi +1
+            sheet.getRange(rowIdx, h[headerName] + 1).setValue(val);
+          }
+        };
+
+        updateCell('Tanggal', "'" + data.tanggal);
+        updateCell('Uraian', data.uraian);
+        updateCell('Pihak_Ketiga', data.pihakKetiga);
+        updateCell('Pemesan', data.pemesan);
+        updateCell('Items_JSON', itemsString);
+        updateCell('Total_Biaya', data.total);
         
         return { status: 'success', message: 'Transaksi berhasil diperbarui!' };
       }
@@ -1319,31 +1373,22 @@ function hapusTransaksiItem(token, idToDelete) {
 
 /* --- TAMBAHAN FITUR NOMOR SURAT --- */
 
-// 1. Simpan Data Nomor Surat ke Transaksi
+/* --- UPDATE: SIMPAN NOMOR SURAT (DYNAMIC) --- */
 function simpanDataSurat(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
+    
+    // Pastikan Kolom "Data_Surat_JSON" ada, jika tidak, buatkan.
+    const colIndex = ensureColumn(sheet, 'Data_Surat_JSON'); // 0-based
+    const idIndex = ensureColumn(sheet, 'ID_Transaksi');
+    
     const data = sheet.getDataRange().getValues();
 
-    // Loop cari ID Transaksi
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] == form.id) { // Cek ID
-        const rowIdx = i + 1;
-        
-        // Kita simpan data surat dalam format JSON di Kolom ke-10 (Index 9)
-        // Struktur Sheet DataTransaksi sebelumnya sampai Index 8 (Waktu Input)
-        // Jadi kita taruh di kolom J (Index 10 di sheet / 9 di array 0-based)
-        
+      if (data[i][idIndex] == form.id) {
         const suratJson = JSON.stringify(form.dataSurat);
-        
-        // Pastikan kolom header ada (Opsional, untuk kerapian)
-        if(i === 1 && sheet.getLastColumn() < 10) {
-           sheet.getRange(1, 10).setValue("Data_Surat_JSON");
-        }
-
-        sheet.getRange(rowIdx, 10).setValue(suratJson);
-        
+        sheet.getRange(i + 1, colIndex + 1).setValue(suratJson);
         return { status: 'success', message: 'Nomor Surat berhasil disimpan!' };
       }
     }
@@ -1353,32 +1398,22 @@ function simpanDataSurat(token, form) {
   }
 }
 
-/* --- TAMBAHAN FITUR TANGGAL SURAT --- */
-
-// 1. Simpan Data Tanggal Surat ke Transaksi
+/* --- UPDATE: SIMPAN TANGGAL SURAT (DYNAMIC) --- */
 function simpanTanggalSurat(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
+    
+    // Pastikan Kolom "Data_Tanggal_JSON" ada
+    const colIndex = ensureColumn(sheet, 'Data_Tanggal_JSON');
+    const idIndex = ensureColumn(sheet, 'ID_Transaksi');
+
     const data = sheet.getDataRange().getValues();
 
-    // Loop cari ID Transaksi
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] == form.id) {
-        const rowIdx = i + 1;
-        
-        // Simpan data tanggal dalam format JSON di Kolom ke-11 (Index 10)
-        // Struktur: [0..8]=Data Utama, [9]=Nomor Surat, [10]=Tanggal Surat
-        
+      if (data[i][idIndex] == form.id) {
         const tglJson = JSON.stringify(form.dataTanggal);
-        
-        // Pastikan kolom header ada
-        if(i === 1 && sheet.getLastColumn() < 11) {
-           sheet.getRange(1, 11).setValue("Data_Tanggal_JSON");
-        }
-
-        sheet.getRange(rowIdx, 11).setValue(tglJson);
-        
+        sheet.getRange(i + 1, colIndex + 1).setValue(tglJson);
         return { status: 'success', message: 'Tanggal Surat berhasil disimpan!' };
       }
     }
@@ -1526,5 +1561,135 @@ function getSettingNomor(token) {
     return { status: 'success', data: settings };
   } catch (e) {
     return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- HELPER: DYNAMIC HEADER MAPPING --- */
+// Fungsi ini membaca baris pertama (Header) dan membuat peta { "NAMA_KOLOM": index_0_based }
+function getHeaderMap(sheet) {
+  if (!sheet) return {};
+  // Ambil baris pertama saja
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((h, i) => {
+    // Simpan nama kolom sebagai key (trim spasi) dan indexnya
+    if(h) map[String(h).trim()] = i; 
+  });
+  return map;
+}
+
+// Fungsi Helper untuk memastikan kolom ada, jika tidak ada maka buat baru
+function ensureColumn(sheet, headerName) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  let colIndex = headers.indexOf(headerName);
+  
+  if (colIndex === -1) {
+    // Jika tidak ketemu, buat di kolom terakhir + 1
+    colIndex = headers.length; 
+    sheet.getRange(1, colIndex + 1).setValue(headerName);
+  }
+  return colIndex; // Return 0-based index
+}
+
+/* --- FUNGSI MAINTENANCE: PERBAIKI STRUKTUR HEADER OTOMATIS --- */
+
+/**
+ * Fungsi ini mendefinisikan struktur kolom yang WAJIB ada di setiap sheet.
+ * Jika kode Anda berkembang, tambahkan nama kolom baru di sini.
+ */
+const DB_SCHEMA = {
+  'DataSekolah': [
+    "Nama Sekolah", "NPSN", "NSM", "Alamat Lengkap", "Provinsi", 
+    "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD",
+    "Nama Kepala", "NIP Kepala", "Nama Bendahara", "NIP Bendahara", 
+    "No Telp", "Email", "Nama Dana BOS",
+    "Jumlah Anggaran", "Tahun Anggaran", "Periode Anggaran"
+  ],
+  'DataUraian': [
+    "ID", "Nomor Bukti", "Uraian Pekerjaan"
+  ],
+  'DataToko': [
+    "ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"
+  ],
+  'DataTukang': [
+    "ID", "Nama Lengkap", "Alamat Lengkap"
+  ],
+  'DataGuru': [
+    "ID", "Nama Lengkap", "NIP"
+  ],
+  'DataTransaksi': [
+    "ID_Transaksi", "Tanggal", "Tipe", "Uraian", "Pihak_Ketiga", "Pemesan", 
+    "Items_JSON", "Total_Biaya", "Waktu_Input", 
+    "Data_Surat_JSON", "Data_Tanggal_JSON", "File_PDF_ID"
+  ],
+  'DataPengaturan': [
+    "KEY", "VALUE"
+  ]
+};
+
+/**
+ * Jalankan fungsi ini sekali-sekali (Manual atau via Menu) 
+ * untuk memastikan header di Spreadsheet sinkron dengan Kode.
+ */
+function perbaikiSemuaHeader(token) {
+  try {
+    // Jika token tidak diberikan (dijalankan manual dari editor), 
+    // ganti string di bawah ini dengan ID Spreadsheet Anda untuk testing.
+    // Atau panggil fungsi ini dari console browser/frontend.
+    if (!token) {
+       // Opsional: Throw error atau gunakan ID default untuk debug
+       // token = "ID_SPREADSHEET_ANDA_DISINI"; 
+       return { status: 'error', message: 'Token/ID Spreadsheet diperlukan.' };
+    }
+
+    const ss = SpreadsheetApp.openById(token);
+    let logPerbaikan = [];
+
+    // Loop setiap nama sheet yang ada di SCHEMA
+    for (const [sheetName, requiredHeaders] of Object.entries(DB_SCHEMA)) {
+      
+      let sheet = ss.getSheetByName(sheetName);
+      
+      // 1. Buat Sheet jika belum ada
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        logPerbaikan.push(`Sheet baru dibuat: ${sheetName}`);
+      }
+
+      // 2. Ambil Header yang sudah ada
+      // Jika sheet kosong, existingHeaders adalah array kosong
+      let existingHeaders = [];
+      if (sheet.getLastColumn() > 0) {
+        existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        // Trim spasi agar pencocokan akurat
+        existingHeaders = existingHeaders.map(h => String(h).trim());
+      }
+
+      // 3. Cek Header Wajib
+      requiredHeaders.forEach(headerName => {
+        if (!existingHeaders.includes(headerName)) {
+          // Jika header tidak ditemukan, tambahkan di kolom terakhir + 1
+          const newColIndex = sheet.getLastColumn() + 1;
+          sheet.getRange(1, newColIndex).setValue(headerName);
+          
+          // Style Header Baru (Bold & Abu-abu) biar rapi
+          sheet.getRange(1, newColIndex).setFontWeight("bold").setBackground("#efefef");
+          
+          logPerbaikan.push(`Header ditambahkan di ${sheetName}: ${headerName}`);
+        }
+      });
+
+      // 4. Opsional: Bekukan Baris 1 (Freeze Top Row)
+      sheet.setFrozenRows(1);
+    }
+
+    if (logPerbaikan.length > 0) {
+      return { status: 'success', message: 'Perbaikan Selesai:\n' + logPerbaikan.join('\n') };
+    } else {
+      return { status: 'success', message: 'Struktur Database sudah sesuai (Tidak ada perubahan).' };
+    }
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal memperbaiki header: ' + e.toString() };
   }
 }
