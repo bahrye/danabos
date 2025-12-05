@@ -542,10 +542,23 @@ function terbilang(nilai) {
 
 /* --- FUNGSI DATA SEKOLAH --- */
 
-// 1. Ambil Data Sekolah (Update: Ambil kolom ke-19 / Periode)
+// 1. Ambil Data Sekolah (Update: Validasi Token & Error Handling)
 function getDataSekolah(token) {
   try {
-    const ss = SpreadsheetApp.openById(token);
+    // [PERBAIKAN 1] Validasi Token di Awal
+    if (!token || typeof token !== 'string') {
+      throw new Error("Token sesi tidak valid atau kosong. Silakan login ulang.");
+    }
+
+    // [PERBAIKAN 2] Coba Buka Spreadsheet dengan Error Catching Spesifik
+    let ss;
+    try {
+      ss = SpreadsheetApp.openById(token);
+    } catch (err) {
+      // Jika gagal buka (misal file terhapus atau ID salah), lempar error yang jelas
+      throw new Error("Database Sekolah tidak ditemukan atau Anda tidak memiliki akses. (ID: " + token + ")");
+    }
+
     let sheet = ss.getSheetByName('DataSekolah');
     
     if (!sheet) {
@@ -555,13 +568,31 @@ function getDataSekolah(token) {
         "Kabupaten", "Kecamatan", "Kelurahan", "Tempat TTD",
         "Nama Kepala", "NIP Kepala", "Nama Bendahara", "NIP Bendahara", 
         "No Telp", "Email", "Nama Dana BOS",
-        "Jumlah Anggaran", "Tahun Anggaran", "Periode Anggaran" // <-- Kolom Baru (Index 18)
+        "Jumlah Anggaran", "Tahun Anggaran", "Periode Anggaran"
       ];
       sheet.appendRow(headers);
     }
 
+    // Pastikan ada data di baris ke-2 (Baris Data)
+    if (sheet.getLastRow() < 2) {
+       // Return data kosong default jika belum ada isinya
+       return {
+         status: 'success',
+         data: {
+           namaSekolah: '', npsn: '', nsm: '', alamat: '', provinsi: '', kabupaten: '',
+           kecamatan: '', kelurahan: '', tempatTTD: '', namaKepala: '', nipKepala: '',
+           namaBendahara: '', nipBendahara: '', noTelp: '', email: '', danaBOS: '',
+           jumlahAnggaran: 0, tahunAnggaran: '', periodeAnggaran: ''
+         }
+       };
+    }
+
     // Ambil range diperluas jadi 19 kolom (A sampai S)
-    const data = sheet.getRange(2, 1, 1, 19).getValues()[0];
+    // Gunakan pengecekan kolom terakhir untuk menghindari error "Range out of bounds"
+    const lastCol = sheet.getLastColumn();
+    // Kita butuh minimal 19 kolom, tapi jika sheetnya baru mungkin kurang.
+    // getRange(row, col, numRows, numCols)
+    const data = sheet.getRange(2, 1, 1, Math.max(lastCol, 19)).getValues()[0];
     
     return {
       status: 'success',
@@ -584,11 +615,12 @@ function getDataSekolah(token) {
         danaBOS: data[15] || '',
         jumlahAnggaran: data[16] || 0,
         tahunAnggaran: data[17] || '',
-        periodeAnggaran: data[18] || '' // <-- Data Baru
+        periodeAnggaran: data[18] || '' 
       }
     };
   } catch (e) {
-    return { status: 'error', message: e.toString() };
+    // Return status error yang bersih agar frontend bisa menanganinya (misal logout otomatis)
+    return { status: 'error', message: e.message || e.toString() };
   }
 }
 
