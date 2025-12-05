@@ -1175,6 +1175,21 @@
                 
                 <div id="view-cetak-toko" class="view-cetak">
                   <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Transaksi Belanja Toko Siap Cetak</div>
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_cetak_toko" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-toko', 'fltTahun_cetak_toko', 'fltBulan_cetak_toko')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_cetak_toko" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-toko', 'fltTahun_cetak_toko', 'fltBulan_cetak_toko')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="table-responsive">
                     <table class="table table-hover align-middle table-striped">
                       <thead class="table-light">
@@ -1195,6 +1210,21 @@
 
                 <div id="view-cetak-guru" class="view-cetak hidden">
                   <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Pembayaran Honor Guru Siap Cetak</div>
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_cetak_guru" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-guru', 'fltTahun_cetak_guru', 'fltBulan_cetak_guru')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_cetak_guru" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-guru', 'fltTahun_cetak_guru', 'fltBulan_cetak_guru')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="table-responsive">
                     <table class="table table-hover align-middle table-striped">
                       <thead class="table-light">
@@ -1215,6 +1245,21 @@
 
                 <div id="view-cetak-tukang" class="view-cetak hidden">
                   <div class="alert alert-info py-2 mb-3"><i class="fas fa-info-circle"></i> Daftar Upah Tukang Siap Cetak</div>
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_cetak_tukang" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-tukang', 'fltTahun_cetak_tukang', 'fltBulan_cetak_tukang')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_cetak_tukang" class="form-select form-select-sm" onchange="jalankanFilter('tbody-cetak-tukang', 'fltTahun_cetak_tukang', 'fltBulan_cetak_tukang')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="table-responsive">
                     <table class="table table-hover align-middle table-striped">
                       <thead class="table-light">
@@ -3894,20 +3939,21 @@
       // 1. Inisialisasi Opsi Tahun (Dipanggil saat window.onload)
       function initFilterTahun() {
         const currentYear = new Date().getFullYear();
-        const startYear = currentYear - 2; // Tampilkan dari 2 tahun lalu
-        const endYear = currentYear + 1;   // Sampai 1 tahun ke depan
+        const startYear = currentYear - 2;
+        const endYear = currentYear + 1;
         
-        // Array ID select tahun yang kita buat tadi
-        const ids = ['fltTahun_toko', 'fltTahun_guru', 'fltTahun_tukang', 'fltTahun_surat', 'fltTahun_tgl'];
+        // UPDATE ARRAY IDS INI: Tambahkan 3 ID baru di akhir (fltTahun_cetak_...)
+        const ids = [
+          'fltTahun_toko', 'fltTahun_guru', 'fltTahun_tukang', 
+          'fltTahun_surat', 'fltTahun_tgl',
+          'fltTahun_cetak_toko', 'fltTahun_cetak_guru', 'fltTahun_cetak_tukang' // <-- Tambahan Baru
+        ];
         
         ids.forEach(id => {
           const el = document.getElementById(id);
           if(el) {
             el.innerHTML = '<option value="">Semua Tahun</option>';
             for(let y = startYear; y <= endYear; y++) {
-              // Set tahun sekarang sebagai default selected (opsional)
-              // const selected = (y === currentYear) ? 'selected' : '';
-              // el.innerHTML += `<option value="${y}" ${selected}>${y}</option>`;
               el.innerHTML += `<option value="${y}">${y}</option>`;
             }
           }
