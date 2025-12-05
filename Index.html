@@ -532,6 +532,22 @@
 
             <div class="card shadow-sm border-0">
               <div class="card-body">
+                <div class="row g-2 mb-3 align-items-center">
+                  <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                  <div class="col-auto">
+                    <select id="fltTahun_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')"></select>
+                  </div>
+                  <div class="col-auto">
+                    <select id="fltBulan_surat" class="form-select form-select-sm" onchange="jalankanFilter('tabelSuratBody', 'fltTahun_surat', 'fltBulan_surat')">
+                      <option value="">Semua Bulan</option>
+                      <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                      <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                      <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                      <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div class="table-responsive">
                   <table class="table table-hover align-middle">
                     <thead class="table-light">
@@ -636,6 +652,22 @@
 
             <div class="card shadow-sm border-0">
               <div class="card-body">
+                <div class="row g-2 mb-3 align-items-center">
+                  <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                  <div class="col-auto">
+                    <select id="fltTahun_tgl" class="form-select form-select-sm" onchange="jalankanFilter('tabelTanggalBody', 'fltTahun_tgl', 'fltBulan_tgl')"></select>
+                  </div>
+                  <div class="col-auto">
+                    <select id="fltBulan_tgl" class="form-select form-select-sm" onchange="jalankanFilter('tabelTanggalBody', 'fltTahun_tgl', 'fltBulan_tgl')">
+                      <option value="">Semua Bulan</option>
+                      <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                      <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                      <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                      <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div class="table-responsive">
                   <table class="table table-hover align-middle">
                     <thead class="table-light">
@@ -854,6 +886,23 @@
               <div class="card shadow-sm border-0">
                   <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Toko</div>
                   <div class="card-body">
+
+                      <div class="row g-2 mb-3 align-items-center">
+                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                        <div class="col-auto">
+                          <select id="fltTahun_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')"></select>
+                        </div>
+                        <div class="col-auto">
+                          <select id="fltBulan_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')">
+                            <option value="">Semua Bulan</option>
+                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <div class="table-responsive">
                           <table class="table table-hover align-middle table-striped text-sm">
                               <thead class="table-light">
@@ -948,6 +997,22 @@
               <div class="card shadow-sm border-0">
                   <div class="card-header bg-white fw-bold py-3">Riwayat Pembayaran Honor</div>
                   <div class="card-body">
+                      <div class="row g-2 mb-3 align-items-center">
+                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                        <div class="col-auto">
+                          <select id="fltTahun_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')"></select>
+                        </div>
+                        <div class="col-auto">
+                          <select id="fltBulan_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')">
+                            <option value="">Semua Bulan</option>
+                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <div class="table-responsive">
                           <table class="table table-hover align-middle table-striped text-sm">
                               <thead class="table-light">
@@ -1048,6 +1113,21 @@
               <div class="card shadow-sm border-0">
                   <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Tukang</div>
                   <div class="card-body">
+                      <div class="row g-2 mb-3 align-items-center">
+                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                        <div class="col-auto">
+                          <select id="fltTahun_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')"></select>
+                        </div>
+                        <div class="col-auto">
+                          <select id="fltBulan_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')">
+                            <option value="">Semua Bulan</option>
+                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                          </select>
+                        </div>
+                      </div>
                       <div class="table-responsive">
                           <table class="table table-hover align-middle table-striped text-sm">
                               <thead class="table-light">
@@ -3808,6 +3888,79 @@
           }
         });
       }
+
+      /* --- FITUR FILTER TABEL --- */
+
+      // 1. Inisialisasi Opsi Tahun (Dipanggil saat window.onload)
+      function initFilterTahun() {
+        const currentYear = new Date().getFullYear();
+        const startYear = currentYear - 2; // Tampilkan dari 2 tahun lalu
+        const endYear = currentYear + 1;   // Sampai 1 tahun ke depan
+        
+        // Array ID select tahun yang kita buat tadi
+        const ids = ['fltTahun_toko', 'fltTahun_guru', 'fltTahun_tukang', 'fltTahun_surat', 'fltTahun_tgl'];
+        
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if(el) {
+            el.innerHTML = '<option value="">Semua Tahun</option>';
+            for(let y = startYear; y <= endYear; y++) {
+              // Set tahun sekarang sebagai default selected (opsional)
+              // const selected = (y === currentYear) ? 'selected' : '';
+              // el.innerHTML += `<option value="${y}" ${selected}>${y}</option>`;
+              el.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+          }
+        });
+      }
+
+      // 2. Fungsi Utama Filter
+      function jalankanFilter(tabelBodyId, tahunSelectId, bulanSelectId) {
+        const filterTahun = document.getElementById(tahunSelectId).value;
+        const filterBulan = document.getElementById(bulanSelectId).value;
+        
+        const tbody = document.getElementById(tabelBodyId);
+        const rows = tbody.getElementsByTagName('tr');
+        
+        // Loop semua baris
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          // Kolom tanggal ada di index ke-0 (Kolom Pertama)
+          // Format Teks di tabel: dd-MM-yyyy (Contoh: 05-12-2025)
+          const tdTanggal = row.cells[0]; 
+          
+          if (tdTanggal) {
+            const textTanggal = tdTanggal.textContent.trim();
+            
+            // Jika barisnya adalah "Memuat data..." atau kosong, skip
+            if(textTanggal.includes('Memuat') || textTanggal.includes('Belum ada')) continue;
+            
+            // Pecah tanggal (dd-MM-yyyy)
+            const parts = textTanggal.split('-');
+            if(parts.length === 3) {
+              const rowBulan = parts[1]; // MM
+              const rowTahun = parts[2]; // yyyy
+              
+              // Logika Cek Match
+              const matchTahun = (filterTahun === '') || (rowTahun === filterTahun);
+              const matchBulan = (filterBulan === '') || (rowBulan === filterBulan);
+              
+              if (matchTahun && matchBulan) {
+                row.style.display = ''; // Tampilkan
+              } else {
+                row.style.display = 'none'; // Sembunyikan
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Tambahkan pemanggilan initFilterTahun di window.onload
+      const oldOnLoad = window.onload;
+      window.onload = function() {
+        if (oldOnLoad) oldOnLoad(); // Jalankan onload yang lama (login check dll)
+        initFilterTahun(); // Jalankan inisialisasi filter
+      };
 
     </script>
   </body>
