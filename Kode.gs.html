@@ -26,7 +26,7 @@ function doGet(e) {
 
 /* --- FUNGSI REGISTRASI & LOGIN --- */
 
-/* --- FUNGSI REGISTRASI (UPDATE: BUAT STRUKTUR FOLDER) --- */
+/* --- FUNGSI REGISTRASI (UPDATE: AKSES FOLDER GENERATE) --- */
 function registerSchool(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
@@ -48,6 +48,10 @@ function registerSchool(form) {
     const folderKop = schoolFolder.createFolder("Kop Sekolah");
     const folderGenerate = schoolFolder.createFolder("File Generate");
 
+    // [BARU] SET PERMISSION FOLDER GENERATE
+    // Agar file PDF di dalamnya bisa dilihat publik (via link) tanpa request access
+    folderGenerate.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
     // 4. Copy Template DB ke dalam Folder Sekolah
     const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
     const newDbFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah, schoolFolder);
@@ -64,7 +68,7 @@ function registerSchool(form) {
       sheetSet.appendRow(['KEY', 'VALUE']);
     }
 
-    // Simpan Konfigurasi Folder agar bisa dipanggil fungsi lain
+    // Simpan Konfigurasi Folder
     sheetSet.appendRow(['FOLDER_SEKOLAH_ID', schoolFolderId]);
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
