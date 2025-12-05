@@ -50,21 +50,29 @@
       }
 
       /* --- STYLE TAMBAHAN UNTUK NAV PILLS (Tab Setting) --- */
+      
+      /* 1. Style Dasar Tombol */
       .nav-pills .nav-link {
-        background-color: #e9ecef; /* Warna abu-abu terang untuk tab tidak aktif */
+        background-color: #e9ecef; /* Warna abu-abu terang default */
         color: #495057;            /* Warna teks abu tua */
         margin-right: 5px;
-        border: 1px solid #dee2e6; /* Border tipis agar tegas */
+        border: 1px solid #dee2e6; 
+        transition: all 0.2s;      /* Animasi halus */
       }
 
-      .nav-pills .nav-link.active {
-        background-color: #0d6efd; /* Warna biru untuk tab aktif */
+      /* 2. Efek Hover HANYA untuk Tab yang TIDAK AKTIF */
+      .nav-pills .nav-link:not(.active):hover {
+        background-color: #dfe6ed; /* Berubah jadi abu agak gelap saat hover */
+        color: #000;
+      }
+
+      /* 3. Style Tab AKTIF (Termasuk saat di-hover) */
+      .nav-pills .nav-link.active,
+      .nav-pills .nav-link.active:hover { 
+        background-color: #0d6efd; /* Tetap Biru */
         color: white;
         border-color: #0d6efd;
-      }
-
-      .nav-pills .nav-link:hover {
-        background-color: #dfe6ed; /* Efek hover */
+        cursor: default; /* Opsional: Ubah kursor agar user tahu ini sedang aktif */
       }
     </style>
   </head>
