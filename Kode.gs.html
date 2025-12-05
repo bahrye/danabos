@@ -1469,3 +1469,62 @@ function getSettingValue(token, keyName) {
     return null;
   } catch(e) { return null; }
 }
+
+/* --- FUNGSI PENGATURAN NOMOR OTOMATIS --- */
+
+// 1. Simpan Pengaturan Nomor Otomatis
+function simpanSettingNomor(token, settings) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    let rowIdx = -1;
+
+    // Cari Key SETTING_NOMOR_OTOMATIS
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'SETTING_NOMOR_OTOMATIS') {
+        rowIdx = i + 1;
+        break;
+      }
+    }
+
+    const jsonSettings = JSON.stringify(settings);
+
+    if (rowIdx !== -1) {
+      sheet.getRange(rowIdx, 2).setValue(jsonSettings);
+    } else {
+      sheet.appendRow(['SETTING_NOMOR_OTOMATIS', jsonSettings]);
+    }
+
+    return { status: 'success', message: 'Pengaturan Nomor Otomatis disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Ambil Pengaturan Nomor Otomatis
+function getSettingNomor(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return { status: 'success', data: null };
+
+    const data = sheet.getDataRange().getValues();
+    let settings = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'SETTING_NOMOR_OTOMATIS') {
+        try {
+          settings = JSON.parse(data[i][1]);
+        } catch (e) { settings = null; }
+        break;
+      }
+    }
+
+    return { status: 'success', data: settings };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
