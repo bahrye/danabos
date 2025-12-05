@@ -3560,13 +3560,12 @@
       function bukaModalSurat(tipe, encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         const s = data.dataSurat || {}; 
-        const rawData = s.raw || {}; // Ambil data raw jika ada
+        const rawData = s.raw || {}; 
 
         document.getElementById('suratTransId').value = data.id;
         document.getElementById('suratTransTipe').value = tipe;
         document.getElementById('suratTransTanggal').value = data.tanggal; 
 
-        // Cek Setting Auto
         const config = (tipe === 'toko') ? globalAutoSettings.toko : globalAutoSettings.tukang;
         const isAuto = config && config.active;
 
@@ -3582,26 +3581,23 @@
           document.getElementById('alertAutoMode').classList.add('hidden');
         }
 
-        // Definisi Field
         let fields = [
-          { key: 'permintaan', label: 'Surat Permintaan', format: config?.permintaan },
-          { key: 'baPemeriksaan', label: 'BA Pemeriksaan', format: config?.pemeriksaan },
-          { key: 'baSerahTerima', label: 'BA Serah Terima', format: config?.bast },
-          { key: 'baPembayaran', label: 'BA Pembayaran', format: config?.bayar }
+          { key: 'permintaan', label: 'Surat Permintaan', icon: 'fa-envelope-open-text', format: config?.permintaan },
+          { key: 'baPemeriksaan', label: 'BA Pemeriksaan', icon: 'fa-clipboard-check', format: config?.pemeriksaan },
+          { key: 'baSerahTerima', label: 'BA Serah Terima', icon: 'fa-handshake', format: config?.bast },
+          { key: 'baPembayaran', label: 'BA Pembayaran', icon: 'fa-money-check-alt', format: config?.bayar }
         ];
 
         if(tipe === 'toko') {
-          fields.splice(1, 0, { key: 'penawaran', label: 'Surat Penawaran', format: config?.penawaran });
+          fields.splice(1, 0, { key: 'penawaran', label: 'Surat Penawaran', icon: 'fa-file-invoice-dollar', format: config?.penawaran });
         }
 
-        // --- RENDER INPUT ---
         fields.forEach(f => {
           const currentValue = s[f.key] || '';
-          
           let htmlInput = '';
           
           if (isAuto && f.format && f.format.trim() !== '') {
-            // === MODE OTOMATIS ===
+            // === MODE OTOMATIS (MODERN UI) ===
             const regex = /\[(.*?)\]/g;
             let matches = [...f.format.matchAll(regex)]; 
             
@@ -3618,43 +3614,56 @@
               if(tag === 'bulan' || tag === 'tahun') return;
 
               placeholdersFound = true;
+              let savedVal = rawData[f.key] && rawData[f.key][tag] ? rawData[f.key][tag] : '';
 
-              // LOGIKA PENTING: AMBIL NILAI LAMA (JIKA ADA)
-              // Kita cek di rawData -> Key Dokumen -> Tag (misal: rawData['permintaan']['nomor'])
-              let savedVal = '';
-              if (rawData[f.key] && rawData[f.key][tag]) {
-                  savedVal = rawData[f.key][tag];
-              }
-
+              // --- DESAIN INPUT TAG ---
               inputGroup += `
-                <div class="col-md-4 mb-2">
-                  <label class="form-label text-muted small fst-italic">Isi [${tag}]</label>
-                  <input type="text" class="form-control form-control-sm auto-input" 
-                        data-key="${f.key}" data-tag="${tag}" placeholder="${tag}..."
-                        value="${savedVal}"> </div>
+                <div class="col-auto">
+                  <div class="input-group shadow-sm" style="min-width: 180px;">
+                    <span class="input-group-text bg-primary text-white border-primary fw-bold" style="font-size: 0.85rem;">
+                      <i class="fas fa-pen fa-xs me-1 opacity-50"></i> ${tag}
+                    </span>
+                    <input type="text" class="form-control auto-input fw-bold text-dark" 
+                          data-key="${f.key}" data-tag="${tag}"
+                          value="${savedVal}" placeholder="..." style="font-size: 1rem; border-color: #cfe2ff;">
+                  </div>
+                </div>
               `;
             });
 
             const previewId = `preview-${f.key}`;
             
             if(placeholdersFound) {
+              // Tampilan Jika Ada Input
               htmlInput = `
-                <div class="row g-2 bg-light p-2 rounded mb-2 border">
-                  <div class="col-12 border-bottom mb-2 pb-1">
-                    <span class="fw-bold text-primary small">${f.format}</span>
+                <div class="p-3 bg-white rounded border" style="box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                  <div class="row g-2 align-items-center mb-2">
+                    ${inputGroup}
                   </div>
-                  ${inputGroup}
-                  <div class="col-12">
-                    <small class="text-success fw-bold"><i class="fas fa-eye"></i> Preview: <span id="${previewId}">-</span></small>
+                  
+                  <div class="mt-2 px-3 py-2 rounded d-flex align-items-center" 
+                      style="background-color: #f1f8ff; border-left: 4px solid #0d6efd;">
+                    <div class="me-3 text-primary opacity-75"><i class="fas fa-eye"></i></div>
+                    <div>
+                      <div class="text-uppercase fw-bold text-primary opacity-50" style="font-size: 0.65rem; letter-spacing: 1px;">Hasil Preview</div>
+                      <div id="${previewId}" class="fw-bold text-dark" style="font-size: 0.9rem; font-family: 'Consolas', monospace;">-</div>
+                    </div>
                   </div>
                 </div>
               `;
             } else {
+              // Tampilan Statis (Hanya Preview)
               htmlInput = `
-                <div class="bg-light p-2 rounded mb-2 border">
-                  <span class="fw-bold text-primary small d-block mb-1">${f.format}</span>
-                  <small class="text-success fw-bold"><i class="fas fa-eye"></i> Preview: <span id="${previewId}">-</span></small>
+                <div class="p-2 bg-white rounded border">
                   <input type="hidden" class="auto-input" data-key="${f.key}" data-tag="DUMMY"> 
+                  <div class="px-3 py-2 rounded d-flex align-items-center" 
+                      style="background-color: #f8f9fa; border-left: 4px solid #6c757d;">
+                    <div class="me-3 text-secondary opacity-50"><i class="fas fa-eye"></i></div>
+                    <div>
+                      <div class="text-uppercase fw-bold text-secondary opacity-50" style="font-size: 0.65rem; letter-spacing: 1px;">Hasil Preview (Otomatis)</div>
+                      <div id="${previewId}" class="fw-bold text-dark" style="font-size: 0.9rem; font-family: 'Consolas', monospace;">-</div>
+                    </div>
+                  </div>
                 </div>
               `;
             }
@@ -3662,14 +3671,23 @@
           } else {
             // === MODE MANUAL ===
             htmlInput = `
-              <input type="text" class="form-control manual-input" id="manual_${f.key}" value="${currentValue}" placeholder="Nomor...">
+              <div class="input-group shadow-sm">
+                <span class="input-group-text bg-light border-end-0"><i class="fas fa-keyboard text-muted"></i></span>
+                <input type="text" class="form-control manual-input" id="manual_${f.key}" value="${currentValue}" placeholder="Ketik nomor surat lengkap disini...">
+              </div>
             `;
           }
 
+          // --- STRUKTUR LABEL & KONTEN ---
           const rowHtml = `
-            <div class="mb-3 row">
-              <label class="col-sm-4 col-form-label fw-bold">${f.label}</label>
-              <div class="col-sm-8">
+            <div class="mb-4">
+              <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                  <i class="fas ${f.icon}"></i>
+                </div>
+                ${f.label}
+              </label>
+              <div class="ps-1">
                 ${htmlInput}
               </div>
             </div>
