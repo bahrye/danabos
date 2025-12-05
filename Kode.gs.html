@@ -843,40 +843,38 @@ function getTransaksiList(token, tipe) {
     const data = sheet.getDataRange().getValues();
     const result = [];
     
-    // Helper format tanggal (YYYY-MM-DD)
+    // 1. Format Standar (YYYY-MM-DD) untuk Value Input HTML5
     const formatDate = (dateObj) => {
       if(!dateObj) return "";
       return Utilities.formatDate(new Date(dateObj), "GMT+7", "yyyy-MM-dd");
+    };
+
+    // 2. Format Tampilan Indonesia (DD-MM-YYYY) - BARU
+    const formatDateDisplay = (dateObj) => {
+      if(!dateObj) return "";
+      return Utilities.formatDate(new Date(dateObj), "GMT+7", "dd-MM-yyyy");
     };
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][2] === tipe) {
         let items = [], surat = null, tglSurat = null;
 
-        // Parse JSON dengan aman
         try { items = JSON.parse(data[i][6]); } catch (err) { items = []; }
-        
-        // Ambil Data Nomor Surat (Index 9)
-        if (data[i][9]) {
-          try { surat = JSON.parse(data[i][9]); } catch (err) { surat = null; }
-        }
-        
-        // Ambil Data Tanggal Surat (Index 10) - BARU
-        if (data[i][10]) {
-          try { tglSurat = JSON.parse(data[i][10]); } catch (err) { tglSurat = null; }
-        }
+        if (data[i][9]) { try { surat = JSON.parse(data[i][9]); } catch (err) { surat = null; } }
+        if (data[i][10]) { try { tglSurat = JSON.parse(data[i][10]); } catch (err) { tglSurat = null; } }
 
         result.push({
           id: data[i][0],
-          tanggal: formatDate(data[i][1]), // Tanggal Transaksi Asli
+          tanggal: formatDate(data[i][1]),          // PENTING: Untuk Input Form (YYYY-MM-DD)
+          tanggalDisplay: formatDateDisplay(data[i][1]), // PENTING: Untuk Tampilan Tabel (DD-MM-YYYY)
           tipe: data[i][2],
           uraian: data[i][3],
           pihakKetiga: data[i][4],
           pemesan: data[i][5],
           items: items,
           total: data[i][7],
-          dataSurat: surat,      // Data Nomor
-          dataTanggal: tglSurat  // Data Tanggal
+          dataSurat: surat,
+          dataTanggal: tglSurat
         });
       }
     }
