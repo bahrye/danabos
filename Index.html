@@ -1213,17 +1213,26 @@
         document.getElementById(viewId).classList.remove('hidden');
       }
 
+
       // 2. Pindah Menu Sidebar (Dashboard <-> Buat LPJ <-> Pengaturan)
       function navigasiKe(panelId, linkElement) {
+        // 1. Scroll ke Paling Atas Halaman (FITUR BARU)
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 2. Sembunyikan semua panel
         document.querySelectorAll('.panel-content').forEach(el => el.classList.add('hidden'));
+        
+        // 3. Tampilkan panel target
         const targetPanel = document.getElementById(panelId);
         if(targetPanel) targetPanel.classList.remove('hidden');
 
+        // 4. Update status Active di Sidebar
         if (linkElement) {
           document.querySelectorAll('.sidebar .nav-link').forEach(el => el.classList.remove('active'));
           linkElement.classList.add('active');
         }
         
+        // 5. Load Data sesuai Panel
         if(panelId === 'panel-data-sekolah') loadDataSekolah();
         if(panelId === 'panel-uraian') loadUraianData();
         if(panelId === 'panel-toko') loadTokoData();
@@ -1233,23 +1242,23 @@
         
         // LOGIKA TRANSAKSI
         if(panelId === 'panel-transaksi') {
-          // 1. Load Dropdown (termasuk isi cacheDataGuru)
           loadTransaksiOptions(); 
-          
-          // 2. Siapkan baris kosong jika tabel masih kosong
+          // Siapkan baris kosong jika tabel masih kosong
           if(document.getElementById('tabelItemToko').tBodies[0].rows.length === 0) tambahBaris('toko');
           if(document.getElementById('tabelItemTukang').tBodies[0].rows.length === 0) tambahBaris('tukang');
           if(document.getElementById('tabelItemGuru').tBodies[0].rows.length === 0) tambahBaris('guru');
 
-          // 3. Buka tab default (Toko) agar user tidak melihat layar kosong
           bukaTab('toko'); 
         }
+
+        // LOGIKA NOMOR SURAT
         if(panelId === 'panel-nomor-surat') {
-            // Default buka tab Toko saat menu diklik
-            bukaTabSurat('toko');
+          bukaTabSurat('toko');
         }
+
+        // LOGIKA TANGGAL SURAT
         if(panelId === 'panel-tanggal-surat') {
-            bukaTabTanggal('toko');
+          bukaTabTanggal('toko');
         }
       }
 
