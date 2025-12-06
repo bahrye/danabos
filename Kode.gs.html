@@ -1277,14 +1277,29 @@ function hapusKopSurat(token) {
 
 /* --- FUNGSI BANTUAN TRANSAKSI --- */
 
-// Ambil semua data master sekaligus untuk isi dropdown
+// Cari fungsi ini dan update isinya
 function getAllOptions(token) {
   try {
-    // Reuse fungsi yang sudah ada agar tidak duplikasi kode
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Ambil Uraian, Toko, Tukang, Guru (Code Lama)
     const uraian = getUraianList(token).data || [];
     const toko = getTokoList(token).data || [];
     const tukang = getTukangList(token).data || [];
     const guru = getGuruList(token).data || [];
+
+    // 2. TAMBAHAN: Ambil Data Satuan
+    let satuan = [];
+    const sheetSatuan = ss.getSheetByName('Satuan');
+    if (sheetSatuan) {
+      const lastRow = sheetSatuan.getLastRow();
+      if (lastRow >= 2) {
+        // Ambil kolom A baris 2 sampai bawah
+        const dataSat = sheetSatuan.getRange(2, 1, lastRow - 1, 1).getValues();
+        // Flatten array dan filter yang kosong
+        satuan = dataSat.map(r => r[0]).filter(val => val !== ""); 
+      }
+    }
 
     return {
       status: 'success',
@@ -1292,7 +1307,8 @@ function getAllOptions(token) {
         uraian: uraian,
         toko: toko,
         tukang: tukang,
-        guru: guru
+        guru: guru,
+        satuan: satuan // <--- Kirim data satuan ke Client
       }
     };
   } catch (e) {
