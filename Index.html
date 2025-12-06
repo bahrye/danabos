@@ -1402,6 +1402,11 @@
                   <i class="fas fa-hammer me-2"></i> Upah Tukang
                 </button>
               </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-dark" id="tab-cetak-setting" onclick="bukaTabCetak('setting')">
+                  <i class="fas fa-cog me-2"></i> Pengaturan Template
+                </button>
+              </li>
             </ul>
 
             <div class="card shadow-sm border-0">
@@ -1509,6 +1514,167 @@
                         <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                <div id="view-cetak-setting" class="view-cetak hidden">
+                  <div class="row">
+                    <div class="col-lg-5 mb-4">
+                      <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white fw-bold py-3 text-primary">
+                          <i class="fas fa-file-word me-2"></i> Input ID Google Doc
+                        </div>
+                        <div class="card-body">
+                          <div class="alert alert-warning py-2" style="font-size: 0.85rem;">
+                            <i class="fas fa-exclamation-triangle me-1"></i> <strong>Penting:</strong> Pastikan Google Doc Template Anda aksesnya diatur menjadi <em>"Siapa saja yang memiliki link dapat melihat" (Anyone with the link can view)</em> agar sistem bisa membacanya.
+                          </div>
+
+                          <form id="formTemplate" onsubmit="simpanTemplate(event)">
+                            <div class="mb-3">
+                              <label class="form-label fw-bold small">ID Template Laporan Toko</label>
+                              <input type="text" class="form-control font-monospace" id="tplIdToko" placeholder="Contoh: 1Fl8Jaf4j6XI...">
+                            </div>
+                            <div class="mb-3">
+                              <label class="form-label fw-bold small">ID Template Honor Guru</label>
+                              <input type="text" class="form-control font-monospace" id="tplIdGuru" placeholder="Contoh: 1pC4xjpoGps...">
+                            </div>
+                            <div class="mb-3">
+                              <label class="form-label fw-bold small">ID Template Upah Tukang</label>
+                              <input type="text" class="form-control font-monospace" id="tplIdTukang" placeholder="Contoh: 1vNWFUOKI...">
+                            </div>
+                            
+                            <div class="d-grid">
+                              <button type="submit" id="btnSimpanTemplate" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Simpan Pengaturan
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                      <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                          <h5 class="mb-3"><i class="fas fa-book-reader text-success me-2"></i> Panduan Pembuatan Template</h5>
+                          
+                          <div class="accordion" id="accordionPanduan">
+                            <div class="accordion-item">
+                              <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                  1. Cara Mendapatkan ID Google Doc
+                                </button>
+                              </h2>
+                              <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#accordionPanduan">
+                                <div class="accordion-body bg-light">
+                                  <ol class="small mb-0 ps-3">
+                                    <li>Buka file Google Doc template Anda.</li>
+                                    <li>Lihat pada Address Bar browser.</li>
+                                    <li>Link biasanya seperti: <code>docs.google.com/document/d/<strong>ID_ADALAH_DISINI</strong>/edit</code></li>
+                                    <li>Copy kode acak tersebut dan paste ke form di samping.</li>
+                                  </ol>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="accordion-item">
+                              <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                  2. Daftar Kode Placeholder (Wajib Copy-Paste)
+                                </button>
+                              </h2>
+                              <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                                <div class="accordion-body p-0">
+                                  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped mb-0 small">
+                                      <thead class="table-dark sticky-top">
+                                        <tr><th>Kode (Copy ke Doc)</th><th>Keterangan</th></tr>
+                                      </thead>
+                                      <tbody>
+                                        <tr><td class="font-monospace">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Akan diganti gambar Kop Sekolah</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Sekolah&gt;&gt;</td><td>Nama Sekolah Anda</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nomor Bukti Uraian&gt;&gt;</td><td>No. Bukti (dari Data Uraian)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Uraian Pekerjaan&gt;&gt;</td><td>Judul Uraian / Belanja</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Total&gt;&gt;</td><td>Total Angka (Rp)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Total Terbilang&gt;&gt;</td><td>Total Huruf (Terbilang)</td></tr>
+                                        
+                                        <tr><td colspan="2" class="fw-bold bg-warning bg-opacity-25">Khusus Tabel Barang</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;TABLE_ROW&gt;&gt;</td><td>Buat 1 baris tabel di Doc, tulis kode ini di salah satu kolom untuk menandai baris yang akan diulang (looping).</td></tr>
+                                        
+                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Khusus Toko</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Toko&gt;&gt;</td><td>Nama Pihak Ketiga</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nomor Surat Keluar&gt;&gt;</td><td>Nomor Surat Permintaan</td></tr>
+
+                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Khusus Tukang</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Tukang&gt;&gt;</td><td>Nama Pekerja</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Alamat Lengkap Tukang&gt;&gt;</td><td>Alamat Pekerja</td></tr>
+
+                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Pejabat TTD</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA KEPALA SEKOLAH&gt;&gt;</td><td>Nama Kepala</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA BENDAHARA&gt;&gt;</td><td>Nama Bendahara</td></tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="accordion-item">
+                              <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                  3. Contoh Penggunaan Placeholder Template
+                                </button>
+                              </h2>
+                              <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                                <div class="accordion-body">
+                                  <p class="small text-muted mb-2">
+                                    Berikut adalah contoh dokumen asli yang sudah dipasangi placeholder. Klik ikon mata untuk membuka dan melihat isinya.
+                                  </p>
+                                  
+                                  <ul class="list-group list-group-flush small">
+                                    
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                                        <div class="d-flex align-items-center">
+                                          <i class="fas fa-store text-primary me-2"></i>
+                                          <span class="fw-bold text-dark">Template Laporan Toko</span>
+                                        </div>
+                                        <a href="https://docs.google.com/document/d/1Fl8Jaf4j6XIyF8TghkwUsmrqEKU7obVbuOWDxlIa56o/edit?usp=sharing" 
+                                          target="_blank" class="btn btn-sm btn-outline-info rounded-circle" title="Lihat Template Toko">
+                                          <i class="fas fa-eye"></i>
+                                        </a>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                                        <div class="d-flex align-items-center">
+                                          <i class="fas fa-chalkboard-teacher text-success me-2"></i>
+                                          <span class="fw-bold text-dark">Template Honor Guru</span>
+                                        </div>
+                                        <a href="https://docs.google.com/document/d/1pC4xjpoGpsCaidPqoWHjJAAFgwnuDnKPsONUrd3IeFg/edit?usp=sharing" 
+                                          target="_blank" class="btn btn-sm btn-outline-info rounded-circle" title="Lihat Template Guru">
+                                          <i class="fas fa-eye"></i>
+                                        </a>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                                        <div class="d-flex align-items-center">
+                                          <i class="fas fa-hammer text-warning me-2"></i>
+                                          <span class="fw-bold text-dark">Template Upah Tukang</span>
+                                        </div>
+                                        <a href="https://docs.google.com/document/d/1vNWFUOKIKob8SI0VX0ROxhZQ02Tl6eboiR2TZ7mzRqE/edit?usp=sharing" 
+                                          target="_blank" class="btn btn-sm btn-outline-info rounded-circle" title="Lihat Template Tukang">
+                                          <i class="fas fa-eye"></i>
+                                        </a>
+                                    </li>
+
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4572,11 +4738,13 @@
       /* --- LOGIKA MENU CETAK PDF --- */
 
       // 1. Fungsi Ganti Tab Cetak
+      /* --- UPDATE FUNGSI INI --- */
       function bukaTabCetak(tipe) {
         // Reset Tab Active Class
         document.getElementById('tab-cetak-toko').classList.remove('active');
         document.getElementById('tab-cetak-guru').classList.remove('active');
         document.getElementById('tab-cetak-tukang').classList.remove('active');
+        document.getElementById('tab-cetak-setting').classList.remove('active'); // Baru
         
         // Set Active Tab Button
         document.getElementById('tab-cetak-' + tipe).classList.add('active');
@@ -4584,11 +4752,15 @@
         // Sembunyikan semua tabel view
         document.querySelectorAll('.view-cetak').forEach(el => el.classList.add('hidden'));
         
-        // Munculkan tabel yang dipilih
+        // Munculkan tabel/view yang dipilih
         document.getElementById('view-cetak-' + tipe).classList.remove('hidden');
 
-        // Load Data
-        loadListCetak(tipe);
+        // Load Data sesuai tipe
+        if (tipe === 'setting') {
+          loadTemplateSettings(); // Fungsi Baru
+        } else {
+          loadListCetak(tipe);
+        }
       }
 
       // 2. Load Data ke Tabel Cetak
@@ -5040,6 +5212,57 @@
           .replace(/\\/g, "\\\\")   // Escape backslash dulu
           .replace(/'/g, "\\'")     // Escape kutip satu untuk JS
           .replace(/"/g, "&quot;"); // Escape kutip dua untuk HTML Attr
+      }
+
+      /* --- TAMBAHKAN FUNGSI BARU INI DI BAWAH --- */
+
+      // 1. Load Data ID Template dari Server
+      function loadTemplateSettings() {
+        const token = localStorage.getItem('userToken');
+        const ids = ['tplIdToko', 'tplIdGuru', 'tplIdTukang'];
+        
+        // Kasih efek loading kecil di placeholder
+        ids.forEach(id => document.getElementById(id).placeholder = "Memuat...");
+
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            const d = res.data;
+            document.getElementById('tplIdToko').value = d.toko || '';
+            document.getElementById('tplIdGuru').value = d.guru || '';
+            document.getElementById('tplIdTukang').value = d.tukang || '';
+            
+            // Balikin placeholder
+            ids.forEach(id => document.getElementById(id).placeholder = "Contoh: 1Fl8Jaf4j6XI...");
+          }
+        }).getTemplateSettings(token);
+      }
+
+      // 2. Simpan Data Template
+      function simpanTemplate(e) {
+        e.preventDefault();
+        
+        const token = localStorage.getItem('userToken');
+        const payload = {
+          toko: document.getElementById('tplIdToko').value.trim(),
+          guru: document.getElementById('tplIdGuru').value.trim(),
+          tukang: document.getElementById('tplIdTukang').value.trim()
+        };
+
+        const btn = document.getElementById('btnSimpanTemplate');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          
+          if (res.status === 'success') {
+            Swal.fire('Sukses', 'Pengaturan template berhasil disimpan!', 'success');
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanTemplateSettings(token, payload);
       }
 
     </script>
