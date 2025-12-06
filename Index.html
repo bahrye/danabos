@@ -150,6 +150,31 @@
         border-color: #0d6efd;
         cursor: default; /* Opsional: Ubah kursor agar user tahu ini sedang aktif */
       }
+
+      /* --- STYLE CUSTOM TOGGLE SWITCH --- */
+      .toggle-card {
+        background-color: #fff;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      
+      .toggle-card:hover {
+        border-color: #0d6efd; /* Warna biru primary saat dihover */
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.1);
+      }
+
+      /* Memperbesar ukuran saklar bawaan Bootstrap */
+      .custom-switch-lg .form-check-input {
+        width: 3.5em;  /* Lebih lebar */
+        height: 1.75em; /* Lebih tinggi */
+        cursor: pointer;
+      }
+      
+      .custom-switch-lg .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+      }
     </style>
   </head>
   <body>
@@ -370,30 +395,38 @@
                   <div class="col-md-6 border-end-md">
                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">Profil Sekolah</h6>
                      <table class="table table-borderless table-sm mb-0" style="font-size: 0.95rem;">
-                       <tr>
-                         <td width="35%" class="text-muted">Nama Sekolah</td>
-                         <td class="fw-bold" id="dashNamaSekolah">-</td>
-                       </tr>
-                       <tr>
-                         <td class="text-muted">NPSN</td>
-                         <td class="fw-bold" id="dashNpsn">-</td>
-                       </tr>
-                       <tr>
-                         <td class="text-muted">NSM</td>
-                         <td id="dashNsm">-</td>
-                       </tr>
-                       <tr>
-                         <td class="text-muted">Alamat</td>
-                         <td id="dashAlamat">-</td>
-                       </tr>
-                       <tr>
-                         <td class="text-muted">Wilayah</td>
-                         <td id="dashLokasi">-</td>
-                       </tr>
-                       <tr>
-                         <td class="text-muted">Email</td>
-                         <td id="dashEmail">-</td>
-                       </tr>
+                      <tr>
+                        <td width="35%" class="text-muted">Nama Sekolah</td>
+                        <td class="fw-bold" id="dashNamaSekolah">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">NPSN / NSM</td>
+                        <td><span id="dashNpsn" class="fw-bold">-</span> / <span id="dashNsm">-</span></td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">Alamat</td>
+                        <td id="dashAlamat">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">Desa/Kelurahan</td>
+                        <td id="dashKelurahan">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">Kecamatan</td>
+                        <td id="dashKecamatan">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">Kab/Kota</td>
+                        <td id="dashKabupaten">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">No. Telp / HP</td>
+                        <td class="fw-bold text-success" id="dashTelp">-</td>
+                      </tr>
+                      <tr>
+                        <td class="text-muted">Email</td>
+                        <td id="dashEmail">-</td>
+                      </tr>
                      </table>
                   </div>
 
@@ -709,56 +742,82 @@
                   <div class="tab-content" id="pills-tabContent-setting">
                     
                     <div class="tab-pane fade show active" id="pills-set-toko" role="tabpanel">
-                      <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="toggleAutoToko" onchange="toggleFormSetting('toko')">
-                        <label class="form-check-label fw-bold" for="toggleAutoToko">Aktifkan Penomoran Otomatis Toko</label>
-                      </div>
                       
-                      <div id="formAutoToko" class="border p-3 rounded bg-light hidden">
-                        <div class="mb-3">
-                          <label class="form-label fw-bold">Format Surat Permintaan</label>
-                          <input type="text" class="form-control" id="fmtTokoPermintaan" placeholder="Contoh: B.[nomor]/MTs.../[bulan]/[tahun]">
+                      <div class="toggle-card p-3 rounded-3 d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                          <label class="fw-bold d-block text-dark mb-1" for="toggleAutoToko" style="cursor: pointer;">
+                            <i class="fas fa-robot text-primary me-2"></i> Penomoran Otomatis Toko
+                          </label>
+                          <small class="text-muted d-block" style="line-height: 1.2;">
+                            Sistem akan mengisi nomor surat secara otomatis sesuai format.
+                          </small>
                         </div>
-                        <div class="mb-3">
-                          <label class="form-label fw-bold">Format Surat Penawaran</label>
-                          <input type="text" class="form-control" id="fmtTokoPenawaran">
+                        
+                        <div class="form-check form-switch custom-switch-lg mb-0">
+                          <input class="form-check-input" type="checkbox" id="toggleAutoToko" onchange="toggleFormSetting('toko')">
                         </div>
-                        <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Pemeriksaan</label>
-                          <input type="text" class="form-control" id="fmtTokoPemeriksaan">
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Serah Terima (BAST)</label>
-                          <input type="text" class="form-control" id="fmtTokoBAST">
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Pembayaran</label>
-                          <input type="text" class="form-control" id="fmtTokoBayar">
-                        </div>
+                      </div>
+
+                      <div id="formAutoToko" class="border p-4 rounded-3 bg-white shadow-sm hidden">
+                          <h6 class="border-bottom pb-2 mb-3 text-primary fw-bold">Konfigurasi Format Surat Toko</h6>
+                          
+                          <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Format Surat Permintaan</label>
+                            <input type="text" class="form-control" id="fmtTokoPermintaan" placeholder="Contoh: B.[nomor]/MTs.../[bulan]/[tahun]">
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Format Surat Penawaran</label>
+                            <input type="text" class="form-control" id="fmtTokoPenawaran">
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Pemeriksaan</label>
+                            <input type="text" class="form-control" id="fmtTokoPemeriksaan">
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Serah Terima (BAST)</label>
+                            <input type="text" class="form-control" id="fmtTokoBAST">
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Pembayaran</label>
+                            <input type="text" class="form-control" id="fmtTokoBayar">
+                          </div>
                       </div>
                     </div>
 
                     <div class="tab-pane fade" id="pills-set-tukang" role="tabpanel">
-                      <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="toggleAutoTukang" onchange="toggleFormSetting('tukang')">
-                        <label class="form-check-label fw-bold" for="toggleAutoTukang">Aktifkan Penomoran Otomatis Tukang</label>
+                      
+                      <div class="toggle-card p-3 rounded-3 d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                          <label class="fw-bold d-block text-dark mb-1" for="toggleAutoTukang" style="cursor: pointer;">
+                            <i class="fas fa-magic text-warning me-2"></i> Penomoran Otomatis Tukang
+                          </label>
+                          <small class="text-muted d-block" style="line-height: 1.2;">
+                            Aktifkan fitur ini untuk generate nomor surat tukang otomatis.
+                          </small>
+                        </div>
+                        
+                        <div class="form-check form-switch custom-switch-lg mb-0">
+                          <input class="form-check-input" type="checkbox" id="toggleAutoTukang" onchange="toggleFormSetting('tukang')">
+                        </div>
                       </div>
                       
-                      <div id="formAutoTukang" class="border p-3 rounded bg-light hidden">
+                      <div id="formAutoTukang" class="border p-4 rounded-3 bg-white shadow-sm hidden">
+                        <h6 class="border-bottom pb-2 mb-3 text-warning fw-bold text-dark">Konfigurasi Format Surat Tukang</h6>
+
                         <div class="mb-3">
-                          <label class="form-label fw-bold">Format Surat Permintaan</label>
+                          <label class="form-label fw-bold small text-uppercase text-secondary">Format Surat Permintaan</label>
                           <input type="text" class="form-control" id="fmtTukangPermintaan">
                         </div>
                         <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Pemeriksaan</label>
+                          <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Pemeriksaan</label>
                           <input type="text" class="form-control" id="fmtTukangPemeriksaan">
                         </div>
                         <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Serah Terima (BAST)</label>
+                          <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Serah Terima (BAST)</label>
                           <input type="text" class="form-control" id="fmtTukangBAST">
                         </div>
                         <div class="mb-3">
-                          <label class="form-label fw-bold">Format BA Pembayaran</label>
+                          <label class="form-label fw-bold small text-uppercase text-secondary">Format BA Pembayaran</label>
                           <input type="text" class="form-control" id="fmtTukangBayar">
                         </div>
                       </div>
@@ -4481,18 +4540,30 @@
               if(ketSisa)   ketSisa.className = 'text-white-50';
             }
 
-            // 2. Render Profil Sekolah (BARU)
-            document.getElementById('dashNamaSekolah').innerText = p.nama;
-            document.getElementById('dashNpsn').innerText = p.npsn;
-            document.getElementById('dashNsm').innerText = p.nsm;
-            document.getElementById('dashAlamat').innerText = p.alamat;
-            document.getElementById('dashLokasi').innerText = p.lokasi; // Kec, Kab, Prov
-            document.getElementById('dashEmail').innerText = p.email;
+            // 2. Render Profil Sekolah (UPDATE LENGKAP & AMAN)
+            document.getElementById('dashNamaSekolah').innerText = p.nama || '-';
+            document.getElementById('dashNpsn').innerText = p.npsn || '-';
+            document.getElementById('dashNsm').innerText = p.nsm || '-';
+            document.getElementById('dashAlamat').innerText = p.alamat || '-';
             
-            document.getElementById('dashKepala').innerText = p.kepala;
-            document.getElementById('dashNipKepala').innerText = p.nipKepala;
-            document.getElementById('dashBendahara').innerText = p.bendahara;
-            document.getElementById('dashNipBendahara').innerText = p.nipBendahara;
+            // Update Wilayah (Pakai || '-' agar tidak undefined)
+            document.getElementById('dashKelurahan').innerText = p.kelurahan || '-';
+            document.getElementById('dashKecamatan').innerText = p.kecamatan || '-';
+            
+            // Format Kabupaten & Provinsi
+            let kabProv = p.kabupaten || '-';
+            if(p.provinsi) kabProv += ' - ' + p.provinsi;
+            document.getElementById('dashKabupaten').innerText = kabProv;
+
+            // Update Kontak
+            document.getElementById('dashTelp').innerText = p.noTelp || '-';
+            document.getElementById('dashEmail').innerText = p.email || '-';
+            
+            // Pejabat Sekolah
+            document.getElementById('dashKepala').innerText = p.kepala || '-';
+            document.getElementById('dashNipKepala').innerText = p.nipKepala || '-';
+            document.getElementById('dashBendahara').innerText = p.bendahara || '-';
+            document.getElementById('dashNipBendahara').innerText = p.nipBendahara || '-';
 
           }
         }).getDashboardStats(token);
