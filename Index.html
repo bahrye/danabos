@@ -1987,29 +1987,35 @@
 
       // 2. Pindah Menu Sidebar (Dashboard <-> Buat LPJ <-> Pengaturan)
       function navigasiKe(panelId, linkElement) {
-        // 1. Sembunyikan Overlay & Sidebar (Khusus Mobile) agar tidak menghalangi
+        // 1. Mobile Sidebar logic
         if (window.innerWidth < 768) {
           const sidebar = document.getElementById('sidebarMenu');
           const overlay = document.getElementById('sidebarOverlay');
-          sidebar.classList.remove('show');
-          overlay.classList.remove('show');
+          if(sidebar) sidebar.classList.remove('show'); // Tambahkan if
+          if(overlay) overlay.classList.remove('show'); // Tambahkan if
         }
 
-        // 2. Sembunyikan SEMUA panel terlebih dahulu
-        document.querySelectorAll('.panel-content').forEach(el => el.classList.add('hidden'));
+        // 2. Hide semua panel
+        document.querySelectorAll('.panel-content').forEach(el => {
+            if(el && el.classList) el.classList.add('hidden'); // Tambahkan cek if(el)
+        });
 
-        // 3. Tampilkan panel target
+        // 3. Show target panel
         const targetPanel = document.getElementById(panelId);
-        if(targetPanel) targetPanel.classList.remove('hidden');
+        if(targetPanel) {
+            targetPanel.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        } else {
+            console.warn("Panel tidak ditemukan: " + panelId); // Debugging
+        }
 
-        // 4. Scroll ke Paling Atas SECARA INSTAN (Tanpa animasi smooth)
-        // Animasi smooth menyebabkan bentrok koordinat saat panel berganti
-        window.scrollTo(0, 0); 
-
-        // 5. Update status Active di Sidebar
+        // 4. Update Sidebar Active State
         if (linkElement) {
           document.querySelectorAll('.sidebar .nav-link').forEach(el => el.classList.remove('active'));
-          linkElement.classList.add('active');
+          // HANYA jalankan jika linkElement benar-benar elemen HTML
+          if (linkElement.classList) { 
+              linkElement.classList.add('active');
+          }
         }
 
         // --- Logika Load Data ---
@@ -2035,13 +2041,6 @@
         if(panelId === 'panel-nomor-surat') bukaTabSurat('toko');
         if(panelId === 'panel-tanggal-surat') bukaTabTanggal('toko');
         if(panelId === 'panel-cetak-pdf') bukaTabCetak('toko');
-      }
-
-      // Helper khusus untuk tombol "Transaksi Baru" di dashboard
-      function triggerMenuBuatLPJ() {
-        // Cari elemen link sidebar yang mengarah ke 'panel-buat-lpj'
-        const linkLpj = document.querySelector("a[onclick*='panel-buat-lpj']");
-        navigasiKe('panel-buat-lpj', linkLpj);
       }
 
       /* --- LOGIKA APLIKASI --- */
