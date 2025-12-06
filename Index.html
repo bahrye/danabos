@@ -1972,7 +1972,6 @@
       let cacheDataGuru = [];
       let cacheSatuan = [];
       let cacheMasterUraian = [];
-      let cacheBarang = [];
 
 
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
@@ -3255,26 +3254,17 @@
             } else {
               // Input Biasa (Untuk Toko & Tukang)
               const val = String(item.nama).replace(/"/g, '&quot;');
-              
-              // --- PASTE KODE INI DENGAN HATI-HATI ---
-              colNamaInput = `
-                <div class="autocomplete-wrapper">
-                    <input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang"
-                       oninput="handleInputNamaBarang(this)" 
-                       autocomplete="off">
-                    <div class="suggestion-list" style="display:none; min-width: 250px;"></div>
-                </div>
-              `;
-              // --- BATAS AKHIR COPY ---
+              colNamaInput = `<input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang">`;
             }
 
             // --- LOGIKA FORMAT HARGA (Titik Ribuan) ---
             const hargaTampil = formatRibuanInput(item.harga);
 
             // --- TEMPLATE BARIS TABEL ---
+            // --- TEMPLATE BARIS TABEL ---
             const row = `
               <tr id="row-${rowId}">
-                <td style="position: relative;">${colNamaInput}</td> <td>
+                <td>${colNamaInput}</td>
                 
                 <td>
                   <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
@@ -3548,8 +3538,7 @@
             
             // 1. SIMPAN DATA KE CACHE
             cacheDataGuru = d.guru; 
-            cacheSatuan = d.satuan;
-            cacheBarang = d.barang || [];
+            cacheSatuan = d.satuan
 
             // Helper isi select header
             const isiSelect = (id, data) => {
@@ -3676,27 +3665,16 @@
           // 4. Tambahkan event onchange="cekInputManual(this)"
           colPertamaHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${optionsGuru}</select>`;
         } else {
-          // --- PASTE KODE INI DENGAN HATI-HATI ---
-          // Pastikan diawali dan diakhiri dengan tanda backtick (`)
-          colPertamaHtml = `
-            <div class="autocomplete-wrapper">
-                <input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa"
-                  oninput="handleInputNamaBarang(this)" 
-                  autocomplete="off">
-                <div class="suggestion-list" style="display:none; min-width: 250px;"></div>
-            </div>
-          `;
-          // --- BATAS AKHIR COPY ---
+          colPertamaHtml = `<input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa">`;
         }
         
-        // --- [UBAH BAGIAN INI JUGA] ---
-        // Tambahkan style="position: relative;" pada <td> pertama
+        // GANTI BAGIAN ROW DI BAWAH INI:
         const row = `
           <tr id="row-${rowId}">
-            <td style="position: relative;">${colPertamaHtml}</td> 
+            <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
             
-            <td style="position: relative;">
+            <td style="position: relative;"> 
               <div class="autocomplete-wrapper">
                 <input type="text" class="form-control item-sat" placeholder="Satuan" 
                   oninput="handleInputSatuan(this)" 
@@ -5497,63 +5475,6 @@
             }
         });
       });
-
-      /* --- LOGIKA AUTOCOMPLETE NAMA BARANG --- */
-
-      // 1. Handler saat mengetik
-      function handleInputNamaBarang(el) {
-        const keyword = el.value.toLowerCase();
-        
-        // Cari elemen list saudara (sibling)
-        const wrapper = el.parentElement;
-        const listEl = wrapper.querySelector('.suggestion-list');
-        
-        // Validasi: Minimal 3 huruf
-        if (keyword.length < 3) {
-          listEl.style.display = 'none';
-          return;
-        }
-
-        // Filter Data dari Cache Barang
-        // Kita gunakan Set untuk mencegah duplikat jika ada nama barang yang sama
-        const uniqueBarang = [...new Set(cacheBarang)];
-        
-        const matches = uniqueBarang.filter(item => 
-          String(item).toLowerCase().includes(keyword)
-        );
-
-        // Render Hasil
-        if (matches.length > 0) {
-          let html = '';
-          // Batasi 10 saran
-          const limit = matches.length > 10 ? 10 : matches.length;
-          
-          for(let i=0; i<limit; i++) {
-            const valSafe = String(matches[i]).replace(/'/g, "\\'"); 
-            // Kita pass elemen 'this' (div suggestion item) agar bisa mencari input di dekatnya
-            html += `<div class="suggestion-item" onclick="pilihBarang(this, '${valSafe}')">
-                      <i class="fas fa-box-open text-secondary me-2 small"></i> ${matches[i]}
-                    </div>`;
-          }
-          
-          listEl.innerHTML = html;
-          listEl.style.display = 'block';
-        } else {
-          listEl.style.display = 'none';
-        }
-      }
-
-      // 2. Saat Barang dipilih
-      function pilihBarang(itemElement, text) {
-        // Cari input text di parent wrapper yang sama
-        const wrapper = itemElement.closest('.autocomplete-wrapper');
-        const input = wrapper.querySelector('input.item-nama');
-        
-        input.value = text;
-        
-        // Sembunyikan list
-        wrapper.querySelector('.suggestion-list').style.display = 'none';
-      }
 
     </script>
   </body>
