@@ -1969,9 +1969,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
 
-      let cacheDataGuru = []; // Menyimpan data guru agar bisa dipanggil berulang kali
-      // --- LOGIC AUTOCOMPLETE URAIAN ---
-      let cacheMasterUraian = []; // Menyimpan data master dari sheet 'Uraian'
+      let cacheDataGuru = [];
+      let cacheSatuan = [];
+      let cacheMasterUraian = [];
 
 
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
@@ -3261,6 +3261,7 @@
             const hargaTampil = formatRibuanInput(item.harga);
 
             // --- TEMPLATE BARIS TABEL ---
+            // --- TEMPLATE BARIS TABEL ---
             const row = `
               <tr id="row-${rowId}">
                 <td>${colNamaInput}</td>
@@ -3269,10 +3270,15 @@
                   <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
                 </td>
                 
-                <td>
-                  <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan">
+                <td style="position: relative;">
+                    <div class="autocomplete-wrapper">
+                      <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan"
+                        oninput="handleInputSatuan(this)" 
+                        onfocus="handleInputSatuan(this)" 
+                        autocomplete="off">
+                      <div class="suggestion-list" style="display:none; min-width: 150px;"></div>
+                    </div>
                 </td>
-                
                 <td>
                   <input type="text" class="form-control item-harga" value="${hargaTampil}" oninput="hitungBaris(this, '${tipe}')">
                 </td>
@@ -3532,6 +3538,7 @@
             
             // 1. SIMPAN DATA KE CACHE
             cacheDataGuru = d.guru; 
+            cacheSatuan = d.satuan
 
             // Helper isi select header
             const isiSelect = (id, data) => {
@@ -3661,11 +3668,21 @@
           colPertamaHtml = `<input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa">`;
         }
         
+        // GANTI BAGIAN ROW DI BAWAH INI:
         const row = `
           <tr id="row-${rowId}">
             <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
-            <td><input type="text" class="form-control item-sat" placeholder="Bln/Keg"></td>
+            
+            <td style="position: relative;"> 
+              <div class="autocomplete-wrapper">
+                <input type="text" class="form-control item-sat" placeholder="Satuan" 
+                  oninput="handleInputSatuan(this)" 
+                  onfocus="handleInputSatuan(this)" 
+                  autocomplete="off">
+                <div class="suggestion-list" style="display:none; min-width: 150px;"></div>
+              </div>
+            </td>
             <td><input type="text" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
             <td>
               <input type="text" class="form-control item-jumlah-display" readonly value="0">
@@ -5384,14 +5401,79 @@
         document.getElementById('listSaranUraian').style.display = 'none';
       }
 
-      // Fitur Tambahan: Tutup list jika klik di luar area
-      document.addEventListener('click', function(e) {
-        const wrapper = document.querySelector('.autocomplete-wrapper');
-        const listEl = document.getElementById('listSaranUraian');
+      // 1. Fungsi Handler saat mengetik atau klik input Satuan
+      function handleInputSatuan(el) {
+        const keyword = el.value.toLowerCase();
         
-        if (wrapper && !wrapper.contains(e.target)) {
+        // Cari elemen list saudara (sibling) dari input ini
+        const wrapper = el.parentElement;
+        const listEl = wrapper.querySelector('.suggestion-list');
+        
+        // Tentukan data yang mau ditampilkan
+        let matches = [];
+        
+        if (keyword === "") {
+          // Jika kosong (baru di klik), tampilkan SEMUA satuan
+          matches = cacheSatuan; 
+        } else {
+          // Jika mengetik, filter berdasarkan kata kunci
+          matches = cacheSatuan.filter(item => 
+            String(item).toLowerCase().includes(keyword)
+          );
+        }
+
+        // Render Hasil
+        if (matches.length > 0) {
+          let html = '';
+          // Batasi 10 agar tidak terlalu panjang
+          const limit = matches.length > 10 ? 10 : matches.length;
+          
+          for(let i=0; i<limit; i++) {
+            // Escape petik satu
+            const valSafe = String(matches[i]).replace(/'/g, "\\'"); 
+            // Kirim elemen input (el) agar kita tahu input mana yang harus diisi
+            html += `<div class="suggestion-item" onclick="pilihSatuan(this, '${valSafe}')">
+                      ${matches[i]}
+                    </div>`;
+          }
+          
+          listEl.innerHTML = html;
+          listEl.style.display = 'block';
+        } else {
+          // Jika tidak ada match, sembunyikan (user bisa ketik manual)
           listEl.style.display = 'none';
         }
+      }
+
+      // 2. Fungsi saat Saran dipilih
+      function pilihSatuan(itemElement, text) {
+        // Cari input text di atas elemen saran ini
+        const wrapper = itemElement.closest('.autocomplete-wrapper');
+        const input = wrapper.querySelector('input.item-sat');
+        
+        input.value = text;
+        
+        // Sembunyikan list
+        wrapper.querySelector('.suggestion-list').style.display = 'none';
+      }
+
+      // 3. Update Global Click Listener (Agar list menutup saat klik di luar)
+      // Update listener yang sudah ada di paling bawah script Anda:
+      document.addEventListener('click', function(e) {
+        // Tutup Uraian (Kode Lama)
+        const wrapperUraian = document.querySelector('.autocomplete-wrapper'); 
+        // Perhatikan: Class autocomplete-wrapper sekarang dipakai di tabel juga.
+        // Kode di bawah ini menangani penutupan list secara generic untuk class tersebut.
+        
+        const allWrappers = document.querySelectorAll('.autocomplete-wrapper');
+        
+        allWrappers.forEach(wrapper => {
+            const listEl = wrapper.querySelector('.suggestion-list');
+            // Jika klik terjadi DI LUAR wrapper ini, sembunyikan list-nya
+            if (listEl && listEl.style.display === 'block' && !wrapper.contains(e.target)) {
+                listEl.style.display = 'none';
+            }
+        });
       });
 
     </script>
