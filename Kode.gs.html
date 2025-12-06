@@ -82,7 +82,12 @@ function registerSchool(form) {
     return { status: 'success', message: 'Registrasi berhasil! Folder & Database telah dibuat.' };
 
   } catch (e) {
-    return { status: 'error', message: 'Error Register: ' + e.toString() };
+    const pesan = beautifyError(
+      "Gagal Mendaftarkan Sekolah", 
+      e, 
+      "Cek ID Folder Master di CONFIG apakah sudah benar. Pastikan akun memiliki akses Edit ke folder tersebut."
+    );
+    return { status: 'error', message: pesan };
   }
 }
 
@@ -173,9 +178,48 @@ function generateLPJ(token, dataForm) {
         if (uraianFound) nomorBuktiUraian = uraianFound.noBukti;
     }
 
-    // Buat Dokumen Sementara
-    const docFile = DriveApp.getFileById(templateId);
+    // --- PERBAIKAN PESAN ERROR ID TEMPLATE ---
+    
+    // 1. Cek apakah ID kosong
+    if (!templateId || templateId.trim() === "") {
+       return { status: 'error', message: 'ID Template masih kosong. Silakan isi ID Template di menu Cetak PDF > Pengaturan Template.' };
+    }
+
+    // 2. Coba ambil file, jika ID salah tangkap errornya
+    let docFile;
+    try {
+      docFile = DriveApp.getFileById(templateId);
+    } catch (e) {
+      // PERBAIKAN: Pesan Error menggunakan format HTML (Lebih Keren)
+      return { 
+        status: 'error', 
+        message: 
+          '<div style="text-align: left; font-size: 0.95rem;">' +
+            '<div style="background: #ffe6e6; border-left: 5px solid #dc3545; padding: 10px; margin-bottom: 10px; color: #a71d2a;">' +
+              '<b>Gagal Membaca File Template!</b>' +
+            '</div>' +
+            
+            '<p style="margin-bottom: 5px;">Sistem tidak dapat menemukan file dengan ID berikut:</p>' +
+            
+            '<div style="background: #f1f3f5; padding: 8px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #333; border: 1px dashed #ccc; text-align: center; margin-bottom: 10px;">' + 
+               templateId + 
+            '</div>' +
+
+            '<b>Kemungkinan Penyebab:</b>' +
+            '<ul style="margin: 5px 0 10px 20px; color: #555;">' +
+              '<li>ID Template salah ketik / terpotong.</li>' +
+              '<li>File Google Doc tersebut sudah dihapus.</li>' +
+              '<li>Akses file masih <i>Restricted</i> (Privat).</li>' +
+            '</ul>' +
+
+            '<b>Solusi:</b><br>' +
+            'Pastikan setting Share file adalah <i>"Anyone with the link can view"</i>.' +
+          '</div>' 
+      };
+    }
+
     const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
+    // -----------------------------------------
     const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
@@ -630,8 +674,12 @@ function getDataSekolah(token) {
       }
     };
   } catch (e) {
-    // Return status error yang bersih agar frontend bisa menanganinya (misal logout otomatis)
-    return { status: 'error', message: e.message || e.toString() };
+    const pesan = beautifyError(
+      "Database Tidak Ditemukan", 
+      e, 
+      "Sistem tidak bisa membuka file Database Sekolah. Kemungkinan file terhapus atau Anda login menggunakan akun yang berbeda."
+    );
+    return { status: 'error', message: pesan };
   }
 }
 
@@ -680,7 +728,12 @@ function simpanDataSekolah(token, form) {
 
     return { status: 'success', message: 'Data Sekolah berhasil disimpan!' };
   } catch (e) {
-    return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
+    const pesan = beautifyError(
+      "Gagal Menyimpan Transaksi", 
+      e, 
+      "Cobalah refresh halaman. Jika masih gagal, lakukan 'Maintenance Database' di menu Data Sekolah untuk memperbaiki struktur tabel."
+    );
+    return { status: 'error', message: pesan };
   }
 }
 
@@ -1139,7 +1192,12 @@ function simpanKopSurat(token, fileData) {
 
     return { status: 'success', message: 'Kop Surat berhasil diupload!', fileId: newFileId };
   } catch (e) {
-    return { status: 'error', message: 'Upload gagal: ' + e.toString() };
+    const pesan = beautifyError(
+      "Gagal Upload Kop Surat", 
+      e, 
+      "Pastikan file berupa Gambar (JPG/PNG) dan ukurannya tidak lebih dari 2MB. Cek juga koneksi internet Anda."
+    );
+    return { status: 'error', message: pesan };
   }
 }
 
@@ -1805,4 +1863,28 @@ function getTemplateSettings(token) {
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
+}
+
+/* --- HELPER FORMAT PESAN ERROR (Agar Tampil Keren) --- */
+function beautifyError(judul, errorObj, saran) {
+  const errorText = errorObj ? errorObj.toString() : "Unknown Error";
+  
+  return '<div style="text-align: left; font-size: 0.9rem;">' +
+           // Header Merah
+           '<div style="background: #ffe6e6; border-left: 5px solid #dc3545; padding: 10px; margin-bottom: 15px; color: #a71d2a;">' +
+             '<i class="fas fa-exclamation-triangle"></i> <b>' + judul + '</b>' +
+           '</div>' +
+           
+           // Detail Error Teknis
+           '<p style="margin-bottom: 5px; font-weight:bold;">Detail Pesan Sistem:</p>' +
+           '<div style="background: #f8f9fa; color: #555; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; font-family: monospace; font-size: 0.85rem; margin-bottom: 15px; word-wrap: break-word;">' + 
+              errorText + 
+           '</div>' +
+
+           // Saran / Solusi
+           '<div style="background: #e7f1ff; border-left: 5px solid #0d6efd; padding: 10px; color: #084298;">' +
+             '<b><i class="fas fa-lightbulb"></i> Solusi:</b><br>' +
+             saran +
+           '</div>' +
+         '</div>';
 }
