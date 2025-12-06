@@ -175,6 +175,42 @@
         background-color: #0d6efd;
         border-color: #0d6efd;
       }
+
+      /* --- STYLE UNTUK AUTOCOMPLETE LIST --- */
+      .autocomplete-wrapper {
+        position: relative;
+      }
+
+      .suggestion-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0 0 5px 5px;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        display: none; /* Tersembunyi default */
+      }
+
+      .suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f1f1;
+        font-size: 0.9rem;
+      }
+
+      .suggestion-item:hover {
+        background-color: #e9ecef;
+        color: #0d6efd;
+      }
+
+      .suggestion-item:last-child {
+        border-bottom: none;
+      }
     </style>
   </head>
   <body>
@@ -1699,7 +1735,16 @@
                       </div>
                       <div class="mb-3">
                         <label class="form-label">Uraian Pekerjaan / Belanja</label>
-                        <textarea class="form-control" id="urNama" rows="3" placeholder="Contoh: Belanja ATK Habis Pakai" required></textarea>
+                        <div class="autocomplete-wrapper">
+                          <textarea class="form-control" id="urNama" rows="3" 
+                            placeholder="Ketik minimal 3 huruf untuk cari referensi..." 
+                            required 
+                            oninput="handleInputUraian(this)" 
+                            autocomplete="off"></textarea>
+                          
+                          <div id="listSaranUraian" class="suggestion-list"></div>
+                        </div>
+                        <small class="text-muted" style="font-size: 0.75rem;">*Pilih dari saran yang muncul atau ketik manual jika tidak ada.</small>
                       </div>
                       
                       <div class="d-grid gap-2">
@@ -1925,6 +1970,8 @@
     <script>
 
       let cacheDataGuru = []; // Menyimpan data guru agar bisa dipanggil berulang kali
+      // --- LOGIC AUTOCOMPLETE URAIAN ---
+      let cacheMasterUraian = []; // Menyimpan data master dari sheet 'Uraian'
 
 
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
@@ -1968,7 +2015,10 @@
         // --- Logika Load Data ---
         if(panelId === 'panel-dashboard') loadDashboardStats();
         if(panelId === 'panel-data-sekolah') loadDataSekolah();
-        if(panelId === 'panel-uraian') loadUraianData();
+        if(panelId === 'panel-uraian') {
+            loadUraianData();      // Data tabel CRUD yang sudah ada
+            loadMasterReferensi(); // <-- TAMBAHKAN INI
+        }
         if(panelId === 'panel-toko') loadTokoData();
         if(panelId === 'panel-tukang') loadTukangData();
         if(panelId === 'panel-guru') loadGuruData();
@@ -5274,6 +5324,75 @@
           }
         }).simpanTemplateSettings(token, payload);
       }
+
+      function loadMasterReferensi() {
+        // Cek jika cache sudah ada isinya, tidak perlu load lagi (hemat kuota)
+        if (cacheMasterUraian.length > 0) return;
+
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            cacheMasterUraian = res.data;
+            console.log("Referensi Uraian Loaded: " + cacheMasterUraian.length + " items");
+          }
+        }).getReferensiUraianMaster(token);
+      }
+
+      function handleInputUraian(el) {
+        const keyword = el.value.toLowerCase();
+        const listEl = document.getElementById('listSaranUraian');
+        
+        // 1. Validasi: Minimal 3 huruf
+        if (keyword.length < 3) {
+          listEl.style.display = 'none';
+          return;
+        }
+
+        // 2. Filter Data dari Cache
+        const matches = cacheMasterUraian.filter(item => 
+          String(item).toLowerCase().includes(keyword)
+        );
+
+        // 3. Render Hasil
+        if (matches.length > 0) {
+          let html = '';
+          // Batasi tampilan maksimal 10 saran agar tidak kepanjangan
+          const limit = matches.length > 10 ? 10 : matches.length;
+          
+          for(let i=0; i<limit; i++) {
+            // Escape petik satu agar tidak error di onclick
+            const valSafe = matches[i].replace(/'/g, "\\'"); 
+            html += `<div class="suggestion-item" onclick="pilihSaranUraian('${valSafe}')">
+                      <i class="fas fa-search text-secondary me-2 small"></i> ${matches[i]}
+                    </div>`;
+          }
+          
+          listEl.innerHTML = html;
+          listEl.style.display = 'block';
+        } else {
+          // Opsional: Tampilkan "Tidak ada data" atau sembunyikan
+          listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic">Data tidak ditemukan, lanjutkan mengetik...</div>';
+          listEl.style.display = 'block';
+        }
+      }
+
+      function pilihSaranUraian(text) {
+        const input = document.getElementById('urNama');
+        input.value = text;
+        
+        // Sembunyikan list setelah memilih
+        document.getElementById('listSaranUraian').style.display = 'none';
+      }
+
+      // Fitur Tambahan: Tutup list jika klik di luar area
+      document.addEventListener('click', function(e) {
+        const wrapper = document.querySelector('.autocomplete-wrapper');
+        const listEl = document.getElementById('listSaranUraian');
+        
+        if (wrapper && !wrapper.contains(e.target)) {
+          listEl.style.display = 'none';
+        }
+      });
 
     </script>
   </body>
