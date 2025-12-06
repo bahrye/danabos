@@ -1473,35 +1473,38 @@ function getDashboardStats(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Sekolah Lengkap (Profil & Anggaran)
+    // 1. Ambil Data Sekolah Lengkap
     let sheetSekolah = ss.getSheetByName('DataSekolah');
     let schoolProfile = {};
     let anggaran = 0;
     
     if (sheetSekolah) {
-      // Ambil range A2:R2 (18 Kolom)
-      // Struktur kolom lihat di fungsi simpanDataSekolah
+      // Pastikan mengambil minimal 18 kolom
       const data = sheetSekolah.getRange(2, 1, 1, 18).getValues()[0];
       
-      // Mapping Data untuk Tampilan Dashboard
+      // === UPDATE BAGIAN INI AGAR LENGKAP ===
       schoolProfile = {
         nama: data[0] || '-',
-        npsn: String(data[1]).replace(/'/g, '') || '-',
-        nsm: String(data[2]).replace(/'/g, '') || '-',
+        npsn: String(data[1] || '').replace(/'/g, '') || '-',
+        nsm: String(data[2] || '').replace(/'/g, '') || '-',
         alamat: data[3] || '-',
-        // Gabung lokasi: Kec. X, Kab. Y, Prov. Z
-        lokasi: (data[6] ? 'Kec. ' + data[6] + ', ' : '') + 
-                (data[5] ? data[5] : '') + 
-                (data[4] ? ', ' + data[4] : ''),
         
+        // TAMBAHAN DATA BARU (Agar tidak undefined)
+        provinsi: data[4] || '',
+        kabupaten: data[5] || '',
+        kecamatan: data[6] || '-',
+        kelurahan: data[7] || '-',
+        tempatTTD: data[8] || '-',
+        noTelp: String(data[13] || '').replace(/'/g, '') || '-', // Kolom No Telp
+        
+        // Data Pejabat
         kepala: data[9] || '-',
-        nipKepala: String(data[10]).replace(/'/g, '') || '-',
+        nipKepala: String(data[10] || '').replace(/'/g, '') || '-',
         bendahara: data[11] || '-',
-        nipBendahara: String(data[12]).replace(/'/g, '') || '-',
+        nipBendahara: String(data[12] || '').replace(/'/g, '') || '-',
         email: data[14] || '-'
       };
       
-      // Ambil Jumlah Anggaran (Kolom Index 16 / Q)
       anggaran = Number(data[16]) || 0; 
     }
 
