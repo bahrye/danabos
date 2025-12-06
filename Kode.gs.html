@@ -135,9 +135,19 @@ function generateLPJ(token, dataForm) {
     // Tentukan Template ID
     let templateId = '';
     const tipe = dataForm.tipe; 
-    if (tipe === 'TOKO') templateId = CONFIG.TEMPLATE_ID_TOKO;
-    else if (tipe === 'GURU') templateId = CONFIG.TEMPLATE_ID_GURU;
-    else if (tipe === 'TUKANG') templateId = CONFIG.TEMPLATE_ID_TUKANG;
+
+    // [MODIFIKASI] Cek DataPengaturan dulu (Custom User), kalau kosong baru pakai CONFIG (Default)
+    const customIdToko = getSettingValue(token, 'TEMPLATE_ID_TOKO');
+    const customIdGuru = getSettingValue(token, 'TEMPLATE_ID_GURU');
+    const customIdTukang = getSettingValue(token, 'TEMPLATE_ID_TUKANG');
+
+    if (tipe === 'TOKO') {
+        templateId = customIdToko && customIdToko !== "" ? customIdToko : CONFIG.TEMPLATE_ID_TOKO;
+    } else if (tipe === 'GURU') {
+        templateId = customIdGuru && customIdGuru !== "" ? customIdGuru : CONFIG.TEMPLATE_ID_GURU;
+    } else if (tipe === 'TUKANG') {
+        templateId = customIdTukang && customIdTukang !== "" ? customIdTukang : CONFIG.TEMPLATE_ID_TUKANG;
+    }
     
     if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan.' };
 
@@ -1739,5 +1749,60 @@ function perbaikiSemuaHeader(token) {
 
   } catch (e) {
     return { status: 'error', message: 'Gagal memperbaiki header: ' + e.toString() };
+  }
+}
+
+/* --- PENGATURAN TEMPLATE CUSTOM --- */
+
+// 1. Simpan ID Template Custom ke DataPengaturan
+function simpanTemplateSettings(token, settings) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    
+    // Helper untuk update atau insert key-value
+    const updateOrInsert = (key, val) => {
+      let found = false;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          sheet.getRange(i + 1, 2).setValue(val);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sheet.appendRow([key, val]);
+    };
+
+    updateOrInsert('TEMPLATE_ID_TOKO', settings.toko);
+    updateOrInsert('TEMPLATE_ID_GURU', settings.guru);
+    updateOrInsert('TEMPLATE_ID_TUKANG', settings.tukang);
+
+    return { status: 'success', message: 'Pengaturan Template berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Ambil ID Template Custom
+function getTemplateSettings(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return { status: 'success', data: { toko:'', guru:'', tukang:'' } };
+
+    const data = sheet.getDataRange().getValues();
+    let res = { toko: '', guru: '', tukang: '' };
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'TEMPLATE_ID_TOKO') res.toko = data[i][1];
+      if (data[i][0] === 'TEMPLATE_ID_GURU') res.guru = data[i][1];
+      if (data[i][0] === 'TEMPLATE_ID_TUKANG') res.tukang = data[i][1];
+    }
+    return { status: 'success', data: res };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
   }
 }
