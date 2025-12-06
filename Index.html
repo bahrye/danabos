@@ -2040,7 +2040,11 @@
               switchView('view-admin');
               loadDashboardStats(); // Pastikan dashboard ter-load saat login
             } else {
-              Swal.fire('Login Gagal', res.message, 'error');
+              Swal.fire({
+                icon: 'error',
+                title: 'Login Gagal',
+                html: res.message
+              });
             }
           })
           .loginUser(form);
@@ -2064,7 +2068,7 @@
               Swal.fire('Berhasil', res.message, 'success');
               switchView('view-login');
             } else {
-              Swal.fire('Gagal', res.message, 'error');
+              Swal.fire({ icon: 'error', title: 'Registrasi Gagal', html: res.message });
             }
           })
           .registerSchool(form);
@@ -2262,7 +2266,7 @@
           if (res.status === 'success') {
             Swal.fire('Sukses', 'Data Sekolah berhasil disimpan!', 'success');
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         }).simpanDataSekolah(token, formData);
       }
@@ -2449,7 +2453,7 @@
           });
           Toast.fire({ icon: 'success', title: res.message });
         } else {
-          Swal.fire('Gagal', res.message, 'error');
+          Swal.fire({ icon: 'error', title: 'Gagal', html: res.message });
         }
       }
 
@@ -2535,7 +2539,7 @@
               title: res.message, showConfirmButton: false, timer: 3000
             });
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         };
 
@@ -2695,7 +2699,7 @@
               title: res.message, showConfirmButton: false, timer: 3000
             });
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         };
 
@@ -2828,7 +2832,7 @@
               title: res.message, showConfirmButton: false, timer: 3000
             });
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         };
 
@@ -2973,7 +2977,7 @@
               document.getElementById('formKop').reset();
               loadKopSettings(); // Reload gambar dari server
             } else {
-              Swal.fire('Gagal', res.message, 'error');
+              Swal.fire({ icon: 'error', title: 'Gagal Upload', html: res.message });
             }
           }).simpanKopSurat(token, payload);
         };
@@ -2997,7 +3001,7 @@
                 Swal.fire('Terhapus', 'Kop surat telah dihapus', 'success');
                 loadKopSettings(); // Refresh tampilan
               } else {
-                Swal.fire('Gagal', res.message, 'error');
+                Swal.fire({ icon: 'error', title: 'Gagal Menghapus', html: res.message });
               }
             }).hapusKopSurat(token);
           }
@@ -3327,7 +3331,7 @@
                 Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
                 loadTransaksiData(tipe); // Reload tabel
               } else {
-                Swal.fire('Gagal', res.message, 'error');
+                Swal.fire({ icon: 'error', title: 'Gagal Menghapus', html: res.message });
               }
             }).hapusTransaksiItem(token, id);
           }
@@ -3456,7 +3460,7 @@
             batalEditTransaksi(tipe); 
             loadTransaksiData(tipe.toUpperCase());
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Transaksi', html: res.message });
           }
         };
 
@@ -4333,7 +4337,7 @@
             });
             loadDataSurat(tipe);
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         }).simpanDataSurat(token, payload);
       }
@@ -4606,7 +4610,7 @@
             loadDataTanggal(tipe);
 
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         }).simpanTanggalSurat(token, payload);
       }
@@ -4925,7 +4929,13 @@
                     loadListCetak(tipeTab);
                 });
               } else {
-                Swal.fire('Gagal', 'Terjadi kesalahan: ' + res.message, 'error');
+                // Gunakan properti 'html' bukan text biasa
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Terjadi Kesalahan',
+                  html: res.message, // <--- Ini kuncinya agar HTML di Kode.gs terbaca
+                  width: '500px'     // Opsional: Agar popup sedikit lebih lebar
+                });
               }
             }).generateLPJ(token, formUntukPDF);
           }
@@ -5089,7 +5099,7 @@
             });
             globalAutoSettings = settings; // Update cache global
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         }).simpanSettingNomor(token, settings);
       }
@@ -5150,7 +5160,7 @@
                   // Tampilkan log perubahan agar user tahu apa yang terjadi
                   Swal.fire('Selesai', '<pre class="text-start" style="font-size:0.8rem">' + res.message + '</pre>', 'success');
                 } else {
-                  Swal.fire('Gagal', res.message, 'error');
+                  Swal.fire({ icon: 'error', title: 'Maintenance Gagal', html: res.message });
                 }
               })
               .withFailureHandler(handleServerError) // Pastikan Anda sudah punya handler error ini
@@ -5260,7 +5270,7 @@
           if (res.status === 'success') {
             Swal.fire('Sukses', 'Pengaturan template berhasil disimpan!', 'success');
           } else {
-            Swal.fire('Gagal', res.message, 'error');
+            Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
         }).simpanTemplateSettings(token, payload);
       }
