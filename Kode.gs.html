@@ -1277,36 +1277,27 @@ function hapusKopSurat(token) {
 
 /* --- FUNGSI BANTUAN TRANSAKSI --- */
 
+// Cari fungsi ini dan update isinya
 function getAllOptions(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Uraian, Toko, Tukang, Guru
+    // 1. Ambil Uraian, Toko, Tukang, Guru (Code Lama)
     const uraian = getUraianList(token).data || [];
     const toko = getTokoList(token).data || [];
     const tukang = getTukangList(token).data || [];
     const guru = getGuruList(token).data || [];
 
-    // 2. Ambil Data Satuan
+    // 2. TAMBAHAN: Ambil Data Satuan
     let satuan = [];
     const sheetSatuan = ss.getSheetByName('Satuan');
     if (sheetSatuan) {
       const lastRow = sheetSatuan.getLastRow();
       if (lastRow >= 2) {
+        // Ambil kolom A baris 2 sampai bawah
         const dataSat = sheetSatuan.getRange(2, 1, lastRow - 1, 1).getValues();
+        // Flatten array dan filter yang kosong
         satuan = dataSat.map(r => r[0]).filter(val => val !== ""); 
-      }
-    }
-
-    // 3. [BARU] Ambil Data Barang
-    let barang = [];
-    const sheetBarang = ss.getSheetByName('Barang'); // Pastikan nama sheet sesuai
-    if (sheetBarang) {
-      const lastRow = sheetBarang.getLastRow();
-      if (lastRow >= 2) {
-        // Asumsi Nama Barang ada di Kolom A (index 1)
-        const dataBarang = sheetBarang.getRange(2, 1, lastRow - 1, 1).getValues();
-        barang = dataBarang.map(r => r[0]).filter(val => val !== ""); 
       }
     }
 
@@ -1317,8 +1308,7 @@ function getAllOptions(token) {
         toko: toko,
         tukang: tukang,
         guru: guru,
-        satuan: satuan,
-        barang: barang // <--- Kirim data barang ke Client
+        satuan: satuan // <--- Kirim data satuan ke Client
       }
     };
   } catch (e) {
