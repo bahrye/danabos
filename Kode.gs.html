@@ -20,6 +20,7 @@ function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('Aplikasi LPJ BOS Sekolah')
+    .setFaviconUrl("https://images.icon-icons.com/2760/PNG/512/correct_apply_done_icon_176355.png")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
