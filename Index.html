@@ -1685,33 +1685,98 @@
                               </h2>
                               <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
                                 <div class="accordion-body p-0">
-                                  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                                    <table class="table table-sm table-striped mb-0 small">
+                                  <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped mb-0 small table-hover">
                                       <thead class="table-dark sticky-top">
-                                        <tr><th>Kode (Copy ke Doc)</th><th>Keterangan</th></tr>
+                                        <tr>
+                                          <th width="45%">Kode (Copy ke Doc)</th>
+                                          <th>Keterangan Data</th>
+                                        </tr>
                                       </thead>
-                                      <tbody>
-                                        <tr><td class="font-monospace">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Akan diganti gambar Kop Sekolah</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nama Sekolah&gt;&gt;</td><td>Nama Sekolah Anda</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nomor Bukti Uraian&gt;&gt;</td><td>No. Bukti (dari Data Uraian)</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Uraian Pekerjaan&gt;&gt;</td><td>Judul Uraian / Belanja</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Total&gt;&gt;</td><td>Total Angka (Rp)</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Total Terbilang&gt;&gt;</td><td>Total Huruf (Terbilang)</td></tr>
+                                      <tbody style="font-size: 0.85rem;">
                                         
-                                        <tr><td colspan="2" class="fw-bold bg-warning bg-opacity-25">Khusus Tabel Barang</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;TABLE_ROW&gt;&gt;</td><td>Buat 1 baris tabel di Doc, tulis kode ini di salah satu kolom untuk menandai baris yang akan diulang (looping).</td></tr>
-                                        
-                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Khusus Toko</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nama Toko&gt;&gt;</td><td>Nama Pihak Ketiga</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nomor Surat Keluar&gt;&gt;</td><td>Nomor Surat Permintaan</td></tr>
-
-                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Khusus Tukang</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nama Tukang&gt;&gt;</td><td>Nama Pekerja</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Alamat Lengkap Tukang&gt;&gt;</td><td>Alamat Pekerja</td></tr>
-
-                                        <tr><td colspan="2" class="fw-bold bg-info bg-opacity-25">Pejabat TTD</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;NAMA KEPALA SEKOLAH&gt;&gt;</td><td>Nama Kepala</td></tr>
+                                        <tr class="table-secondary fw-bold"><td colspan="2">A. Identitas Sekolah & Pejabat</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Gambar Kop Surat (Otomatis)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Sekolah&gt;&gt;</td><td>Nama Sekolah</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Alamat Lengkap Sekolah&gt;&gt;</td><td>Jalan, Desa, Kecamatan, Kab.</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Alamat TTD Sekolah&gt;&gt;</td><td>Tempat/Kota Tanda Tangan</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Kecamatan&gt;&gt;</td><td>Kecamatan</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Kabupaten&gt;&gt;</td><td>Kabupaten/Kota</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Provinsi&gt;&gt;</td><td>Provinsi</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA KEPALA SEKOLAH&gt;&gt;</td><td>Nama Kepala Sekolah</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NIP Kepala Sekolah&gt;&gt;</td><td>NIP Kepala Sekolah</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;NAMA BENDAHARA&gt;&gt;</td><td>Nama Bendahara</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NIP Bendahara&gt;&gt;</td><td>NIP Bendahara</td></tr>
+
+                                        <tr class="table-secondary fw-bold"><td colspan="2">B. Data Anggaran & Transaksi Umum</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Dana BOS&gt;&gt;</td><td>Jenis Anggaran (Misal: BOS Tahap 1)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Tahun Anggaran&gt;&gt;</td><td>Tahun Anggaran</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Periode&gt;&gt;</td><td>Periode (Misal: Januari - Juni)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nomor Bukti Uraian&gt;&gt;</td><td>Kode/No Bukti (dari Data Uraian)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Total&gt;&gt;</td><td>Total Angka (Rp 100.000)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Total Terbilang&gt;&gt;</td><td>Total Huruf (Seratus Ribu Rupiah)</td></tr>
+
+                                        <tr class="table-info fw-bold"><td colspan="2">C. Khusus Transaksi Toko</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Nama Toko&gt;&gt;</td><td>Nama Toko / Rekanan</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Jenis Toko&gt;&gt;</td><td>Jenis Usaha (ATK/Elektronik)</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Alamat Lengkap Toko&gt;&gt;</td><td>Alamat Toko</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Alamat TTD Toko&gt;&gt;</td><td>Kota/Tempat Toko Menandatangani</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;NAMA PEMILIK TOKO&gt;&gt;</td><td>Nama Pemilik</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Telp Toko&gt;&gt;</td><td>Nomor HP/Telp Toko</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Uraian Pesanan&gt;&gt;</td><td>Judul Belanja/Pekerjaan</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;Nama Pemesan&gt;&gt;</td><td>Nama Guru Pemesan</td></tr>
+                                        <tr><td class="font-monospace text-primary">&lt;&lt;NIP PEMESAN&gt;&gt;</td><td>NIP Guru Pemesan</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat Keluar&gt;&gt;</td><td>No. Surat Permintaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.PB&gt;&gt;</td><td>No. BA Pemeriksaan Barang</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.STB&gt;&gt;</td><td>No. BA Serah Terima</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.Bayar&gt;&gt;</td><td>No. BA Pembayaran</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Pesanan&gt;&gt;</td><td>Tgl Surat Permintaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Penawaran&gt;&gt;</td><td>Tgl Surat Penawaran</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.PB&gt;&gt;</td><td>Tgl BA Pemeriksaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.STB&gt;&gt;</td><td>Tgl BA Serah Terima</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.Bayar&gt;&gt;</td><td>Tgl BA Pembayaran</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Hari Huruf BA.PB&gt;&gt;</td><td>Nama Hari (Senin, Selasa...)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tanggal Huruf BA.PB&gt;&gt;</td><td>Tanggal Terbilang (Satu, Dua...)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Bulan Huruf BA.PB&gt;&gt;</td><td>Nama Bulan (Januari...)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tahun Huruf BA.PB&gt;&gt;</td><td>Tahun Terbilang (Dua Ribu...)</td></tr>
+                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">*Format Huruf di atas juga tersedia untuk suffix <b>BA.STB</b> dan <b>BA.Bayar</b>.</td></tr>
+
+                                        <tr class="table-warning fw-bold"><td colspan="2">D. Khusus Transaksi Tukang</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;NAMA TUKANG&gt;&gt;</td><td>Nama Tukang (Huruf Besar)</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;Alamat Lengkap Tukang&gt;&gt;</td><td>Alamat Tukang</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;Uraian Pekerjaan&gt;&gt;</td><td>Judul Pekerjaan</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;NAMA PEMESAN TUKANG&gt;&gt;</td><td>Nama Guru Pengawas/Pemesanan</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;NIP PEMESAN TUKANG&gt;&gt;</td><td>NIP Guru Pengawas/Pemesanan</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Surat Permintaan Tukang&gt;&gt;</td><td>No. Surat Permintaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.PP&gt;&gt;</td><td>No. BA Pemeriksaan Pekerjaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.STP&gt;&gt;</td><td>No. BA Serah Terima Pekerjaan</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Surat Permintaan Tukang&gt;&gt;</td><td>Tgl Surat Permintaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.PP&gt;&gt;</td><td>Tgl BA Pemeriksaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.STP&gt;&gt;</td><td>Tgl BA Serah Terima</td></tr>
+                                        
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Hari Huruf Tanggal BA.PP&gt;&gt;</td><td>Nama Hari Pemeriksaan</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tanggal Huruf BA.PP&gt;&gt;</td><td>Tanggal Terbilang</td></tr>
+                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">*Format Huruf juga tersedia untuk suffix <b>BA.STP</b> dan <b>BA.Bayar Tukang</b>.</td></tr>
+
+                                        <tr class="table-success fw-bold"><td colspan="2">E. Khusus Honor Guru</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Uraian Kegiatan&gt;&gt;</td><td>Judul Kegiatan</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Keterangan&gt;&gt;</td><td>Keterangan (Honor Bulan...)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Tanggal Transaksi&gt;&gt;</td><td>Tanggal Pembayaran</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Guru 1&gt;&gt;</td><td>Nama Guru Pertama (Jika Penerima Tunggal)</td></tr>
+                                        
+                                        <tr class="table-danger fw-bold"><td colspan="2">F. Khusus Tabel Rincian (Barang/Jasa)</td></tr>
+                                        <tr>
+                                          <td class="font-monospace">&lt;&lt;TABLE_ROW&gt;&gt;</td>
+                                          <td>
+                                            <b>WAJIB:</b> Letakkan kode ini di salah satu kolom pada baris tabel di Word/Doc Anda. <br>
+                                            Sistem akan menduplikasi baris tersebut sebanyak jumlah barang.
+                                          </td>
+                                        </tr>
                                       </tbody>
                                     </table>
                                   </div>
