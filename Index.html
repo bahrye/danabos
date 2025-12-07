@@ -5467,15 +5467,18 @@
         const wrapper = el.parentElement;
         const listEl = wrapper.querySelector('.suggestion-list');
         
-        // Tentukan data yang mau ditampilkan
-        let matches = [];
+        // Ambil data referensi (dari cache atau data lengkap)
+        let sourceData = cacheSatuan; 
+        if (sourceData.length === 0 && cacheDataSatuanLengkap.length > 0) {
+            sourceData = cacheDataSatuanLengkap.map(i => i.nama);
+        }
         
+        // Filter data
+        let matches = [];
         if (keyword === "") {
-          // Jika kosong (baru di klik), tampilkan SEMUA satuan
-          matches = cacheSatuan; 
+          matches = sourceData; 
         } else {
-          // Jika mengetik, filter berdasarkan kata kunci
-          matches = cacheSatuan.filter(item => 
+          matches = sourceData.filter(item => 
             String(item).toLowerCase().includes(keyword)
           );
         }
@@ -5483,36 +5486,69 @@
         // Render Hasil
         if (matches.length > 0) {
           let html = '';
-          // Batasi 10 agar tidak terlalu panjang
-          const limit = matches.length > 10 ? 10 : matches.length;
+          // Batasi render awal (misal 50) agar browser tidak berat, tapi scroll tetap jalan
+          const limit = matches.length > 50 ? 50 : matches.length;
           
           for(let i=0; i<limit; i++) {
-            // Escape petik satu
             const valSafe = String(matches[i]).replace(/'/g, "\\'"); 
-            // Kirim elemen input (el) agar kita tahu input mana yang harus diisi
             html += `<div class="suggestion-item" onclick="pilihSatuan(this, '${valSafe}')">
                       ${matches[i]}
                     </div>`;
           }
           
           listEl.innerHTML = html;
-          listEl.style.display = 'block';
+          
+          // --- PERBAIKAN POSISI, LEBAR, DAN SCROLL ---
+          const rect = el.getBoundingClientRect();
+          
+          // Reset style bawaan CSS agar tidak konflik
+          listEl.style.cssText = `
+              display: block;
+              position: fixed;
+              z-index: 9999;
+              background-color: white;
+              border: 1px solid #dee2e6;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+              border-radius: 4px;
+              
+              /* POSISI */
+              top: ${rect.bottom + 2}px;
+              left: ${rect.left}px;
+              
+              /* LEBAR: Sesuai teks tapi minimal selebar inputnya */
+              min-width: ${rect.width}px;
+              width: auto;      /* Biarkan lebar menyesuaikan konten */
+              max-width: 300px; /* Batasi agar tidak terlalu lebar ke samping */
+              
+              /* SCROLL: Aktifkan scroll naik turun */
+              max-height: 200px; /* Tinggi maksimal list */
+              overflow-y: auto;  /* Munculkan scrollbar jika item banyak */
+          `;
+
         } else {
-          // Jika tidak ada match, sembunyikan (user bisa ketik manual)
           listEl.style.display = 'none';
         }
       }
 
       // 2. Fungsi saat Saran dipilih
       function pilihSatuan(itemElement, text) {
-        // Cari input text di atas elemen saran ini
-        const wrapper = itemElement.closest('.autocomplete-wrapper');
+        // itemElement adalah div.suggestion-item
+        // Parent-nya adalah div.suggestion-list
+        const listEl = itemElement.parentElement;
+        
+        // Karena listEl secara HTML masih anak dari .autocomplete-wrapper
+        // Kita bisa mencari input saudaranya.
+        const wrapper = listEl.parentElement; 
         const input = wrapper.querySelector('input.item-sat');
         
-        input.value = text;
+        if(input) {
+            input.value = text;
+            // Trigger event input agar hitungan (jika ada logika lain) berjalan, meski untuk satuan biasanya tidak
+            input.dispatchEvent(new Event('input')); 
+        }
         
         // Sembunyikan list
-        wrapper.querySelector('.suggestion-list').style.display = 'none';
+        listEl.style.display = 'none';
       }
 
       // 3. Update Global Click Listener (Agar list menutup saat klik di luar)
@@ -5533,6 +5569,19 @@
             }
         });
       });
+
+      // Tambahkan listener untuk menyembunyikan dropdown saat scroll
+      window.addEventListener('scroll', function(e) {
+          // PENTING: Cek apakah yang di-scroll adalah kotak list saran itu sendiri?
+          // Jika iya, biarkan saja (jangan ditutup)
+          if (e.target.classList && e.target.classList.contains('suggestion-list')) {
+              return; 
+          }
+
+          // Jika yang di-scroll adalah halaman utama atau tabel, baru tutup list-nya
+          const allLists = document.querySelectorAll('.suggestion-list');
+          allLists.forEach(list => list.style.display = 'none');
+      }, true);
 
       /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
       
