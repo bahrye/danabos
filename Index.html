@@ -1116,10 +1116,12 @@
             </ul>
 
             <div id="tab-content-toko" class="tab-section">
+              
               <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body p-4">
                   <form id="formBelanjaToko">
-                    <input type="hidden" id="trTokoId"> <div class="row mb-3">
+                    <input type="hidden" id="trTokoId">
+                    <div class="row mb-3">
                       <div class="col-md-3">
                         <label class="form-label">Tanggal Transaksi</label>
                         <input type="date" class="form-control" id="trTokoTanggal" required>
@@ -1174,24 +1176,19 @@
                     </div>
 
                     <div class="d-flex justify-content-between mt-3 align-items-end">
-                      
                       <div class="d-flex gap-2 align-items-center flex-wrap">
                         <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('toko')">
                           <i class="fas fa-plus me-1"></i> Tambah Baris
                         </button>
-
                         <div class="autocomplete-wrapper" style="min-width: 250px;">
                           <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control border-start-0 ps-0" 
-                                   placeholder="Cari Referensi Barang..." 
-                                   oninput="handleCariBarang(this, 'toko')"
-                                   autocomplete="off">
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Barang..." oninput="handleCariBarang(this, 'toko')" autocomplete="off">
                           </div>
                           <div id="saran-barang-toko" class="suggestion-list"></div>
                         </div>
                       </div>
-                      
+
                       <div>
                         <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
@@ -1205,59 +1202,53 @@
                         </button>
                       </div>
                     </div>
-
                   </form>
                 </div>
               </div>
-
               <div class="card shadow-sm border-0">
-                  <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Toko</div>
-                  <div class="card-body">
-
-                      <div class="row g-2 mb-3 align-items-center">
-                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
-                        <div class="col-auto">
-                          <select id="fltTahun_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')"></select>
-                        </div>
-                        <div class="col-auto">
-                          <select id="fltBulan_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')">
-                            <option value="">Semua Bulan</option>
-                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
-                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
-                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
-                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
-                              <thead class="table-light">
-                                  <tr>
-                                      <th>Tanggal</th>
-                                      <th>Uraian</th>
-                                      <th>Toko</th>
-                                      <th>Total</th>
-                                      <th>Aksi</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="listTransaksiToko">
-                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
-                              </tbody>
-                          </table>
-                      </div>
+                <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Toko</div>
+                <div class="card-body">
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_toko" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiToko', 'fltTahun_toko', 'fltBulan_toko')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
                   </div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped text-sm text-nowrap">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian</th>
+                          <th>Toko</th>
+                          <th>Total</th>
+                          <th>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="listTransaksiToko">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-
+              </div> 
             <div id="tab-content-guru" class="tab-section hidden">
+              
               <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body p-4">
                   <div class="alert alert-info py-2 mb-3"><small><i class="fas fa-info-circle"></i> Mode Input: Pembayaran Honorarium / Transport Guru</small></div>
-                  
                   <form id="formBelanjaGuru">
-                    <input type="hidden" id="trGuruId"> 
-                    
+                    <input type="hidden" id="trGuruId">
                     <div class="row mb-3">
                       <div class="col-md-3">
                         <label class="form-label">Tanggal Pembayaran</label>
@@ -1270,7 +1261,6 @@
                         </select>
                       </div>
                     </div>
-
                     <div class="mb-4">
                       <label class="form-label">Keterangan <small class="text-muted">(Opsional)</small></label>
                       <textarea class="form-control" id="trGuruKeterangan" rows="2" placeholder="Contoh: Honorarium bulan Januari 2025..."></textarea>
@@ -1306,7 +1296,6 @@
                       <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('guru')">
                         <i class="fas fa-plus me-1"></i> Tambah Penerima
                       </button>
-
                       <div>
                         <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
@@ -1320,55 +1309,54 @@
                         </button>
                       </div>
                     </div>
-
                   </form>
                 </div>
               </div>
-
               <div class="card shadow-sm border-0">
-                  <div class="card-header bg-white fw-bold py-3">Riwayat Pembayaran Honor</div>
-                  <div class="card-body">
-                      <div class="row g-2 mb-3 align-items-center">
-                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
-                        <div class="col-auto">
-                          <select id="fltTahun_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')"></select>
-                        </div>
-                        <div class="col-auto">
-                          <select id="fltBulan_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')">
-                            <option value="">Semua Bulan</option>
-                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
-                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
-                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
-                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
-                              <thead class="table-light">
-                                  <tr>
-                                      <th>Tanggal</th>
-                                      <th>Uraian Kegiatan</th>
-                                      <th>Keterangan</th> <th>Total</th>
-                                      <th>Aksi</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="listTransaksiGuru">
-                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
-                              </tbody>
-                          </table>
-                      </div>
+                <div class="card-header bg-white fw-bold py-3">Riwayat Pembayaran Honor</div>
+                <div class="card-body">
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_guru" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiGuru', 'fltTahun_guru', 'fltBulan_guru')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
                   </div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped text-sm text-nowrap">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian Kegiatan</th>
+                          <th>Keterangan</th>
+                          <th>Total</th>
+                          <th>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="listTransaksiGuru">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-
+              </div>
             <div id="tab-content-tukang" class="tab-section hidden">
+              
               <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body p-4">
                   <div class="alert alert-warning py-2 mb-3"><small><i class="fas fa-info-circle"></i> Mode Input: Pembayaran Upah Tukang</small></div>
                   <form id="formBelanjaTukang">
-                    <input type="hidden" id="trTukangId"> <div class="row mb-3">
+                    <input type="hidden" id="trTukangId">
+                    <div class="row mb-3">
                       <div class="col-md-3">
                         <label class="form-label">Tanggal Transaksi</label>
                         <input type="date" class="form-control" id="trTukangTanggal" required>
@@ -1380,7 +1368,6 @@
                         </select>
                       </div>
                     </div>
-
                     <div class="row mb-4">
                       <div class="col-md-6">
                         <label class="form-label">Pilih Tukang / Pekerja</label>
@@ -1422,79 +1409,71 @@
                       </table>
                     </div>
 
-                      <div class="d-flex justify-content-between mt-3 align-items-end">
-                        
-                        <div class="d-flex gap-2 align-items-center flex-wrap">
-                          <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
-                            <i class="fas fa-plus me-1"></i> Tambah Baris
-                          </button>
-
-                          <div class="autocomplete-wrapper" style="min-width: 250px;">
-                            <div class="input-group input-group-sm">
-                              <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
-                              <input type="text" class="form-control border-start-0 ps-0" 
-                                    placeholder="Cari Referensi Material/Upah..." 
-                                    oninput="handleCariBarang(this, 'tukang')"
-                                    autocomplete="off">
-                            </div>
-                            <div id="saran-barang-tukang" class="suggestion-list"></div>
+                    <div class="d-flex justify-content-between mt-3 align-items-end">
+                      <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
+                          <i class="fas fa-plus me-1"></i> Tambah Baris
+                        </button>
+                        <div class="autocomplete-wrapper" style="min-width: 250px;">
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Material/Upah..." oninput="handleCariBarang(this, 'tukang')" autocomplete="off">
                           </div>
-                        </div>
-
-                        <div>
-                          <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
-                            <i class="fas fa-eye me-1"></i> Info Satuan
-                          </button>
-
-                          <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('tukang')">
-                            <i class="fas fa-times me-1"></i> Batal
-                          </button>
-                          <button type="button" id="btnSimpanTukangTrans" class="btn btn-success" onclick="simpanTransaksi('tukang')">
-                            <i class="fas fa-save me-1"></i> Simpan Transaksi
-                          </button>
+                          <div id="saran-barang-tukang" class="suggestion-list"></div>
                         </div>
                       </div>
-                    </div>
 
+                      <div>
+                        <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
+                          <i class="fas fa-eye me-1"></i> Info Satuan
+                        </button>
+
+                        <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('tukang')">
+                          <i class="fas fa-times me-1"></i> Batal
+                        </button>
+                        <button type="button" id="btnSimpanTukangTrans" class="btn btn-success" onclick="simpanTransaksi('tukang')">
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                        </button>
+                      </div>
+                    </div>
                   </form>
                 </div>
               </div>
-
               <div class="card shadow-sm border-0">
-                  <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Tukang</div>
-                  <div class="card-body">
-                      <div class="row g-2 mb-3 align-items-center">
-                        <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
-                        <div class="col-auto">
-                          <select id="fltTahun_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')"></select>
-                        </div>
-                        <div class="col-auto">
-                          <select id="fltBulan_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')">
-                            <option value="">Semua Bulan</option>
-                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
-                            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
-                            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
-                            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="table-responsive">
-                          <table class="table table-hover align-middle table-striped text-sm text-nowrap">
-                              <thead class="table-light">
-                                  <tr>
-                                      <th>Tanggal</th>
-                                      <th>Uraian</th>
-                                      <th>Tukang</th>
-                                      <th>Total</th>
-                                      <th>Aksi</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="listTransaksiTukang">
-                                  <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
-                              </tbody>
-                          </table>
-                      </div>
+                <div class="card-header bg-white fw-bold py-3">Riwayat Transaksi Tukang</div>
+                <div class="card-body">
+                  <div class="row g-2 mb-3 align-items-center">
+                    <div class="col-auto"><small class="fw-bold text-muted"><i class="fas fa-filter"></i> Filter:</small></div>
+                    <div class="col-auto">
+                      <select id="fltTahun_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')"></select>
+                    </div>
+                    <div class="col-auto">
+                      <select id="fltBulan_tukang" class="form-select form-select-sm" onchange="jalankanFilter('listTransaksiTukang', 'fltTahun_tukang', 'fltBulan_tukang')">
+                        <option value="">Semua Bulan</option>
+                        <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+                        <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+                        <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+                        <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                      </select>
+                    </div>
                   </div>
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle table-striped text-sm text-nowrap">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th>Uraian</th>
+                          <th>Tukang</th>
+                          <th>Total</th>
+                          <th>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="listTransaksiTukang">
+                        <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
