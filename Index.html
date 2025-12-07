@@ -5550,34 +5550,6 @@
         });
       });
 
-      /* --- UPDATE LISTENER SCROLL (LOGIKA "STICKY" / MENEMPEL) --- */
-      /*
-      window.addEventListener('scroll', function(e) {
-          // 1. Cari semua list saran yang sedang terbuka (display: block)
-          const allLists = document.querySelectorAll('.suggestion-list');
-
-          allLists.forEach(list => {
-              // Hanya proses list yang sedang tampil
-              if (list.style.display === 'block') {
-                  
-                  // 2. Ambil elemen input pasangannya (Parent Wrapper -> Input)
-                  const wrapper = list.parentElement;
-                  // Kita cari input di dalam wrapper tersebut
-                  const input = wrapper.querySelector('input') || wrapper.querySelector('textarea');
-
-                  if (input) {
-                      // 3. Hitung ulang posisi input saat ini di layar
-                      const rect = input.getBoundingClientRect();
-
-                      // 4. Update posisi List agar ikut bergerak menempel pada input
-                      list.style.top = (rect.bottom + 2) + 'px';
-                      list.style.left = rect.left + 'px';
-                  }
-              }
-          });
-      }, true); // Gunakan capture phase agar mendeteksi scroll dimanapun
-      */
-
       /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
       
       // Variabel timeout global (pastikan ini ada di luar fungsi)
