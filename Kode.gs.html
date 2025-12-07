@@ -1963,3 +1963,36 @@ function cariBarangReferensi(token, keyword) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- TAMBAHAN: FUNGSI AMBIL INFO SATUAN LENGKAP --- */
+function getReferensiSatuanLengkap(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('Satuan');
+    
+    // Jika sheet belum ada
+    if (!sheet) return { status: 'error', message: 'Sheet Satuan tidak ditemukan.' };
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: 'success', data: [] }; // Kosong
+
+    // Ambil Kolom A (Nama), B (Kategori), C (Penggunaan/Contoh)
+    // getRange(row, col, numRows, numCols) -> Mulai baris 2, Kolom 1, Sebanyak data, 3 Kolom
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    
+    // Mapping array ke object agar rapi
+    const result = data.map(r => ({
+      nama: r[0],
+      kategori: r[1] || '-',
+      contoh: r[2] || '-'
+    }));
+
+    // Urutkan berdasarkan Nama Satuan (A-Z)
+    result.sort((a, b) => a.nama.localeCompare(b.nama));
+
+    return { status: 'success', data: result };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
