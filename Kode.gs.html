@@ -192,7 +192,7 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF (UPDATE FIX: ITEM SAFETY & GAMBAR KOP SURAT) --- */
+/* --- FUNGSI GENERATE PDF (FULL UPDATE: FITUR NAMA KAPITAL) --- */
 function generateLPJ(token, dataForm) {
   try {
     // [FIX A] Sanitasi Data Items (Mencegah crash jika items null)
@@ -217,7 +217,43 @@ function generateLPJ(token, dataForm) {
         templateId = customIdTukang && customIdTukang !== "" ? customIdTukang : CONFIG.TEMPLATE_ID_TUKANG;
     }
     
-    if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan.' };
+    // --- PERBAIKAN PESAN ERROR ID TEMPLATE ---
+    if (!templateId || templateId.trim() === "") {
+       return { status: 'error', message: 'ID Template masih kosong. Silakan isi ID Template di menu Cetak PDF > Pengaturan Template.' };
+    }
+
+    // 2. Coba ambil file, jika ID salah tangkap errornya
+    let docFile;
+    try {
+      docFile = DriveApp.getFileById(templateId);
+    } catch (e) {
+      return { 
+        status: 'error', 
+        message: 
+          '<div style="text-align: left; font-size: 0.95rem;">' +
+            '<div style="background: #ffe6e6; border-left: 5px solid #dc3545; padding: 10px; margin-bottom: 10px; color: #a71d2a;">' +
+              '<b>Gagal Membaca File Template!</b>' +
+            '</div>' +
+            '<p style="margin-bottom: 5px;">Sistem tidak dapat menemukan file dengan ID berikut:</p>' +
+            '<div style="background: #f1f3f5; padding: 8px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #333; border: 1px dashed #ccc; text-align: center; margin-bottom: 10px;">' + 
+               templateId + 
+            '</div>' +
+            '<b>Kemungkinan Penyebab:</b>' +
+            '<ul style="margin: 5px 0 10px 20px; color: #555;">' +
+              '<li>ID Template salah ketik / terpotong.</li>' +
+              '<li>File Google Doc tersebut sudah dihapus.</li>' +
+              '<li>Akses file masih <i>Restricted</i> (Privat).</li>' +
+            '</ul>' +
+            '<b>Solusi:</b><br>' +
+            'Pastikan setting Share file adalah <i>"Anyone with the link can view"</i>.' +
+          '</div>' 
+      };
+    }
+
+    const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
+    const doc = DocumentApp.openById(tempDocFile.getId());
+    const body = doc.getBody();
+    const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
     // --- AMBIL DATA DARI DATABASE (SURAT & TANGGAL) ---
     const sheetTrans = ss.getSheetByName('DataTransaksi');
@@ -241,113 +277,42 @@ function generateLPJ(token, dataForm) {
         if (uraianFound) nomorBuktiUraian = uraianFound.noBukti;
     }
 
-    // --- PERBAIKAN PESAN ERROR ID TEMPLATE ---
-    
-    // 1. Cek apakah ID kosong
-    if (!templateId || templateId.trim() === "") {
-       return { status: 'error', message: 'ID Template masih kosong. Silakan isi ID Template di menu Cetak PDF > Pengaturan Template.' };
-    }
-
-    // 2. Coba ambil file, jika ID salah tangkap errornya
-    let docFile;
-    try {
-      docFile = DriveApp.getFileById(templateId);
-    } catch (e) {
-      // PERBAIKAN: Pesan Error menggunakan format HTML (Lebih Keren)
-      return { 
-        status: 'error', 
-        message: 
-          '<div style="text-align: left; font-size: 0.95rem;">' +
-            '<div style="background: #ffe6e6; border-left: 5px solid #dc3545; padding: 10px; margin-bottom: 10px; color: #a71d2a;">' +
-              '<b>Gagal Membaca File Template!</b>' +
-            '</div>' +
-            
-            '<p style="margin-bottom: 5px;">Sistem tidak dapat menemukan file dengan ID berikut:</p>' +
-            
-            '<div style="background: #f1f3f5; padding: 8px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #333; border: 1px dashed #ccc; text-align: center; margin-bottom: 10px;">' + 
-               templateId + 
-            '</div>' +
-
-            '<b>Kemungkinan Penyebab:</b>' +
-            '<ul style="margin: 5px 0 10px 20px; color: #555;">' +
-              '<li>ID Template salah ketik / terpotong.</li>' +
-              '<li>File Google Doc tersebut sudah dihapus.</li>' +
-              '<li>Akses file masih <i>Restricted</i> (Privat).</li>' +
-            '</ul>' +
-
-            '<b>Solusi:</b><br>' +
-            'Pastikan setting Share file adalah <i>"Anyone with the link can view"</i>.' +
-          '</div>' 
-      };
-    }
-
-    const tempDocFile = docFile.makeCopy('LPJ_' + tipe + '_' + new Date().getTime());
-    // -----------------------------------------
-    const doc = DocumentApp.openById(tempDocFile.getId());
-    const body = doc.getBody();
-    const safeReplace = (key, val) => body.replaceText(key, val || '-');
-
     // =========================================================================
     // [FIX B] PERBAIKAN LOGIKA PENGGANTIAN GAMBAR KOP SURAT
     // =========================================================================
-    
-    // Fungsi Helper Lokal: Ganti Placeholder dengan Gambar (Dengan Safety Loop)
     const replaceAllWithImage = (container, placeholderText, blobImage) => {
       if (!container) return; 
-
       let searchResult = container.findText(placeholderText);
       let safetyCounter = 0;
-      const MAX_LOOPS = 20; // Batasi maksimal 20 gambar per container untuk mencegah hang
+      const MAX_LOOPS = 20; 
 
       while (searchResult && safetyCounter < MAX_LOOPS) {
         safetyCounter++; 
-        
         const textElement = searchResult.getElement();
         const parent = textElement.getParent();
-        
         try {
-          // Hapus teks placeholder
           textElement.removeFromParent();
-          
-          // Masukkan Gambar
           const imgBlobCopy = blobImage.copyBlob(); 
-          // Insert di index 0 (paling atas dari elemen parent placeholder)
           const img = parent.insertInlineImage(0, imgBlobCopy);
-          
-          // Resize Logika (Max Lebar 600px)
           if (img.getWidth() > 600) {
              const ratio = img.getHeight() / img.getWidth();
              img.setWidth(600);
              img.setHeight(600 * ratio);
           }
-        } catch(err) {
-          // Jika gagal insert gambar, biarkan kosong agar tidak error fatal
-          console.error("Gagal insert gambar: " + err);
-        }
-
-        // Cari lagi kejadian berikutnya
+        } catch(err) { console.error("Gagal insert gambar: " + err); }
         searchResult = container.findText(placeholderText);
       }
     };
 
-    // Eksekusi Penggantian Kop Surat
     const kopSuratId = getSettingValue(token, 'KOP_SURAT_ID');
     if (kopSuratId) {
       try {
         const kopFile = DriveApp.getFileById(kopSuratId);
         const kopBlob = kopFile.getBlob();
-
-        // Ganti di Header & Body
         replaceAllWithImage(doc.getHeader(), '<<KOP SURAT>>', kopBlob);
         replaceAllWithImage(body, '<<KOP SURAT>>', kopBlob);
-
-      } catch (e) {
-        // Jika file kop tidak ketemu/error, hapus teksnya saja
-        safeReplace('<<KOP SURAT>>', ''); 
-      }
-    } else {
-       safeReplace('<<KOP SURAT>>', '');
-    }
+      } catch (e) { safeReplace('<<KOP SURAT>>', ''); }
+    } else { safeReplace('<<KOP SURAT>>', ''); }
     // =========================================================================
 
 
@@ -368,11 +333,12 @@ function generateLPJ(token, dataForm) {
     safeReplace('<<Periode>>', ds.periodeAnggaran);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
     
-    safeReplace('<<NAMA KEPALA SEKOLAH>>', ds.namaKepala);
-    safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
+    // --- UPDATE FITUR: NAMA PEJABAT KAPITAL ---
+    safeReplace('<<NAMA KEPALA SEKOLAH>>', formatNamaKapital(ds.namaKepala));
+    safeReplace('<<Nama Kepala Sekolah>>', formatNamaKapital(ds.namaKepala));
     safeReplace('<<NIP Kepala Sekolah>>', ds.nipKepala);
 
-    safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
+    safeReplace('<<NAMA BENDAHARA>>', formatNamaKapital(ds.namaBendahara));
     safeReplace('<<NIP Bendahara>>', ds.nipBendahara);
 
 
@@ -386,8 +352,10 @@ function generateLPJ(token, dataForm) {
             if (tkg) alamatTukang = tkg[2];
         }
 
-        safeReplace('<<Nama Tukang>>', dataForm.pihakKetiga);
-        safeReplace('<<NAMA TUKANG>>', dataForm.pihakKetiga.toUpperCase());
+        // --- UPDATE FITUR: NAMA TUKANG KAPITAL ---
+        const namaTukangKapital = formatNamaKapital(dataForm.pihakKetiga);
+        safeReplace('<<Nama Tukang>>', namaTukangKapital);
+        safeReplace('<<NAMA TUKANG>>', namaTukangKapital);
         safeReplace('<<Alamat Lengkap Tukang>>', alamatTukang);
         safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
 
@@ -399,7 +367,9 @@ function generateLPJ(token, dataForm) {
              const guruFound = dataGuru.find(r => String(r[1]).trim() === String(namaPemesan).trim());
              if (guruFound) nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
         }
-        safeReplace('<<NAMA PEMESAN TUKANG>>', namaPemesan);
+        
+        // --- UPDATE FITUR: NAMA PEMESAN (TUKANG) KAPITAL ---
+        safeReplace('<<NAMA PEMESAN TUKANG>>', formatNamaKapital(namaPemesan));
         safeReplace('<<NIP PEMESAN TUKANG>>', nipPemesan);
 
         // Surat & Tanggal Tukang
@@ -438,34 +408,38 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tahun Huruf Tanggal BA.Bayar Tukang>>', detBayar.tahun);
 
     } else if (tipe === 'TOKO') {
-        // --- 1. AMBIL DETAIL DATA TOKO (Alamat, Pemilik, Telp, Tempat TTD) ---
+        // --- 1. AMBIL DETAIL DATA TOKO ---
         let alamatToko = "-";
         let telpToko = "-";
         let pemilikToko = "-";
         let jenisToko = "-";
-        let tempatToko = "-"; // [BARU] Variabel untuk Tempat TTD Toko
+        let tempatToko = "-"; 
         
         const sheetToko = ss.getSheetByName('DataToko');
         if (sheetToko) {
             const dataToko = sheetToko.getDataRange().getValues();
-            // Mencari toko berdasarkan nama (Kolom B / Index 1)
             const tokoFound = dataToko.find(r => String(r[1]).trim() === String(dataForm.pihakKetiga).trim());
             if (tokoFound) {
                 jenisToko = tokoFound[2] || "-";
                 alamatToko = tokoFound[3] || "-";
                 telpToko = String(tokoFound[4]).replace(/'/g, '') || "-"; 
                 pemilikToko = tokoFound[5] || "-";
-                tempatToko = tokoFound[6] || "-"; // [BARU] Ambil data kolom ke-7 (Index 6)
+                tempatToko = tokoFound[6] || "-";
             }
         }
 
-        // --- 2. REPLACE DATA TOKO ---
-        safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
+        // --- 2. REPLACE DATA TOKO (UPDATE: PEMILIK KAPITAL) ---
+        // Nama toko biasanya Uppercase semua tanpa gelar
+        safeReplace('<<Nama Toko>>', String(dataForm.pihakKetiga).toUpperCase());
+        
         safeReplace('<<Jenis Toko>>', jenisToko);
         safeReplace('<<Alamat Lengkap Toko>>', alamatToko);
         safeReplace('<<Telp Toko>>', telpToko);
-        safeReplace('<<NAMA PEMILIK TOKO>>', pemilikToko);
-        safeReplace('<<Alamat TTD Toko>>', tempatToko); // [BARU] Pasang placeholder
+        
+        // Nama Pemilik dikapitalkan menggunakan Helper
+        safeReplace('<<NAMA PEMILIK TOKO>>', formatNamaKapital(pemilikToko));
+        
+        safeReplace('<<Alamat TTD Toko>>', tempatToko); 
         
         // --- 3. REPLACE NOMOR SURAT ---
         safeReplace('<<Nomor Surat Keluar>>', dbSurat.permintaan || '-');
@@ -474,16 +448,11 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Nomor Surat BA.Bayar>>', dbSurat.baPembayaran || '-');
 
         // --- 4. REPLACE TANGGAL SURAT (LENGKAP) ---
-        // Default ke tanggal transaksi jika belum diatur
         const tglTrans = dataForm.tanggal;
-        
         const tglPesan = dbTanggal.permintaan || tglTrans;
         safeReplace('<<Tanggal Pesanan>>', formatTanggalIndo(tglPesan));
-        
         const tglTawar = dbTanggal.penawaran || tglTrans;
         safeReplace('<<Tanggal Penawaran>>', formatTanggalIndo(tglTawar));
-
-        // Tanggal BA Pemeriksaan (Plus format Hari/Terbilang)
         const tglPB = dbTanggal.baPemeriksaan || tglTrans;
         const detPB = getIndonesianDateDetails(tglPB);
         safeReplace('<<Tanggal BA.PB>>', formatTanggalIndo(tglPB));
@@ -491,8 +460,6 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tanggal Huruf BA.PB>>', detPB.tanggal);
         safeReplace('<<Bulan Huruf BA.PB>>', detPB.bulan);
         safeReplace('<<Tahun Huruf BA.PB>>', detPB.tahun);
-
-        // Tanggal BA Serah Terima
         const tglSTB = dbTanggal.baSerahTerima || tglTrans;
         const detSTB = getIndonesianDateDetails(tglSTB);
         safeReplace('<<Tanggal BA.STB>>', formatTanggalIndo(tglSTB));
@@ -500,20 +467,19 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tanggal Huruf BA.STB>>', detSTB.tanggal);
         safeReplace('<<Bulan Huruf BA.STB>>', detSTB.bulan);
         safeReplace('<<Tahun Huruf BA.STB>>', detSTB.tahun);
-
-        // Tanggal BA Pembayaran
         const tglBayar = dbTanggal.baPembayaran || tglTrans;
         const detBayar = getIndonesianDateDetails(tglBayar);
         safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(tglBayar));
         safeReplace('<<Hari Huruf BA.Bayar>>', detBayar.hari);
         safeReplace('<<Tanggal Huruf BA.Bayar>>', detBayar.tanggal);
-        safeReplace('<<Bulan BA.Bayar>>', detBayar.bulan); // Sesuai PDF hal 6
+        safeReplace('<<Bulan BA.Bayar>>', detBayar.bulan); 
         safeReplace('<<Tahun Huruf BA.Bayar>>', detBayar.tahun);
 
         // --- 5. DATA UMUM LAINNYA ---
         safeReplace('<<Uraian Pesanan>>', dataForm.uraian);
-        // Nama Pemesan (Guru)
-        safeReplace('<<Nama Pemesan>>', dataForm.pemesan || "-");
+        
+        // --- UPDATE FITUR: PEMESAN (GURU) KAPITAL ---
+        safeReplace('<<Nama Pemesan>>', formatNamaKapital(dataForm.pemesan));
         
         // Cari NIP Pemesan
         let nipPemesan = "-";
@@ -529,20 +495,14 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
         safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
         
-        // Tanggal Transaksi (Default)
         safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
-
-        // --- [BARU] TANGGAL BA PEMBAYARAN KHUSUS GURU ---
-        // Ambil dari settingan "Tanggal Surat", jika kosong pakai tanggal transaksi
         const tglBayarGuru = dbTanggal.baPembayaran || dataForm.tanggal;
         safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(tglBayarGuru));
-        // ------------------------------------------------
 
-        // [FIX A] Gunakan itemsSafe untuk ambil Nama Guru Pertama
+        // --- UPDATE FITUR: NAMA GURU 1 KAPITAL ---
         let namaPenerima = (itemsSafe.length > 0) ? itemsSafe[0].nama : "-";
-        safeReplace('<<Nama Guru 1>>', namaPenerima);
+        safeReplace('<<Nama Guru 1>>', formatNamaKapital(namaPenerima));
 
-        // [LOGIKA SEBELUMNYA] Cari NIP Guru 1
         let nipGuru1 = "-";
         const sheetGuru = ss.getSheetByName('DataGuru');
         if (sheetGuru) {
@@ -552,14 +512,13 @@ function generateLPJ(token, dataForm) {
         }
         safeReplace('<<NIP Guru 1>>', nipGuru1);
         
-        safeReplace('<<NAMA PEMESAN/GURU>>', dataForm.pemesan || "-");
+        safeReplace('<<NAMA PEMESAN/GURU>>', formatNamaKapital(dataForm.pemesan));
     }
 
-    // --- TABEL ITEM (PERBAIKAN: LOOPING SEMUA TABEL) ---
+    // --- TABEL ITEM (UPDATE PERBAIKAN: LOOPING SEMUA TABEL) ---
     if (itemsSafe.length > 0) {
       const tables = body.getTables();
       
-      // Loop semua tabel yang ada di dokumen (Halaman 1, 2, 3, dst)
       tables.forEach(table => {
         let rowIndexTemplate = -1;
 
@@ -567,55 +526,45 @@ function generateLPJ(token, dataForm) {
         for (let r = 0; r < table.getNumRows(); r++) {
           if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
             rowIndexTemplate = r;
-            break; // Ketemu baris template di tabel ini
+            break; 
           }
         }
 
-        // Jika tabel ini punya placeholder, isi datanya
         if (rowIndexTemplate !== -1) {
           const templateRow = table.getRow(rowIndexTemplate);
           
           itemsSafe.forEach((item, index) => {
-             // Gunakan insertTableRow (sesuai perbaikan sebelumnya)
              const newRow = table.insertTableRow(rowIndexTemplate + index, templateRow.copy());
-             
-             // Cek jumlah kolom tabel di template
              const numCells = newRow.getNumCells();
 
-             // 1. ISI NO & NAMA BARANG (Sama untuk semua format)
-             try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){} // No
-             try { newRow.getCell(1).setText(item.nama || ""); } catch(e){}        // Nama Barang
+             // --- UPDATE FITUR: NAMA GURU DI TABEL KAPITAL ---
+             let namaItemTabel = item.nama || "";
+             // Jika ini adalah Laporan Honor Guru, maka Item.nama adalah Nama Guru -> Kapitalkan
+             if (tipe === 'GURU') {
+               namaItemTabel = formatNamaKapital(namaItemTabel);
+             }
+
+             // 1. ISI NO & NAMA BARANG
+             try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){} 
+             try { newRow.getCell(1).setText(namaItemTabel); } catch(e){}        
 
              // 2. LOGIKA DETEKSI KOLOM
              if (numCells === 5) {
-                // === FORMAT KHUSUS (SESUAI PERMINTAAN) ===
-                // Struktur: [ No | Uraian | Banyaknya (Vol+Sat) | Harga Satuan | Jumlah ]
-                
-                // Col 2: Gabung Volume + Satuan (Contoh: "15 Lembar")
+                // Format: [ No | Uraian | Banyaknya | Harga | Jumlah ]
                 const volSat = (item.vol || 0).toString() + " " + (item.sat || "");
                 try { newRow.getCell(2).setText(volSat); } catch(e){}
-                
-                // Col 3: Harga Satuan (Rupiah)
                 try { newRow.getCell(3).setText(formatRupiah(item.harga || 0)); } catch(e){}
-                
-                // Col 4: Total Harga (Rupiah)
                 try { newRow.getCell(4).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
 
              } else {
-                // === FORMAT STANDAR (6 KOLOM / Default Lama) ===
-                // Struktur: [ No | Uraian | Vol | Sat | Harga | Jumlah ]
-
-                try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){} // Vol
-                
-                // Cek kolom Satuan (Kadang ada tabel yg tidak pakai kolom satuan terpisah)
-                try { newRow.getCell(3).setText(item.sat || ""); } catch(e){} // Satuan
-                
-                try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){} // Harga
-                try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){} // Jumlah
+                // Format Standar: [ No | Uraian | Vol | Sat | Harga | Jumlah ]
+                try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){} 
+                try { newRow.getCell(3).setText(item.sat || ""); } catch(e){} 
+                try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){} 
+                try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){} 
              }
           });
           
-          // Hapus baris placeholder asli setelah data terisi
           table.removeRow(rowIndexTemplate + itemsSafe.length);
         }
       });
@@ -625,17 +574,13 @@ function generateLPJ(token, dataForm) {
 
     // Konversi & Save PDF
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    
-    // [SECURITY FIX] Tambahkan UUID random 8 digit agar nama file tidak bisa ditebak
-    // Contoh hasil: LPJ_TOKO_001_20251206120000_a1b2c3d4.pdf
     const uniqueSuffix = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss");
     const randomCode = Utilities.getUuid().slice(0, 8); 
     const namaPdf = 'LPJ_' + tipe + '_' + (dbSurat.permintaan || 'DRAFT') + '_' + uniqueSuffix + '_' + randomCode + '.pdf';
     
     const pdfFile = DriveApp.createFile(pdfBlob).setName(namaPdf);
     
-    // [SECURITY FIX] Set Permission HANYA untuk File ini saja (Bukan Folder)
-    // Ini memungkinkan user membuka link PDF tanpa login Google, tapi tidak bisa melihat isi folder
+    // [SECURITY FIX] Set Permission
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
     const folderGenerateId = getSettingValue(token, 'FOLDER_PDF_ID');
@@ -647,24 +592,19 @@ function generateLPJ(token, dataForm) {
        } catch(e) {}
     }
     
-    // Hapus File Doc Sementara
     tempDocFile.setTrashed(true);
 
     // Update Database dengan ID File PDF Baru
     const newFileId = pdfFile.getId();
     let sheetUpdate = ss.getSheetByName('DataTransaksi');
     if (sheetUpdate) {
-      // [FIX C] Pastikan kolom File_PDF_ID ada
       const colIdxPdf = ensureColumn(sheetUpdate, 'File_PDF_ID');
       const colIdxId = ensureColumn(sheetUpdate, 'ID_Transaksi');
 
       const allData = sheetUpdate.getDataRange().getValues();
       for (let i = 1; i < allData.length; i++) {
         if (allData[i][colIdxId] == dataForm.idTransaksi) {
-          // Update kolom PDF
           sheetUpdate.getRange(i + 1, colIdxPdf + 1).setValue(newFileId);
-          
-          // Hapus file PDF lama (Cek isi kolom PDF sebelumnya)
           const oldFileId = allData[i][colIdxPdf];
           if (oldFileId && oldFileId !== "-" && oldFileId !== newFileId) {
              try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
@@ -796,6 +736,28 @@ function terbilang(nilai) {
   
   // PENTING: Hapus spasi di awal string agar rata kiri
   return temp.trim();
+}
+
+/* --- HELPER BARU: FORMAT NAMA KAPITAL KECUALI GELAR --- */
+/* Letakkan fungsi ini di luar function generateLPJ, misalnya di bagian paling bawah file */
+function formatNamaKapital(rawName) {
+  if (!rawName || rawName === '-' || rawName === '') return "-";
+  
+  const str = String(rawName).trim();
+  const firstCommaIndex = str.indexOf(',');
+
+  if (firstCommaIndex !== -1) {
+    // KASUS: Ada gelar belakang (Contoh: "Andi, S.Pd")
+    // Ambil nama sebelum koma -> Uppercase
+    const namaDepan = str.substring(0, firstCommaIndex).toUpperCase();
+    // Ambil sisanya mulai dari koma sampai akhir -> Biarkan asli
+    const gelarBelakang = str.substring(firstCommaIndex); 
+    
+    return namaDepan + gelarBelakang;
+  } else {
+    // KASUS: Tidak ada koma (Contoh: "Budi Santoso") -> Uppercase semua
+    return str.toUpperCase();
+  }
 }
 
 /* --- FUNGSI DATA SEKOLAH --- */
