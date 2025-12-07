@@ -370,7 +370,11 @@ function generateLPJ(token, dataForm) {
     
     safeReplace('<<NAMA KEPALA SEKOLAH>>', ds.namaKepala);
     safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
+    safeReplace('<<NIP Kepala Sekolah>>', ds.nipKepala);
+
     safeReplace('<<NAMA BENDAHARA>>', ds.namaBendahara);
+    safeReplace('<<NIP Bendahara>>', ds.nipBendahara);
+
 
     // --- LOGIKA KHUSUS BERDASARKAN TIPE ---
     if (tipe === 'TUKANG') {
@@ -434,11 +438,12 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tahun Huruf Tanggal BA.Bayar Tukang>>', detBayar.tahun);
 
     } else if (tipe === 'TOKO') {
-        // --- 1. AMBIL DETAIL DATA TOKO (Alamat, Pemilik, Telp) ---
+        // --- 1. AMBIL DETAIL DATA TOKO (Alamat, Pemilik, Telp, Tempat TTD) ---
         let alamatToko = "-";
         let telpToko = "-";
         let pemilikToko = "-";
         let jenisToko = "-";
+        let tempatToko = "-"; // [BARU] Variabel untuk Tempat TTD Toko
         
         const sheetToko = ss.getSheetByName('DataToko');
         if (sheetToko) {
@@ -448,8 +453,9 @@ function generateLPJ(token, dataForm) {
             if (tokoFound) {
                 jenisToko = tokoFound[2] || "-";
                 alamatToko = tokoFound[3] || "-";
-                telpToko = String(tokoFound[4]).replace(/'/g, '') || "-"; // Hapus kutip satu
+                telpToko = String(tokoFound[4]).replace(/'/g, '') || "-"; 
                 pemilikToko = tokoFound[5] || "-";
+                tempatToko = tokoFound[6] || "-"; // [BARU] Ambil data kolom ke-7 (Index 6)
             }
         }
 
@@ -459,6 +465,7 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Alamat Lengkap Toko>>', alamatToko);
         safeReplace('<<Telp Toko>>', telpToko);
         safeReplace('<<NAMA PEMILIK TOKO>>', pemilikToko);
+        safeReplace('<<Alamat TTD Toko>>', tempatToko); // [BARU] Pasang placeholder
         
         // --- 3. REPLACE NOMOR SURAT ---
         safeReplace('<<Nomor Surat Keluar>>', dbSurat.permintaan || '-');
