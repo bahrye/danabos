@@ -3319,7 +3319,6 @@
             const hargaTampil = formatRibuanInput(item.harga);
 
             // --- TEMPLATE BARIS TABEL ---
-            // --- TEMPLATE BARIS TABEL ---
             const row = `
               <tr id="row-${rowId}">
                 <td>${colNamaInput}</td>
@@ -3328,7 +3327,7 @@
                   <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
                 </td>
                 
-                <td style="position: relative;">
+                <td< style="position: relative;">>
                     <div class="autocomplete-wrapper">
                       <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan"
                         oninput="handleInputSatuan(this)" 
@@ -3732,7 +3731,7 @@
             <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
             
-            <td style="position: relative;"> 
+            <td> 
               <div class="autocomplete-wrapper">
                 <input type="text" class="form-control item-sat" placeholder="Satuan" 
                   oninput="handleInputSatuan(this)" 
@@ -5497,18 +5496,45 @@
           
           listEl.innerHTML = html;
           
-          // [PERBAIKAN TAMPILAN DROPDOWN]
-          // Kita atur style inline agar dropdown melebar bebas dan rapi
+          // --- [PERBAIKAN UTAMA: POSISI FIXED] ---
+          // Menggunakan getBoundingClientRect agar posisi akurat di layar & keluar dari tabel
+          const rect = el.getBoundingClientRect();
+          
+          listEl.style.position = 'fixed'; // Mengambang bebas dari tabel
+          listEl.style.top = (rect.bottom + 2) + 'px'; // Muncul tepat di bawah input
+          listEl.style.left = rect.left + 'px'; // Rata kiri dengan input
+          listEl.style.width = 'auto';
+          listEl.style.minWidth = rect.width + 'px'; // Lebar minimal sama dengan input
+          listEl.style.maxWidth = '300px'; // Batasi lebar maksimal agar rapi
+          listEl.style.zIndex = '9999'; // Pastikan di paling atas
           listEl.style.display = 'block';
-          listEl.style.width = 'auto';         // Lebar otomatis mengikuti panjang teks
-          listEl.style.minWidth = '250px';     // Minimal lebar agar lega (tidak sempit seperti kontainer)
-          listEl.style.right = 'auto';         // Lepaskan batasan kanan agar bisa melebar ke kanan
-          listEl.style.whiteSpace = 'nowrap';  // Pastikan teks satu baris (tidak terpotong ke bawah)
+          listEl.style.whiteSpace = 'nowrap';
 
         } else {
           listEl.style.display = 'none';
         }
       }
+
+      // --- PERBAIKAN LISTENER SCROLL ---
+      // Tambahkan ini di bagian bawah script, menggantikan kode scroll sebelumnya
+      document.addEventListener('scroll', function(e) {
+          
+          // 1. CEK PENTING: Apakah yang sedang discroll adalah list saran itu sendiri?
+          // Jika YA, hentikan fungsi ini (return) agar list tidak tertutup.
+          if (e.target && e.target.classList && e.target.classList.contains('suggestion-list')) {
+              return; 
+          }
+
+          // 2. Jika scroll terjadi di halaman utama (Body/Table), baru tutup listnya
+          // agar list tidak melayang sembarangan.
+          const allLists = document.querySelectorAll('.suggestion-list');
+          allLists.forEach(list => {
+              if(list.style.display === 'block') {
+                  list.style.display = 'none';
+              }
+          });
+          
+      }, true); // Gunakan 'true' (capture phase) untuk mendeteksi scroll di seluruh elemen
 
       // 2. Fungsi saat Saran dipilih
       function pilihSatuan(itemElement, text) {
