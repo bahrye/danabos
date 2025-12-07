@@ -1929,3 +1929,37 @@ function beautifyError(judul, errorObj, saran) {
            '</div>' +
          '</div>';
 }
+
+/* --- FUNGSI PENCARIAN REFERENSI BARANG (FITUR BARU) --- */
+function cariBarangReferensi(token, keyword) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('Data Barang');
+    
+    // Jika sheet tidak ada, kembalikan array kosong (atau bisa buat otomatis)
+    if (!sheet) return { status: 'success', data: [] };
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: 'success', data: [] };
+
+    // Ambil Data Kolom A (Nama) dan B (Satuan)
+    // Kita ambil semua dulu baru filter di script (lebih cepat untuk data < 5000 baris)
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); 
+    
+    const lowerKey = keyword.toLowerCase();
+    
+    // Filter data yang mengandung keyword
+    const results = data
+      .filter(row => row[0] && String(row[0]).toLowerCase().includes(lowerKey))
+      .map(row => ({
+        nama: row[0],
+        satuan: row[1] || ''
+      }));
+
+    // Batasi hasil maksimal 15 agar tidak memberatkan UI
+    return { status: 'success', data: results.slice(0, 15) };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
