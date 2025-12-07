@@ -579,16 +579,40 @@ function generateLPJ(token, dataForm) {
              // Gunakan insertTableRow (sesuai perbaikan sebelumnya)
              const newRow = table.insertTableRow(rowIndexTemplate + index, templateRow.copy());
              
-             // Isi Data (Menggunakan try-catch agar aman jika jumlah kolom beda)
-             try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
-             try { newRow.getCell(1).setText(item.nama || ""); } catch(e){} 
-             try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){}
-             
-             // Cek kolom Satuan (Kadang ada tabel yg tidak pakai kolom satuan terpisah)
-             try { newRow.getCell(3).setText(item.sat || ""); } catch(e){}
-             
-             try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){}
-             try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
+             // Cek jumlah kolom tabel di template
+             const numCells = newRow.getNumCells();
+
+             // 1. ISI NO & NAMA BARANG (Sama untuk semua format)
+             try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){} // No
+             try { newRow.getCell(1).setText(item.nama || ""); } catch(e){}        // Nama Barang
+
+             // 2. LOGIKA DETEKSI KOLOM
+             if (numCells === 5) {
+                // === FORMAT KHUSUS (SESUAI PERMINTAAN) ===
+                // Struktur: [ No | Uraian | Banyaknya (Vol+Sat) | Harga Satuan | Jumlah ]
+                
+                // Col 2: Gabung Volume + Satuan (Contoh: "15 Lembar")
+                const volSat = (item.vol || 0).toString() + " " + (item.sat || "");
+                try { newRow.getCell(2).setText(volSat); } catch(e){}
+                
+                // Col 3: Harga Satuan (Rupiah)
+                try { newRow.getCell(3).setText(formatRupiah(item.harga || 0)); } catch(e){}
+                
+                // Col 4: Total Harga (Rupiah)
+                try { newRow.getCell(4).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
+
+             } else {
+                // === FORMAT STANDAR (6 KOLOM / Default Lama) ===
+                // Struktur: [ No | Uraian | Vol | Sat | Harga | Jumlah ]
+
+                try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){} // Vol
+                
+                // Cek kolom Satuan (Kadang ada tabel yg tidak pakai kolom satuan terpisah)
+                try { newRow.getCell(3).setText(item.sat || ""); } catch(e){} // Satuan
+                
+                try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){} // Harga
+                try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){} // Jumlah
+             }
           });
           
           // Hapus baris placeholder asli setelah data terisi
