@@ -528,11 +528,29 @@ function generateLPJ(token, dataForm) {
     } else if (tipe === 'GURU') {
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
         safeReplace('<<Keterangan>>', dataForm.pihakKetiga);
-        safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
         
-        // [FIX A] Gunakan itemsSafe
+        // Tanggal Transaksi (Default)
+        safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
+
+        // --- [BARU] TANGGAL BA PEMBAYARAN KHUSUS GURU ---
+        // Ambil dari settingan "Tanggal Surat", jika kosong pakai tanggal transaksi
+        const tglBayarGuru = dbTanggal.baPembayaran || dataForm.tanggal;
+        safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(tglBayarGuru));
+        // ------------------------------------------------
+
+        // [FIX A] Gunakan itemsSafe untuk ambil Nama Guru Pertama
         let namaPenerima = (itemsSafe.length > 0) ? itemsSafe[0].nama : "-";
         safeReplace('<<Nama Guru 1>>', namaPenerima);
+
+        // [LOGIKA SEBELUMNYA] Cari NIP Guru 1
+        let nipGuru1 = "-";
+        const sheetGuru = ss.getSheetByName('DataGuru');
+        if (sheetGuru) {
+             const dataGuru = sheetGuru.getDataRange().getValues();
+             const guruFound = dataGuru.find(r => String(r[1]).trim() === String(namaPenerima).trim());
+             if (guruFound) nipGuru1 = String(guruFound[2]).replace(/'/g, '') || "-";
+        }
+        safeReplace('<<NIP Guru 1>>', nipGuru1);
         
         safeReplace('<<NAMA PEMESAN/GURU>>', dataForm.pemesan || "-");
     }
