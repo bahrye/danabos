@@ -5464,7 +5464,7 @@
         const keyword = el.value.toLowerCase();
         
         // Cari elemen list saudara (sibling) dari input ini
-        const wrapper = el.parentElement;
+        const wrapper = el.closest('.autocomplete-wrapper'); 
         const listEl = wrapper.querySelector('.suggestion-list');
         
         // Ambil data referensi (dari cache atau data lengkap)
@@ -5486,7 +5486,6 @@
         // Render Hasil
         if (matches.length > 0) {
           let html = '';
-          // Batasi render awal (misal 50) agar browser tidak berat, tapi scroll tetap jalan
           const limit = matches.length > 50 ? 50 : matches.length;
           
           for(let i=0; i<limit; i++) {
@@ -5498,32 +5497,13 @@
           
           listEl.innerHTML = html;
           
-          // --- PERBAIKAN POSISI, LEBAR, DAN SCROLL ---
-          const rect = el.getBoundingClientRect();
-          
-          // Reset style bawaan CSS agar tidak konflik
-          listEl.style.cssText = `
-              display: block;
-              position: fixed;
-              z-index: 9999;
-              background-color: white;
-              border: 1px solid #dee2e6;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.15);
-              border-radius: 4px;
-              
-              /* POSISI */
-              top: ${rect.bottom + 2}px;
-              left: ${rect.left}px;
-              
-              /* LEBAR: Sesuai teks tapi minimal selebar inputnya */
-              min-width: ${rect.width}px;
-              width: auto;      /* Biarkan lebar menyesuaikan konten */
-              max-width: 300px; /* Batasi agar tidak terlalu lebar ke samping */
-              
-              /* SCROLL: Aktifkan scroll naik turun */
-              max-height: 200px; /* Tinggi maksimal list */
-              overflow-y: auto;  /* Munculkan scrollbar jika item banyak */
-          `;
+          // [PERBAIKAN TAMPILAN DROPDOWN]
+          // Kita atur style inline agar dropdown melebar bebas dan rapi
+          listEl.style.display = 'block';
+          listEl.style.width = 'auto';         // Lebar otomatis mengikuti panjang teks
+          listEl.style.minWidth = '250px';     // Minimal lebar agar lega (tidak sempit seperti kontainer)
+          listEl.style.right = 'auto';         // Lepaskan batasan kanan agar bisa melebar ke kanan
+          listEl.style.whiteSpace = 'nowrap';  // Pastikan teks satu baris (tidak terpotong ke bawah)
 
         } else {
           listEl.style.display = 'none';
@@ -5571,6 +5551,7 @@
       });
 
       /* --- UPDATE LISTENER SCROLL (LOGIKA "STICKY" / MENEMPEL) --- */
+      /*
       window.addEventListener('scroll', function(e) {
           // 1. Cari semua list saran yang sedang terbuka (display: block)
           const allLists = document.querySelectorAll('.suggestion-list');
@@ -5595,9 +5576,11 @@
               }
           });
       }, true); // Gunakan capture phase agar mendeteksi scroll dimanapun
+      */
 
       /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
       
+      // Variabel timeout global (pastikan ini ada di luar fungsi)
       let timeoutCariBarang = null;
 
       function handleCariBarang(inputEl, tipe) {
@@ -5605,24 +5588,38 @@
         const listId = (tipe === 'toko') ? 'saran-barang-toko' : 'saran-barang-tukang';
         const listEl = document.getElementById(listId);
 
-        // 1. Reset
+        // 1. RESET: Selalu sembunyikan list/kontainer saat user sedang mengetik
         listEl.style.display = 'none';
         listEl.innerHTML = '';
 
-        // 2. Validasi Minimal 3 Huruf
+        // 2. VALIDASI: Minimal 3 huruf baru diproses
         if (keyword.length < 3) return;
 
-        // 3. Debounce (Tunggu user selesai mengetik 300ms)
+        // 3. DEBOUNCE: Reset timer jika user masih mengetik
         clearTimeout(timeoutCariBarang);
         
         timeoutCariBarang = setTimeout(() => {
-           // Tampilkan indikator loading sementara
-           listEl.innerHTML = '<div class="suggestion-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Mencari...</div>';
-           listEl.style.display = 'block';
+           // [PERBAIKAN] Jangan tampilkan listEl.style.display = 'block' di sini.
+           // Gantinya: Ubah ikon Search menjadi Spinner Loading pada input group
+           
+           const wrapper = inputEl.closest('.input-group');
+           const icon = wrapper ? wrapper.querySelector('i') : null;
+           
+           // Simpan class asli ikon (biasanya fa-search)
+           const originalIconClass = 'fas fa-search'; 
+
+           if(icon) {
+             icon.className = 'fas fa-spinner fa-spin text-primary'; // Ubah jadi loading
+           }
 
            const token = localStorage.getItem('userToken');
            
            google.script.run.withSuccessHandler(function(res) {
+             // [PERBAIKAN] Kembalikan ikon jadi Search setelah selesai
+             if(icon) {
+               icon.className = originalIconClass;
+             }
+
              if (res.status === 'success' && res.data.length > 0) {
                 let html = '';
                 res.data.forEach(item => {
@@ -5638,12 +5635,15 @@
                   `;
                 });
                 listEl.innerHTML = html;
+                listEl.style.display = 'block'; // Tampilkan kontainer HANYA jika ada data
              } else {
-                listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic">Data tidak ditemukan.</div>';
+                // Opsional: Tampilkan pesan kecil jika tidak ada data
+                listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic py-2" style="font-size:0.85rem">Data tidak ditemukan.</div>';
+                listEl.style.display = 'block';
              }
            }).cariBarangReferensi(token, keyword);
 
-        }, 400); // Delay 400ms
+        }, 400); // Delay 400ms agar tidak terlalu sensitif
       }
 
       function pilihReferensiBarang(nama, satuan, tipe, itemEl) {
