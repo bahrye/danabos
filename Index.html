@@ -1134,10 +1134,24 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3">
-                      <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('toko')">
-                        <i class="fas fa-plus me-1"></i> Tambah Baris Barang
-                      </button>
+                    <div class="d-flex justify-content-between mt-3 align-items-end">
+                      
+                      <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('toko')">
+                          <i class="fas fa-plus me-1"></i> Tambah Baris
+                        </button>
+
+                        <div class="autocomplete-wrapper" style="min-width: 250px;">
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" 
+                                   placeholder="Cari Referensi Barang..." 
+                                   oninput="handleCariBarang(this, 'toko')"
+                                   autocomplete="off">
+                          </div>
+                          <div id="saran-barang-toko" class="suggestion-list"></div>
+                        </div>
+                      </div>
                       
                       <div>
                         <button type="button" id="btnBatalTokoTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('toko')">
@@ -1361,10 +1375,24 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3">
-                      <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
-                        <i class="fas fa-plus me-1"></i> Tambah Baris
-                      </button>
+                    <div class="d-flex justify-content-between mt-3 align-items-end">
+                      
+                      <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
+                          <i class="fas fa-plus me-1"></i> Tambah Baris
+                        </button>
+
+                         <div class="autocomplete-wrapper" style="min-width: 250px;">
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" 
+                                   placeholder="Cari Referensi Material/Upah..." 
+                                   oninput="handleCariBarang(this, 'tukang')"
+                                   autocomplete="off">
+                          </div>
+                          <div id="saran-barang-tukang" class="suggestion-list"></div>
+                        </div>
+                      </div>
 
                       <div>
                         <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('tukang')">
@@ -5474,6 +5502,117 @@
             }
         });
       });
+
+      /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
+      
+      let timeoutCariBarang = null;
+
+      function handleCariBarang(inputEl, tipe) {
+        const keyword = inputEl.value;
+        const listId = (tipe === 'toko') ? 'saran-barang-toko' : 'saran-barang-tukang';
+        const listEl = document.getElementById(listId);
+
+        // 1. Reset
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+
+        // 2. Validasi Minimal 3 Huruf
+        if (keyword.length < 3) return;
+
+        // 3. Debounce (Tunggu user selesai mengetik 300ms)
+        clearTimeout(timeoutCariBarang);
+        
+        timeoutCariBarang = setTimeout(() => {
+           // Tampilkan indikator loading sementara
+           listEl.innerHTML = '<div class="suggestion-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Mencari...</div>';
+           listEl.style.display = 'block';
+
+           const token = localStorage.getItem('userToken');
+           
+           google.script.run.withSuccessHandler(function(res) {
+             if (res.status === 'success' && res.data.length > 0) {
+                let html = '';
+                res.data.forEach(item => {
+                  const namaSafe = escapeJsAttribute(item.nama);
+                  const satSafe  = escapeJsAttribute(item.satuan);
+                  
+                  html += `
+                    <div class="suggestion-item d-flex justify-content-between align-items-center" 
+                         onclick="pilihReferensiBarang('${namaSafe}', '${satSafe}', '${tipe}', this)">
+                       <span>${item.nama}</span>
+                       <span class="badge bg-light text-secondary border">${item.satuan}</span>
+                    </div>
+                  `;
+                });
+                listEl.innerHTML = html;
+             } else {
+                listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic">Data tidak ditemukan.</div>';
+             }
+           }).cariBarangReferensi(token, keyword);
+
+        }, 400); // Delay 400ms
+      }
+
+      function pilihReferensiBarang(nama, satuan, tipe, itemEl) {
+        // 1. Tentukan Tabel Target
+        const tableId = (tipe === 'toko') ? 'tabelItemToko' : 'tabelItemTukang';
+        const tbody = document.getElementById(tableId).querySelector('tbody');
+        const rows = tbody.querySelectorAll('tr');
+
+        // 2. Cari baris kosong terakhir
+        let targetRow = null;
+        
+        if (rows.length > 0) {
+          const lastRow = rows[rows.length - 1];
+          const inputNama = lastRow.querySelector('.item-nama');
+          
+          // Jika baris terakhir nama barangnya masih kosong, pakai baris itu
+          if (inputNama && inputNama.value.trim() === '') {
+            targetRow = lastRow;
+          }
+        }
+
+        // 3. Jika tidak ada baris kosong, buat baris baru
+        if (!targetRow) {
+          tambahBaris(tipe);
+          // Ambil baris yang baru saja dibuat
+          const newRows = tbody.querySelectorAll('tr');
+          targetRow = newRows[newRows.length - 1];
+        }
+
+        // 4. Isi Data ke Input
+        if (targetRow) {
+          const inputNama = targetRow.querySelector('.item-nama');
+          const inputSat = targetRow.querySelector('.item-sat');
+
+          if (inputNama) inputNama.value = unescapeHtml(nama); // Decode entitas HTML jika ada
+          if (inputSat) inputSat.value = unescapeHtml(satuan);
+          
+          // Efek visual (kedip kuning) agar user tahu baris mana yang terisi
+          targetRow.classList.add('table-warning');
+          setTimeout(() => targetRow.classList.remove('table-warning'), 500);
+        }
+
+        // 5. Bersihkan Pencarian
+        const wrapper = itemEl.closest('.autocomplete-wrapper');
+        const inputCari = wrapper.querySelector('input');
+        
+        wrapper.querySelector('.suggestion-list').style.display = 'none';
+        inputCari.value = ''; // Kosongkan input pencarian agar siap cari lagi
+        inputCari.focus();    // Kembalikan fokus ke input cari
+      }
+
+      // Helper untuk decode string (jika diperlukan saat insert value)
+      function unescapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .replace(/\\\\/g, "\\"); // Fix escape slash
+      }
 
     </script>
   </body>
