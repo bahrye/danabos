@@ -434,10 +434,89 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tahun Huruf Tanggal BA.Bayar Tukang>>', detBayar.tahun);
 
     } else if (tipe === 'TOKO') {
-        safeReplace('<<Nomor Surat Keluar>>', dataForm.nomorSurat); 
+        // --- 1. AMBIL DETAIL DATA TOKO (Alamat, Pemilik, Telp) ---
+        let alamatToko = "-";
+        let telpToko = "-";
+        let pemilikToko = "-";
+        let jenisToko = "-";
+        
+        const sheetToko = ss.getSheetByName('DataToko');
+        if (sheetToko) {
+            const dataToko = sheetToko.getDataRange().getValues();
+            // Mencari toko berdasarkan nama (Kolom B / Index 1)
+            const tokoFound = dataToko.find(r => String(r[1]).trim() === String(dataForm.pihakKetiga).trim());
+            if (tokoFound) {
+                jenisToko = tokoFound[2] || "-";
+                alamatToko = tokoFound[3] || "-";
+                telpToko = String(tokoFound[4]).replace(/'/g, '') || "-"; // Hapus kutip satu
+                pemilikToko = tokoFound[5] || "-";
+            }
+        }
+
+        // --- 2. REPLACE DATA TOKO ---
         safeReplace('<<Nama Toko>>', dataForm.pihakKetiga);
-        safeReplace('<<Tanggal Transaksi>>', formatTanggalIndo(dataForm.tanggal));
-        safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(dataForm.tanggal));
+        safeReplace('<<Jenis Toko>>', jenisToko);
+        safeReplace('<<Alamat Lengkap Toko>>', alamatToko);
+        safeReplace('<<Telp Toko>>', telpToko);
+        safeReplace('<<NAMA PEMILIK TOKO>>', pemilikToko);
+        
+        // --- 3. REPLACE NOMOR SURAT ---
+        safeReplace('<<Nomor Surat Keluar>>', dbSurat.permintaan || '-');
+        safeReplace('<<Nomor Surat BA.PB>>', dbSurat.baPemeriksaan || '-');
+        safeReplace('<<Nomor Surat BA.STB>>', dbSurat.baSerahTerima || '-');
+        safeReplace('<<Nomor Surat BA.Bayar>>', dbSurat.baPembayaran || '-');
+
+        // --- 4. REPLACE TANGGAL SURAT (LENGKAP) ---
+        // Default ke tanggal transaksi jika belum diatur
+        const tglTrans = dataForm.tanggal;
+        
+        const tglPesan = dbTanggal.permintaan || tglTrans;
+        safeReplace('<<Tanggal Pesanan>>', formatTanggalIndo(tglPesan));
+        
+        const tglTawar = dbTanggal.penawaran || tglTrans;
+        safeReplace('<<Tanggal Penawaran>>', formatTanggalIndo(tglTawar));
+
+        // Tanggal BA Pemeriksaan (Plus format Hari/Terbilang)
+        const tglPB = dbTanggal.baPemeriksaan || tglTrans;
+        const detPB = getIndonesianDateDetails(tglPB);
+        safeReplace('<<Tanggal BA.PB>>', formatTanggalIndo(tglPB));
+        safeReplace('<<Hari Huruf BA.PB>>', detPB.hari);
+        safeReplace('<<Tanggal Huruf BA.PB>>', detPB.tanggal);
+        safeReplace('<<Bulan Huruf BA.PB>>', detPB.bulan);
+        safeReplace('<<Tahun Huruf BA.PB>>', detPB.tahun);
+
+        // Tanggal BA Serah Terima
+        const tglSTB = dbTanggal.baSerahTerima || tglTrans;
+        const detSTB = getIndonesianDateDetails(tglSTB);
+        safeReplace('<<Tanggal BA.STB>>', formatTanggalIndo(tglSTB));
+        safeReplace('<<Hari Huruf BA.STB>>', detSTB.hari);
+        safeReplace('<<Tanggal Huruf BA.STB>>', detSTB.tanggal);
+        safeReplace('<<Bulan Huruf BA.STB>>', detSTB.bulan);
+        safeReplace('<<Tahun Huruf BA.STB>>', detSTB.tahun);
+
+        // Tanggal BA Pembayaran
+        const tglBayar = dbTanggal.baPembayaran || tglTrans;
+        const detBayar = getIndonesianDateDetails(tglBayar);
+        safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(tglBayar));
+        safeReplace('<<Hari Huruf BA.Bayar>>', detBayar.hari);
+        safeReplace('<<Tanggal Huruf BA.Bayar>>', detBayar.tanggal);
+        safeReplace('<<Bulan BA.Bayar>>', detBayar.bulan); // Sesuai PDF hal 6
+        safeReplace('<<Tahun Huruf BA.Bayar>>', detBayar.tahun);
+
+        // --- 5. DATA UMUM LAINNYA ---
+        safeReplace('<<Uraian Pesanan>>', dataForm.uraian);
+        // Nama Pemesan (Guru)
+        safeReplace('<<Nama Pemesan>>', dataForm.pemesan || "-");
+        
+        // Cari NIP Pemesan
+        let nipPemesan = "-";
+        const sheetGuru = ss.getSheetByName('DataGuru');
+        if (sheetGuru) {
+             const dataGuru = sheetGuru.getDataRange().getValues();
+             const guruFound = dataGuru.find(r => String(r[1]).trim() === String(dataForm.pemesan).trim());
+             if (guruFound) nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
+        }
+        safeReplace('<<NIP PEMESAN>>', nipPemesan);
 
     } else if (tipe === 'GURU') {
         safeReplace('<<Uraian Kegiatan>>', dataForm.uraian);
@@ -451,34 +530,46 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<NAMA PEMESAN/GURU>>', dataForm.pemesan || "-");
     }
 
-    // --- TABEL ITEM (FIX A) ---
+    // --- TABEL ITEM (PERBAIKAN: LOOPING SEMUA TABEL) ---
     if (itemsSafe.length > 0) {
       const tables = body.getTables();
-      let targetTable = null, rowIndexTemplate = -1;
       
-      for (let t = 0; t < tables.length; t++) {
-        for (let r = 0; r < tables[t].getNumRows(); r++) {
-          if (tables[t].getRow(r).getText().includes('<<TABLE_ROW>>')) {
-            targetTable = tables[t]; rowIndexTemplate = r; break;
+      // Loop semua tabel yang ada di dokumen (Halaman 1, 2, 3, dst)
+      tables.forEach(table => {
+        let rowIndexTemplate = -1;
+
+        // Cek apakah tabel ini punya baris dengan placeholder <<TABLE_ROW>>
+        for (let r = 0; r < table.getNumRows(); r++) {
+          if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
+            rowIndexTemplate = r;
+            break; // Ketemu baris template di tabel ini
           }
         }
-        if (targetTable) break;
-      }
 
-      if (targetTable) {
-        const templateRow = targetTable.getRow(rowIndexTemplate);
-        
-        itemsSafe.forEach((item, index) => {
-           const newRow = targetTable.insertRow(rowIndexTemplate + index, templateRow.copy());
-           try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
-           try { newRow.getCell(1).setText(item.nama || ""); } catch(e){} 
-           try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){}
-           try { newRow.getCell(3).setText(item.sat || ""); } catch(e){}
-           try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){}
-           try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
-        });
-        targetTable.removeRow(rowIndexTemplate + itemsSafe.length);
-      }
+        // Jika tabel ini punya placeholder, isi datanya
+        if (rowIndexTemplate !== -1) {
+          const templateRow = table.getRow(rowIndexTemplate);
+          
+          itemsSafe.forEach((item, index) => {
+             // Gunakan insertTableRow (sesuai perbaikan sebelumnya)
+             const newRow = table.insertTableRow(rowIndexTemplate + index, templateRow.copy());
+             
+             // Isi Data (Menggunakan try-catch agar aman jika jumlah kolom beda)
+             try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){}
+             try { newRow.getCell(1).setText(item.nama || ""); } catch(e){} 
+             try { newRow.getCell(2).setText((item.vol || 0).toString()); } catch(e){}
+             
+             // Cek kolom Satuan (Kadang ada tabel yg tidak pakai kolom satuan terpisah)
+             try { newRow.getCell(3).setText(item.sat || ""); } catch(e){}
+             
+             try { newRow.getCell(4).setText(formatRupiah(item.harga || 0)); } catch(e){}
+             try { newRow.getCell(5).setText(formatRupiah(item.jumlah || 0)); } catch(e){}
+          });
+          
+          // Hapus baris placeholder asli setelah data terisi
+          table.removeRow(rowIndexTemplate + itemsSafe.length);
+        }
+      });
     }
     
     doc.saveAndClose();
