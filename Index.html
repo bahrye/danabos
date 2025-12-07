@@ -178,7 +178,7 @@
 
       /* --- STYLE UNTUK AUTOCOMPLETE LIST --- */
       .autocomplete-wrapper {
-        position: relative;
+        position: relative; /* WAJIB RELATIVE */
       }
 
       .suggestion-list {
@@ -186,14 +186,14 @@
         top: 100%;
         left: 0;
         right: 0;
-        z-index: 1000;
+        z-index: 1050; /* Pastikan tinggi agar diatas tabel/modal */
         background: white;
         border: 1px solid #dee2e6;
-        border-radius: 0 0 5px 5px;
+        border-radius: 4px;
         max-height: 200px;
         overflow-y: auto;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        display: none; /* Tersembunyi default */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); /* Shadow lebih tebal agar terlihat mengambang */
+        font-size: 14px;
       }
 
       .suggestion-item {
@@ -214,6 +214,8 @@
     </style>
   </head>
   <body>
+
+    <div id="global-satuan-list" class="suggestion-list" style="display:none; position: absolute; z-index: 9999;"></div>
 
     <div id="loading" class="loading-overlay hidden">
       <div class="spinner-border text-primary" role="status">
@@ -2032,6 +2034,9 @@
       let cacheSatuan = [];
       let cacheMasterUraian = [];
 
+      // Variabel untuk menyimpan input mana yang sedang diketik user
+      let activeSatuanInput = null;
+
 
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
       
@@ -3775,7 +3780,7 @@
                   oninput="handleInputSatuan(this)" 
                   onfocus="handleInputSatuan(this)" 
                   autocomplete="off">
-                <div class="suggestion-list" style="display:none; min-width: 150px;"></div>
+
               </div>
             </td>
             <td><input type="text" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
@@ -5527,17 +5532,19 @@
       function handleInputSatuan(el) {
         const keyword = el.value.toLowerCase();
         
-        // Cari elemen list saudara (sibling) dari input ini
-        const wrapper = el.closest('.autocomplete-wrapper'); 
-        const listEl = wrapper.querySelector('.suggestion-list');
-        
-        // Ambil data referensi (dari cache atau data lengkap)
+        // 1. Simpan referensi input ini ke variabel global agar nanti bisa diisi
+        activeSatuanInput = el;
+
+        // 2. Ambil elemen Global List
+        const listEl = document.getElementById('global-satuan-list');
+
+        // 3. Ambil data referensi
         let sourceData = cacheSatuan; 
         if (sourceData.length === 0 && cacheDataSatuanLengkap.length > 0) {
             sourceData = cacheDataSatuanLengkap.map(i => i.nama);
         }
         
-        // Filter data
+        // 4. Filter data
         let matches = [];
         if (keyword === "") {
           matches = sourceData; 
@@ -5547,62 +5554,108 @@
           );
         }
 
-        // Render Hasil
+        // 5. Render Hasil & Posisikan
         if (matches.length > 0) {
           let html = '';
           const limit = matches.length > 50 ? 50 : matches.length;
           
           for(let i=0; i<limit; i++) {
             const valSafe = String(matches[i]).replace(/'/g, "\\'"); 
-            html += `<div class="suggestion-item" onclick="pilihSatuan(this, '${valSafe}')">
+            // Perhatikan: onclick sekarang memanggil fungsi pilihSatuanGlobal
+            html += `<div class="suggestion-item" onclick="pilihSatuanGlobal('${valSafe}')">
                       ${matches[i]}
                     </div>`;
           }
           
           listEl.innerHTML = html;
           
-          // --- [PERBAIKAN UTAMA: POSISI FIXED] ---
-          // Menggunakan getBoundingClientRect agar posisi akurat di layar & keluar dari tabel
+          // --- TEKNIK POSISI MANUAL (PORTAL) ---
+          // Hitung posisi input saat ini di layar
           const rect = el.getBoundingClientRect();
           
-          listEl.style.position = 'fixed'; // Mengambang bebas dari tabel
-          listEl.style.top = (rect.bottom + 2) + 'px'; // Muncul tepat di bawah input
-          listEl.style.left = rect.left + 'px'; // Rata kiri dengan input
-          listEl.style.width = 'auto';
-          listEl.style.minWidth = rect.width + 'px'; // Lebar minimal sama dengan input
-          listEl.style.maxWidth = '300px'; // Batasi lebar maksimal agar rapi
-          listEl.style.zIndex = '9999'; // Pastikan di paling atas
+          // Posisikan list global tepat di bawah input
+          // Ditambah window.scrollY agar posisi tetap benar meski halaman discroll ke bawah
+          listEl.style.top = (rect.bottom + window.scrollY) + 'px'; 
+          listEl.style.left = (rect.left + window.scrollX) + 'px';
+          listEl.style.width = rect.width + 'px'; // Samakan lebarnya dengan input
           listEl.style.display = 'block';
-          listEl.style.whiteSpace = 'nowrap';
 
         } else {
           listEl.style.display = 'none';
         }
       }
 
-      // --- PERBAIKAN LISTENER SCROLL ---
-      // Tambahkan ini di bagian bawah script, menggantikan kode scroll sebelumnya
-      document.addEventListener('scroll', function(e) {
+      // Fungsi untuk memosisikan ulang list agar selalu menempel pada input
+      function updateGlobalListPosition() {
+        const listEl = document.getElementById('global-satuan-list');
+        
+        // Hanya jalankan jika list sedang tampil dan ada input yang aktif
+        if (listEl && listEl.style.display === 'block' && activeSatuanInput) {
+          const rect = activeSatuanInput.getBoundingClientRect();
           
-          // 1. CEK PENTING: Apakah yang sedang discroll adalah list saran itu sendiri?
-          // Jika YA, hentikan fungsi ini (return) agar list tidak tertutup.
-          if (e.target && e.target.classList && e.target.classList.contains('suggestion-list')) {
-              return; 
-          }
+          // Update posisi berdasarkan koordinat input saat ini
+          listEl.style.top = (rect.bottom + window.scrollY) + 'px'; 
+          listEl.style.left = (rect.left + window.scrollX) + 'px';
+          listEl.style.width = rect.width + 'px';
+        }
+      }
 
-          // 2. Jika scroll terjadi di halaman utama (Body/Table), baru tutup listnya
-          // agar list tidak melayang sembarangan.
-          const allLists = document.querySelectorAll('.suggestion-list');
-          allLists.forEach(list => {
-              if(list.style.display === 'block') {
-                  list.style.display = 'none';
+      // Listener Scroll: Update posisi list (JANGAN DITUTUP)
+      document.addEventListener('scroll', function(e) {
+        // 1. Jika yang discroll adalah list saran itu sendiri, biarkan saja
+        const listEl = document.getElementById('global-satuan-list');
+        if (e.target === listEl) return;
+        
+        // 2. Jika yang discroll adalah halaman/tabel, IKUTI pergerakan inputnya
+        updateGlobalListPosition();
+      }, true); // Capture phase
+
+      // Listener Resize: Update posisi jika layar diubah ukurannya
+      window.addEventListener('resize', function() {
+        updateGlobalListPosition();
+      });
+
+      // Tutup list jika klik di luar
+      // Listener Global untuk Klik (Menutup Dropdown saat klik di luar)
+      document.addEventListener('click', function(e) {
+        
+        // --- BAGIAN 1: MENANGANI LIST LOKAL (URAIAN & BARANG) ---
+        // (Kode lama Anda: Menangani list yang ada di dalam .autocomplete-wrapper)
+        const allWrappers = document.querySelectorAll('.autocomplete-wrapper');
+        
+        allWrappers.forEach(wrapper => {
+            const listEl = wrapper.querySelector('.suggestion-list');
+            
+            // Cek jika list sedang tampil DAN klik terjadi di luar wrapper pembungkusnya
+            if (listEl && listEl.style.display === 'block' && !wrapper.contains(e.target)) {
+                listEl.style.display = 'none';
+            }
+        });
+
+        // --- BAGIAN 2: MENANGANI LIST GLOBAL (SATUAN) ---
+        // (Kode baru: Menangani list yang menempel di Body)
+        const globalList = document.getElementById('global-satuan-list');
+          if (globalList && globalList.style.display === 'block') {
+              // Tutup HANYA jika klik terjadi di luar List DAN di luar Input
+              if (!globalList.contains(e.target) && e.target !== activeSatuanInput) {
+                  globalList.style.display = 'none';
               }
-          });
-          
-      }, true); // Gunakan 'true' (capture phase) untuk mendeteksi scroll di seluruh elemen
+          }
+      });
+
+      function pilihSatuanGlobal(text) {
+        if (activeSatuanInput) {
+          activeSatuanInput.value = text;
+          // Trigger event input (penting untuk perhitungan otomatis jika ada)
+          activeSatuanInput.dispatchEvent(new Event('input'));
+        }
+        
+        // Sembunyikan list global
+        document.getElementById('global-satuan-list').style.display = 'none';
+      }
 
       // 2. Fungsi saat Saran dipilih
-      function pilihSatuan(itemElement, text) {
+      /*function pilihSatuan(itemElement, text) {
         // itemElement adalah div.suggestion-item
         // Parent-nya adalah div.suggestion-list
         const listEl = itemElement.parentElement;
@@ -5621,25 +5674,7 @@
         // Sembunyikan list
         listEl.style.display = 'none';
       }
-
-      // 3. Update Global Click Listener (Agar list menutup saat klik di luar)
-      // Update listener yang sudah ada di paling bawah script Anda:
-      document.addEventListener('click', function(e) {
-        // Tutup Uraian (Kode Lama)
-        const wrapperUraian = document.querySelector('.autocomplete-wrapper'); 
-        // Perhatikan: Class autocomplete-wrapper sekarang dipakai di tabel juga.
-        // Kode di bawah ini menangani penutupan list secara generic untuk class tersebut.
-        
-        const allWrappers = document.querySelectorAll('.autocomplete-wrapper');
-        
-        allWrappers.forEach(wrapper => {
-            const listEl = wrapper.querySelector('.suggestion-list');
-            // Jika klik terjadi DI LUAR wrapper ini, sembunyikan list-nya
-            if (listEl && listEl.style.display === 'block' && !wrapper.contains(e.target)) {
-                listEl.style.display = 'none';
-            }
-        });
-      });
+      */
 
       /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
       
