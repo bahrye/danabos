@@ -5472,12 +5472,14 @@
 
       // 2. Untuk Parameter Tombol Edit (Mencegah JS Error)
       // Mengubah ' menjadi \' agar aman masuk ke fungsi onclick="edit('...')"
+      // --- KODE BARU (PERBAIKAN) ---
       function escapeJsAttribute(text) {
         if (!text) return "";
         return String(text)
-          .replace(/\\/g, "\\\\")   // Escape backslash dulu
-          .replace(/'/g, "\\'")     // Escape kutip satu untuk JS
-          .replace(/"/g, "&quot;"); // Escape kutip dua untuk HTML Attr
+          .replace(/\\/g, "\\\\")       // 1. Escape backslash
+          .replace(/\r?\n/g, "\\n")     // 2. Escape Enter/Newline (INI PERBAIKANNYA)
+          .replace(/'/g, "\\'")         // 3. Escape kutip satu
+          .replace(/"/g, "&quot;");     // 4. Escape kutip dua
       }
 
       /* --- TAMBAHKAN FUNGSI BARU INI DI BAWAH --- */
