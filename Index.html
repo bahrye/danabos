@@ -3897,25 +3897,44 @@
         tambahBaris(tipe);
       }
 
-      // --- FUNGSI POPUP DETAIL TRANSAKSI ---
+      // --- FUNGSI POPUP DETAIL TRANSAKSI (REVISI: STATUS TANGGAL REAL) ---
       function lihatDetailTransaksi(encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // 1. Buat Header HTML untuk Info Dasar
+        // Ambil Data Surat & Tanggal (Jika null/undefined, jadikan object kosong)
+        const s = data.dataSurat || {};
+        const t = data.dataTanggal || {};
+
+        // Helper Format Tanggal (Update: Return "Belum diatur" jika kosong)
+        const fmtDate = (dStr) => {
+            // Jika string tanggal kosong/null/undefined -> Tampilkan "Belum diatur"
+            if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
+            
+            const d = new Date(dStr);
+            if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Invalid -</span>';
+            
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
+        };
+
+        // Helper Format Nomor (Sama seperti sebelumnya)
+        const fmtNo = (val) => {
+            return val ? `<span class="fw-bold text-primary font-monospace">${val}</span>` : '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
+        };
+
+        // 1. Header Info Dasar
         let htmlContent = `
           <div class="text-start mb-3" style="font-size: 0.9rem;">
             <table class="table table-borderless table-sm mb-0">
               <tr>
-                <td width="30%" class="fw-bold">Tanggal</td>
-                <td>: ${data.tanggalDisplay}</td> 
-              </tr>
-              <tr>
-                <td class="fw-bold">Uraian</td>
+                <td width="30%" class="fw-bold">Uraian Belanja</td>
                 <td>: ${data.uraian}</td>
               </tr>
               <tr>
                 <td class="fw-bold">Pihak Ketiga</td>
-                <td>: ${data.pihakKetiga} (Tipe: ${data.tipe})</td>
+                <td>: ${data.pihakKetiga} <span class="badge bg-light text-secondary border ms-1">${data.tipe}</span></td>
               </tr>
               <tr>
                 <td class="fw-bold">Pemesan</td>
@@ -3925,23 +3944,22 @@
           </div>
         `;
 
-        // 2. Buat Tabel Rincian Barang
+        // 2. Tabel Rincian Barang
         htmlContent += `
-          <div class="table-responsive">
-            <table class="table table-bordered table-sm align-middle text-nowrap" style="font-size: 0.85rem;">
+          <h6 class="fw-bold mb-2 text-secondary" style="font-size: 0.85rem;"><i class="fas fa-box me-1"></i> Rincian Item</h6>
+          <div class="table-responsive mb-4">
+            <table class="table table-bordered table-sm align-middle text-nowrap mb-0" style="font-size: 0.85rem;">
               <thead class="table-light text-center">
                 <tr>
                   <th>Nama Barang / Item</th>
                   <th width="10%">Vol</th>
                   <th width="10%">Sat</th>
-                  <th width="20%">Harga</th>
                   <th width="25%">Jumlah</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        // Loop item barang
         if (data.items && data.items.length > 0) {
           data.items.forEach(item => {
             htmlContent += `
@@ -3949,36 +3967,78 @@
                 <td class="text-start">${item.nama}</td>
                 <td class="text-center">${item.vol}</td>
                 <td class="text-center">${item.sat}</td>
-                <td class="text-end">${formatRupiahJS(item.harga)}</td>
                 <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
               </tr>
             `;
           });
         } else {
-          htmlContent += `<tr><td colspan="5" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
+          htmlContent += `<tr><td colspan="4" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
         }
 
-        // Tutup Tabel & Tambah Total
         htmlContent += `
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <td colspan="4" class="text-end fw-bold">TOTAL KESELURUHAN</td>
-                  <td class="text-end fw-bold fs-6 text-primary">${formatRupiahJS(data.total)}</td>
+                  <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                  <td class="text-end fw-bold fs-6 text-success">${formatRupiahJS(data.total)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
         `;
 
-        // 3. Tampilkan dengan SweetAlert
+        // 3. Status Dokumen Surat & Tanggal (REVISI BAGIAN INI)
+        htmlContent += `
+          <h6 class="fw-bold mb-2 text-primary" style="font-size: 0.85rem;"><i class="fas fa-file-signature me-1"></i> Status Dokumen & Tanggal</h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.85rem;">
+              <thead class="bg-primary text-white bg-opacity-10">
+                <tr>
+                  <th width="35%">Jenis Dokumen</th>
+                  <th width="30%" class="text-center">Tanggal Dokumen</th>
+                  <th class="text-center">Nomor Surat</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        // Definisi Data: Hapus fallback '|| data.tanggal' agar statusnya murni dari database
+        const docs = [
+            { label: 'Surat Permintaan', tgl: t.permintaan, no: s.permintaan },
+            // Penawaran hanya untuk TOKO
+            ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', tgl: t.penawaran, no: s.penawaran }] : []),
+            { label: 'BA Pemeriksaan', tgl: t.baPemeriksaan, no: s.baPemeriksaan },
+            { label: 'BA Serah Terima', tgl: t.baSerahTerima, no: s.baSerahTerima },
+            { label: 'BA Pembayaran', tgl: t.baPembayaran, no: s.baPembayaran }
+        ];
+
+        docs.forEach(doc => {
+            htmlContent += `
+                <tr>
+                    <td class="fw-bold text-secondary">${doc.label}</td>
+                    <td class="text-center bg-light">${fmtDate(doc.tgl)}</td>
+                    <td class="text-center">${fmtNo(doc.no)}</td>
+                </tr>
+            `;
+        });
+
+        htmlContent += `
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        // 4. Tampilkan Popup
         Swal.fire({
-          title: 'Rincian Transaksi',
+          title: 'Rincian & Dokumen',
           html: htmlContent,
-          width: '600px',
+          width: '700px', // Sedikit lebih lebar untuk mengakomodasi teks "Belum diatur"
           showCloseButton: true,
-          showConfirmButton: false, // Hanya tombol close X diatas atau klik luar
-          focusConfirm: false
+          showConfirmButton: false,
+          focusConfirm: false,
+          customClass: {
+            popup: 'rounded-4 shadow-lg'
+          }
         });
       }
 
