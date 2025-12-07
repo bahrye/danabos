@@ -91,16 +91,79 @@ function registerSchool(form) {
   }
 }
 
-// Fungsi Login
+/* --- MODIFIKASI FUNGSI LOGIN (SINGLE SESSION LOGIC) --- */
 function loginUser(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
+  
+  // Loop cari user
   for (let i = 1; i < data.length; i++) {
+    // Cek Email & Password
     if (data[i][2] == form.email && data[i][3] == form.password) {
-      return { status: 'success', token: data[i][4], namaSekolah: data[i][1] };
+      
+      const currentSession = data[i][5]; // Kolom F (Index 5) adalah SESSION_ID
+      
+      // LOGIKA: DETEKSI LOGIN GANDA
+      if (currentSession && currentSession !== "") {
+        // Jika ada sesi nyangkut/aktif:
+        // 1. Hapus sesi tersebut (Kill Session Lama)
+        ssMaster.getRange(i + 1, 6).setValue(""); 
+        
+        // 2. Tolak Login Baru (Sesuai permintaan: tampilkan sesi tidak sah)
+        return { 
+          status: 'error', 
+          message: '<b>Sesi Tidak Sah!</b><br>Akun ini sedang login di perangkat lain. Semua sesi telah dihentikan demi keamanan. Silakan coba login kembali.' 
+        };
+      }
+
+      // LOGIKA: LOGIN SUKSES (JIKA TIDAK ADA LOGIN GANDA)
+      // Generate Session ID Baru
+      const newSessionId = Utilities.getUuid();
+      
+      // Simpan Session ID ke Database
+      ssMaster.getRange(i + 1, 6).setValue(newSessionId);
+
+      return { 
+        status: 'success', 
+        token: data[i][4],        // ID Spreadsheet DB Sekolah
+        namaSekolah: data[i][1],
+        sessionToken: newSessionId // Token Sesi Baru untuk validasi
+      };
     }
   }
   return { status: 'error', message: 'Email atau Password salah!' };
+}
+
+/* --- FUNGSI BARU: CEK STATUS SESI BERKALA --- */
+function checkSessionStatus(email, clientSessionToken) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] == email) {
+      const dbSession = data[i][5]; // Ambil Session ID di DB
+      
+      // Jika Session di DB kosong (direset) ATAU beda dengan yang dipegang client
+      if (!dbSession || dbSession !== clientSessionToken) {
+        return { valid: false };
+      }
+      return { valid: true };
+    }
+  }
+  // Jika email tidak ketemu (misal dihapus admin), anggap tidak valid
+  return { valid: false };
+}
+
+/* --- FUNGSI LOGOUT (BERSIHKAN SESI DI DB) --- */
+function logoutUserServer(email) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][2] == email) {
+      ssMaster.getRange(i + 1, 6).setValue(""); // Hapus Session ID
+      break;
+    }
+  }
 }
 
 /* --- FUNGSI CRUD DATA (User Spesifik) --- */
