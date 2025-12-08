@@ -27,14 +27,34 @@ function doGet(e) {
 
 /* --- FUNGSI REGISTRASI & LOGIN --- */
 
-/* --- FUNGSI REGISTRASI (UPDATE: SECURITY FIX) --- */
+/* --- FUNGSI REGISTRASI (UPDATE: VALIDASI KETAT NAMA & EMAIL) --- */
 function registerSchool(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
   
-  // Cek Duplikasi Email
+  // Normalisasi nama sekolah yang baru didaftarkan
+  const newSchoolNameClean = normalizeName(form.namaSekolah);
+  const newEmailClean = form.email.trim().toLowerCase();
+
+  // LOOP CEK DUPLIKASI
   for (let i = 1; i < data.length; i++) {
-    if (data[i][2] == form.email) return { status: 'error', message: 'Email sudah terdaftar!' };
+    const existingNameRaw = data[i][1]; // Kolom Nama Sekolah
+    const existingEmail = data[i][2];   // Kolom Email
+    
+    // 1. Validasi Email
+    if (String(existingEmail).toLowerCase() === newEmailClean) {
+      return { status: 'error', message: '<b>Email sudah terdaftar!</b><br>Silakan gunakan email lain atau lakukan reset password.' };
+    }
+
+    // 2. Validasi Nama Sekolah (Fuzzy Match)
+    const existingNameClean = normalizeName(existingNameRaw);
+    
+    if (existingNameClean === newSchoolNameClean) {
+      return { 
+        status: 'error', 
+        message: '<b>Sekolah Sudah Terdaftar!</b><br>Nama sekolah: "'+ form.namaSekolah +'" terdeteksi mirip dengan data yang sudah ada ("'+ existingNameRaw +'").<br>Satu sekolah hanya boleh memiliki satu akun.' 
+      };
+    }
   }
 
   try {
@@ -45,26 +65,19 @@ function registerSchool(form) {
     const schoolFolder = parentFolder.createFolder(form.namaSekolah);
     const schoolFolderId = schoolFolder.getId();
 
-    // 3. Buat Sub-Folder [Kop Sekolah] & [File Generate]
+    // 3. Buat Sub-Folder
     const folderKop = schoolFolder.createFolder("Kop Sekolah");
     const folderGenerate = schoolFolder.createFolder("File Generate");
 
-    // [SECURITY FIX] JANGAN SET FOLDER JADI PUBLIK
-    // Baris di bawah ini dihapus/dikomentari agar folder tetap aman (Privat)
-    // folderGenerate.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // 4. Copy Template DB ke dalam Folder Sekolah
+    // 4. Copy Template DB
     const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
     const newDbFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah, schoolFolder);
     const newDbId = newDbFile.getId();
 
-    // 5. Set Permission File DB (Agar bisa diedit user)
-    // DB tetap perlu akses edit, tapi karena user login via Web App (Exec as Me),
-    // sebenarnya user tidak butuh akses langsung ke file DB jika semua via Script.
-    // Tapi untuk debugging, kita biarkan dulu atau bisa diperketat nanti.
+    // 5. Set Permission
     newDbFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
 
-    // 6. SIMPAN ID FOLDER KE DATABASE SEKOLAH (Sheet DataPengaturan)
+    // 6. SIMPAN ID FOLDER KE DATABASE SEKOLAH
     const ssNew = SpreadsheetApp.openById(newDbId);
     let sheetSet = ssNew.getSheetByName('DataPengaturan');
     if (!sheetSet) {
@@ -76,16 +89,34 @@ function registerSchool(form) {
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
 
-    // 7. Simpan User ke Master Database
-    ssMaster.appendRow([new Date(), form.namaSekolah, form.email, form.password, newDbId]);
+    // 7. Generate Kode Pemulihan Unik
+    // Mengambil 8 karakter acak dari UUID dan dijadikan huruf besar
+    const recoveryCode = "REC-" + Utilities.getUuid().slice(0, 8).toUpperCase();
 
-    return { status: 'success', message: 'Registrasi berhasil! Folder & Database telah dibuat.' };
+    // 8. Simpan User ke Master Database
+    // Struktur Kolom: [Time, Nama, Email, Pass, DbID, SessionID, RECOVERY_CODE]
+    // Kita tambahkan recoveryCode di kolom ke-7 (Index 6)
+    ssMaster.appendRow([
+      new Date(), 
+      form.namaSekolah, 
+      newEmailClean, 
+      form.password, 
+      newDbId, 
+      "",            // Session ID kosong awal
+      recoveryCode   // <--- KOLOM BARU
+    ]);
+
+    return { 
+      status: 'success', 
+      message: 'Registrasi berhasil!', 
+      recoveryCode: recoveryCode // Kembalikan kode ini ke client untuk ditampilkan
+    };
 
   } catch (e) {
     const pesan = beautifyError(
       "Gagal Mendaftarkan Sekolah", 
       e, 
-      "Cek ID Folder Master di CONFIG apakah sudah benar. Pastikan akun memiliki akses Edit ke folder tersebut."
+      "Cek koneksi internet atau hubungi Admin."
     );
     return { status: 'error', message: pesan };
   }
@@ -1744,50 +1775,42 @@ function simpanTanggalSurat(token, form) {
 
 /* --- FUNGSI DASHBOARD (UPDATE LENGKAP) --- */
 
+/* --- UPDATE FUNGSI DASHBOARD (MENYERTAKAN RECOVERY CODE) --- */
 function getDashboardStats(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Sekolah Lengkap
+    // 1. Ambil Data Sekolah Lengkap (Existing Code)
     let sheetSekolah = ss.getSheetByName('DataSekolah');
     let schoolProfile = {};
     let anggaran = 0;
     
     if (sheetSekolah) {
-      // Pastikan mengambil minimal 18 kolom
-      const data = sheetSekolah.getRange(2, 1, 1, 18).getValues()[0];
-      
-      // === UPDATE BAGIAN INI AGAR LENGKAP ===
+      const data = sheetSekolah.getRange(2, 1, 1, 19).getValues()[0]; // Pastikan range mencakup semua kolom
       schoolProfile = {
         nama: data[0] || '-',
         npsn: String(data[1] || '').replace(/'/g, '') || '-',
         nsm: String(data[2] || '').replace(/'/g, '') || '-',
         alamat: data[3] || '-',
-        
-        // TAMBAHAN DATA BARU (Agar tidak undefined)
         provinsi: data[4] || '',
         kabupaten: data[5] || '',
         kecamatan: data[6] || '-',
         kelurahan: data[7] || '-',
         tempatTTD: data[8] || '-',
-        noTelp: String(data[13] || '').replace(/'/g, '') || '-', // Kolom No Telp
-        
-        // Data Pejabat
+        noTelp: String(data[13] || '').replace(/'/g, '') || '-',
         kepala: data[9] || '-',
         nipKepala: String(data[10] || '').replace(/'/g, '') || '-',
         bendahara: data[11] || '-',
         nipBendahara: String(data[12] || '').replace(/'/g, '') || '-',
         email: data[14] || '-'
       };
-      
       anggaran = Number(data[16]) || 0; 
     }
 
-    // 2. Hitung Total Pengeluaran & Jumlah Transaksi
+    // 2. Hitung Pengeluaran (Existing Code)
     let sheetTrans = ss.getSheetByName('DataTransaksi');
     let totalPengeluaran = 0;
     let jumlahTransaksi = 0;
-
     if (sheetTrans) {
       const dataTrans = sheetTrans.getDataRange().getValues();
       for (let i = 1; i < dataTrans.length; i++) {
@@ -1797,13 +1820,34 @@ function getDashboardStats(token) {
       }
     }
 
+    // --- 3. [BARU] AMBIL KODE PEMULIHAN DARI MASTER DB ---
+    let recCode = "-";
+    try {
+      const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+      const masterData = ssMaster.getDataRange().getValues();
+      
+      // Cari baris dimana Kolom E (Index 4) == Token Sekolah saat ini
+      // Token = ID Spreadsheet Sekolah
+      const foundUser = masterData.find(row => row[4] === token);
+      
+      // Kode Pemulihan ada di Kolom G (Index 6)
+      if (foundUser && foundUser[6]) {
+        recCode = foundUser[6];
+      }
+    } catch (e) {
+      // Abaikan error jika gagal baca master, biarkan default "-"
+      console.error("Gagal baca Master DB untuk Rec Code: " + e);
+    }
+    // -----------------------------------------------------
+
     return {
       status: 'success',
       data: {
         anggaran: anggaran,
         pengeluaran: totalPengeluaran,
         jumlahTransaksi: jumlahTransaksi,
-        profile: schoolProfile // Data Profil dikirim disini
+        profile: schoolProfile,
+        recoveryCode: recCode // <--- Kirim ke Frontend
       }
     };
 
@@ -2157,6 +2201,77 @@ function getReferensiSatuanLengkap(token) {
 
     return { status: 'success', data: result };
 
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/**
+ * Fungsi Helper untuk menstandarkan Nama Sekolah
+ * Contoh: "SMA NEGERI 1 BLK" -> "sman1blk"
+ * Contoh: "SMAN 1 BLK" -> "sman1blk"
+ * Contoh: "SMA.N 1 - BLK" -> "sman1blk"
+ */
+function normalizeName(name) {
+  if (!name) return "";
+  return name.toString().toLowerCase()
+    .replace(/\s+/g, '')        // Hapus semua spasi
+    .replace(/negeri/g, 'n')    // Ganti kata 'negeri' jadi 'n' (SMAN, SMPN, MTSN)
+    .replace(/[^a-z0-9]/g, ''); // Hapus simbol (titik, koma, strip, dll)
+}
+
+/* --- FUNGSI RESET PASSWORD (METODE RECOVERY CODE) --- */
+function resetPasswordWithCode(form) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  
+  const emailTarget = form.email.trim().toLowerCase();
+  const codeTarget = form.code.trim().toUpperCase(); // Pastikan format sama
+  
+  for (let i = 1; i < data.length; i++) {
+    const dbEmail = String(data[i][2]).toLowerCase();
+    const dbCode = String(data[i][6]).toUpperCase(); // Ambil dari kolom G (Index 6)
+    
+    // Cek kecocokan Email DAN Kode Pemulihan
+    if (dbEmail === emailTarget && dbCode === codeTarget) {
+      
+      // Update Password (Kolom D / Index 3)
+      ssMaster.getRange(i + 1, 4).setValue(form.newPassword);
+      
+      return { status: 'success', message: 'Password berhasil diubah! Silakan login dengan password baru.' };
+    }
+  }
+  
+  return { status: 'error', message: 'Email atau Kode Pemulihan salah!' };
+}
+
+/* --- FUNGSI GENERATE RECOVERY CODE SUSULAN (UNTUK AKUN LAMA) --- */
+function generateRecoveryCodeOnly(token) {
+  try {
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+    const data = ssMaster.getDataRange().getValues();
+    
+    // Cari user berdasarkan Token (ID Spreadsheet Sekolah)
+    // Token ada di Kolom E (Index 4)
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][4] === token) {
+        
+        // Cek apakah sudah ada kode? (Opsional, tapi untuk safety)
+        if (data[i][6] && data[i][6] !== "" && data[i][6] !== "-") {
+           return { status: 'error', message: 'Kode pemulihan sudah ada.' };
+        }
+
+        // Generate Kode Baru
+        const newCode = "REC-" + Utilities.getUuid().slice(0, 8).toUpperCase();
+        
+        // Simpan ke Kolom G (Index 6)
+        ssMaster.getRange(i + 1, 7).setValue(newCode);
+        
+        return { status: 'success', newCode: newCode };
+      }
+    }
+    return { status: 'error', message: 'User tidak ditemukan.' };
+    
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
