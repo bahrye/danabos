@@ -4334,21 +4334,19 @@
         tambahBaris(tipe);
       }
 
-      // --- FUNGSI POPUP DETAIL TRANSAKSI (REVISI: STATUS TANGGAL REAL) ---
+      // --- FUNGSI POPUP DETAIL TRANSAKSI (FINAL REVISI: LAYOUT TABEL PRESISI) ---
       function lihatDetailTransaksi(encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // Ambil Data Surat & Tanggal (Jika null/undefined, jadikan object kosong)
+        // Ambil Data Surat & Tanggal
         const s = data.dataSurat || {};
         const t = data.dataTanggal || {};
 
-        // Helper Format Tanggal (Update: Return "Belum diatur" jika kosong)
+        // Helper Format Tanggal
         const fmtDate = (dStr) => {
-            // Jika string tanggal kosong/null/undefined -> Tampilkan "Belum diatur"
-            if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
-            
+            if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Kosong -</span>';
             const d = new Date(dStr);
-            if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Invalid -</span>';
+            if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Error -</span>';
             
             const dd = String(d.getDate()).padStart(2, '0');
             const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -4356,26 +4354,43 @@
             return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
         };
 
-        // Helper Format Nomor (Sama seperti sebelumnya)
+        // Helper Format Nomor
         const fmtNo = (val) => {
-            return val ? `<span class="fw-bold text-primary font-monospace">${val}</span>` : '<span class="text-muted fst-italic small bg-light px-2 rounded">- Belum diatur -</span>';
+            return val ? val : '<span class="text-muted fst-italic small fw-normal">- Belum diatur -</span>';
         };
+
+        // --- LOGIKA TAMPILAN KHUSUS (GURU vs TOKO/TUKANG) ---
+        let labelPihak = "Pihak Ketiga";
+        let valPihak   = data.pihakKetiga;
+        let labelBawah = "Pemesan";
+        let valBawah   = data.pemesan;
+
+        // JIKA TIPE ADALAH GURU
+        if (data.tipe === 'GURU') {
+            if (data.items && data.items.length > 0) {
+               valPihak = data.items[0].nama;
+            } else {
+               valPihak = "-";
+            }
+            labelBawah = "Keterangan";
+            valBawah = data.pihakKetiga; 
+        }
 
         // 1. Header Info Dasar
         let htmlContent = `
           <div class="text-start mb-3" style="font-size: 0.9rem;">
             <table class="table table-borderless table-sm mb-0">
               <tr>
-                <td width="30%" class="fw-bold">Uraian Belanja</td>
+                <td width="20%" class="fw-bold">Uraian Belanja</td>
                 <td>: ${data.uraian}</td>
               </tr>
               <tr>
-                <td class="fw-bold">Pihak Ketiga</td>
-                <td>: ${data.pihakKetiga} <span class="badge bg-light text-secondary border ms-1">${data.tipe}</span></td>
+                <td class="fw-bold">${labelPihak}</td>
+                <td>: ${valPihak} <span class="badge bg-light text-secondary border ms-1">${data.tipe}</span></td>
               </tr>
               <tr>
-                <td class="fw-bold">Pemesan</td>
-                <td>: ${data.pemesan}</td>
+                <td class="fw-bold">${labelBawah}</td>
+                <td>: ${valBawah}</td>
               </tr>
             </table>
           </div>
@@ -4424,25 +4439,25 @@
           </div>
         `;
 
-        // 3. Status Dokumen Surat & Tanggal (REVISI BAGIAN INI)
+        // 3. Status Dokumen Surat & Tanggal (LAYOUT UPDATED)
         htmlContent += `
           <h6 class="fw-bold mb-2 text-primary" style="font-size: 0.85rem;"><i class="fas fa-file-signature me-1"></i> Status Dokumen & Tanggal</h6>
           <div class="table-responsive">
             <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.85rem;">
               <thead class="bg-primary text-white bg-opacity-10">
                 <tr>
-                  <th width="35%">Jenis Dokumen</th>
-                  <th width="30%" class="text-center">Tanggal Dokumen</th>
-                  <th class="text-center">Nomor Surat</th>
+                  <th style="width: 1%; white-space: nowrap;" class="text-start ps-3">Jenis Dokumen</th>
+                  
+                  <th style="width: 1%; white-space: nowrap;" class="text-center px-3">Tanggal</th>
+                  
+                  <th class="text-start ps-3">Nomor Surat</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        // Definisi Data: Hapus fallback '|| data.tanggal' agar statusnya murni dari database
         const docs = [
             { label: 'Surat Permintaan', tgl: t.permintaan, no: s.permintaan },
-            // Penawaran hanya untuk TOKO
             ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', tgl: t.penawaran, no: s.penawaran }] : []),
             { label: 'BA Pemeriksaan', tgl: t.baPemeriksaan, no: s.baPemeriksaan },
             { label: 'BA Serah Terima', tgl: t.baSerahTerima, no: s.baSerahTerima },
@@ -4452,9 +4467,11 @@
         docs.forEach(doc => {
             htmlContent += `
                 <tr>
-                    <td class="fw-bold text-secondary">${doc.label}</td>
-                    <td class="text-center bg-light">${fmtDate(doc.tgl)}</td>
-                    <td class="text-center">${fmtNo(doc.no)}</td>
+                    <td class="fw-bold text-secondary text-start ps-3 text-nowrap">${doc.label}</td>
+                    
+                    <td class="text-center bg-light text-nowrap px-3">${fmtDate(doc.tgl)}</td>
+                    
+                    <td class="text-start ps-3 font-monospace text-dark fw-bold text-break">${fmtNo(doc.no)}</td>
                 </tr>
             `;
         });
@@ -4469,7 +4486,7 @@
         Swal.fire({
           title: 'Rincian & Dokumen',
           html: htmlContent,
-          width: '700px', // Sedikit lebih lebar untuk mengakomodasi teks "Belum diatur"
+          width: '750px', 
           showCloseButton: true,
           showConfirmButton: false,
           focusConfirm: false,
