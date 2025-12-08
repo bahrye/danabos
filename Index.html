@@ -1753,16 +1753,18 @@
                                       <tbody style="font-size: 0.85rem;">
                                         
                                         <tr class="table-secondary fw-bold"><td colspan="2">A. Identitas Sekolah & Pejabat</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Gambar Kop Surat (Otomatis)</td></tr>
+                                        <tr><td class="font-monospace text-danger">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Gambar Kop Surat (Otomatis)</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Nama Sekolah&gt;&gt;</td><td>Nama Sekolah</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Madrasah&gt;&gt;</td><td>Alternatif Nama Sekolah</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Alamat Lengkap Sekolah&gt;&gt;</td><td>Jalan, Desa, Kecamatan, Kab.</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Alamat TTD Sekolah&gt;&gt;</td><td>Tempat/Kota Tanda Tangan</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Kecamatan&gt;&gt;</td><td>Kecamatan</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Kabupaten&gt;&gt;</td><td>Kabupaten/Kota</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Provinsi&gt;&gt;</td><td>Provinsi</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;NAMA KEPALA SEKOLAH&gt;&gt;</td><td>Nama Kepala Sekolah</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA KEPALA SEKOLAH&gt;&gt;</td><td>Nama Kepala (Huruf Besar)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Kepala Sekolah&gt;&gt;</td><td>Nama Kepala (Format Standar)</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;NIP Kepala Sekolah&gt;&gt;</td><td>NIP Kepala Sekolah</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;NAMA BENDAHARA&gt;&gt;</td><td>Nama Bendahara</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA BENDAHARA&gt;&gt;</td><td>Nama Bendahara (Huruf Besar)</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;NIP Bendahara&gt;&gt;</td><td>NIP Bendahara</td></tr>
 
                                         <tr class="table-secondary fw-bold"><td colspan="2">B. Data Anggaran & Transaksi Umum</td></tr>
@@ -1791,18 +1793,23 @@
                                         
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Pesanan&gt;&gt;</td><td>Tgl Surat Permintaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Penawaran&gt;&gt;</td><td>Tgl Surat Penawaran</td></tr>
+                                        
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.PB&gt;&gt;</td><td>Tgl BA Pemeriksaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.STB&gt;&gt;</td><td>Tgl BA Serah Terima</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.Bayar&gt;&gt;</td><td>Tgl BA Pembayaran</td></tr>
                                         
-                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Hari Huruf BA.PB&gt;&gt;</td><td>Nama Hari (Senin, Selasa...)</td></tr>
-                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tanggal Huruf BA.PB&gt;&gt;</td><td>Tanggal Terbilang (Satu, Dua...)</td></tr>
-                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Bulan Huruf BA.PB&gt;&gt;</td><td>Nama Bulan (Januari...)</td></tr>
-                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tahun Huruf BA.PB&gt;&gt;</td><td>Tahun Terbilang (Dua Ribu...)</td></tr>
-                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">*Format Huruf di atas juga tersedia untuk suffix <b>BA.STB</b> dan <b>BA.Bayar</b>.</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Hari Huruf BA.PB&gt;&gt;</td><td>Nama Hari (Senin, dst)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tanggal Huruf BA.PB&gt;&gt;</td><td>Tanggal Terbilang (Satu, dst)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Bulan Huruf BA.PB&gt;&gt;</td><td>Nama Bulan (Januari, dst)</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tahun Huruf BA.PB&gt;&gt;</td><td>Tahun Terbilang (Dua Ribu, dst)</td></tr>
+                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">
+                                          *Format Huruf di atas juga tersedia untuk suffix: <b>BA.STB</b> dan <b>BA.Bayar</b>.<br>
+                                          Contoh: <code>&lt;&lt;Hari Huruf BA.STB&gt;&gt;</code>
+                                        </td></tr>
 
                                         <tr class="table-warning fw-bold"><td colspan="2">D. Khusus Transaksi Tukang</td></tr>
                                         <tr><td class="font-monospace text-dark">&lt;&lt;NAMA TUKANG&gt;&gt;</td><td>Nama Tukang (Huruf Besar)</td></tr>
+                                        <tr><td class="font-monospace text-dark">&lt;&lt;Nama Tukang&gt;&gt;</td><td>Nama Tukang (Kapital Awal)</td></tr>
                                         <tr><td class="font-monospace text-dark">&lt;&lt;Alamat Lengkap Tukang&gt;&gt;</td><td>Alamat Tukang</td></tr>
                                         <tr><td class="font-monospace text-dark">&lt;&lt;Uraian Pekerjaan&gt;&gt;</td><td>Judul Pekerjaan</td></tr>
                                         <tr><td class="font-monospace text-dark">&lt;&lt;NAMA PEMESAN TUKANG&gt;&gt;</td><td>Nama Guru Pengawas/Pemesanan</td></tr>
@@ -1811,22 +1818,30 @@
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Surat Permintaan Tukang&gt;&gt;</td><td>No. Surat Permintaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.PP&gt;&gt;</td><td>No. BA Pemeriksaan Pekerjaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.STP&gt;&gt;</td><td>No. BA Serah Terima Pekerjaan</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Nomor Surat BA.Bayar&gt;&gt;</td><td>No. BA Pembayaran (Sama dgn Toko)</td></tr>
                                         
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal Surat Permintaan Tukang&gt;&gt;</td><td>Tgl Surat Permintaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.PP&gt;&gt;</td><td>Tgl BA Pemeriksaan</td></tr>
                                         <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.STP&gt;&gt;</td><td>Tgl BA Serah Terima</td></tr>
+                                        <tr><td class="font-monospace text-muted ps-4">&lt;&lt;Tanggal BA.Bayar Tukang&gt;&gt;</td><td>Tgl BA Pembayaran</td></tr>
                                         
                                         <tr><td class="font-monospace text-success ps-4">&lt;&lt;Hari Huruf Tanggal BA.PP&gt;&gt;</td><td>Nama Hari Pemeriksaan</td></tr>
                                         <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tanggal Huruf BA.PP&gt;&gt;</td><td>Tanggal Terbilang</td></tr>
-                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">*Format Huruf juga tersedia untuk suffix <b>BA.STP</b> dan <b>BA.Bayar Tukang</b>.</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Bulan Huruf Tanggal BA.PP&gt;&gt;</td><td>Nama Bulan</td></tr>
+                                        <tr><td class="font-monospace text-success ps-4">&lt;&lt;Tahun Huruf Tanggal BA.PP&gt;&gt;</td><td>Tahun Terbilang</td></tr>
+                                        <tr><td colspan="2" class="fst-italic text-muted small ps-4">
+                                          *Format Huruf di atas juga tersedia untuk suffix: <b>BA.STP</b> dan <b>BA.Bayar Tukang</b>.<br>
+                                          Contoh: <code>&lt;&lt;Hari Huruf Tanggal BA.STP&gt;&gt;</code>
+                                        </td></tr>
 
                                         <tr class="table-success fw-bold"><td colspan="2">E. Khusus Honor Guru</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Uraian Kegiatan&gt;&gt;</td><td>Judul Kegiatan</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Keterangan&gt;&gt;</td><td>Keterangan (Honor Bulan...)</td></tr>
                                         <tr><td class="font-monospace">&lt;&lt;Tanggal Transaksi&gt;&gt;</td><td>Tanggal Pembayaran</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Nama Guru 1&gt;&gt;</td><td>Nama Guru Pertama (Jika Penerima Tunggal)</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;NIP Guru 1&gt;&gt;</td><td>NIP Guru Pertama (Otomatis dari Data Guru)</td></tr>
-                                        <tr><td class="font-monospace">&lt;&lt;Tanggal BA.Bayar&gt;&gt;</td><td>Tanggal BA Pembayaran (Bisa diatur di menu Tanggal Surat)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Tanggal BA.Bayar&gt;&gt;</td><td>Tgl BA Pembayaran (Bisa diatur)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;Nama Guru 1&gt;&gt;</td><td>Nama Guru Pertama (Jika Tunggal)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NIP Guru 1&gt;&gt;</td><td>NIP Guru Pertama (Otomatis)</td></tr>
+                                        <tr><td class="font-monospace">&lt;&lt;NAMA PEMESAN/GURU&gt;&gt;</td><td>Nama Pemesan/Penanggung Jawab (Kapital)</td></tr>
                                         
                                         <tr class="table-danger fw-bold"><td colspan="2">F. Khusus Tabel Rincian (Barang/Jasa)</td></tr>
                                         <tr>
