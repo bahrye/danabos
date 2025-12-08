@@ -2354,32 +2354,43 @@
           .registerSchool(form);
       }
 
-      // Variabel Timer Global
       let sessionInterval = null;
 
       function startSessionMonitor() {
         if(sessionInterval) clearInterval(sessionInterval);
 
-        // Cek setiap 1 menit (60 detik)
+        // JALANKAN SETIAP 10 DETIK (Realtime & Ringan)
+        // Karena server pakai Cache, ini aman & tidak boros kuota.
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
           
           if(email && token) {
-             // Kirim Email DAN Token untuk validasi
-             google.script.run.withSuccessHandler(function(res){
-               if(!res.valid) {
-                 // Kasus 1 Teratasi:
-                 // Perangkat A menerima respon "Tidak Valid" karena Token di DB sudah berubah jadi milik B.
-                 // A dipaksa logout. B tetap aman.
-                 console.warn("Sesi tidak valid/diambil alih perangkat lain.");
-                 forceLogout(); 
-               } else {
-                 console.log("Heartbeat OK: Sesi Aktif");
-               }
-             }).updateUserActivity(email, token);
+             google.script.run
+               .withSuccessHandler(function(res){
+                  if(!res.valid) {
+                    console.warn("Sesi diambil alih. Logout otomatis.");
+                    // Stop interval dulu biar gak spam alert
+                    clearInterval(sessionInterval); 
+                    
+                    Swal.fire({
+                      icon: 'warning',
+                      title: 'Sesi Berakhir',
+                      text: 'Akun Anda telah login di perangkat lain.',
+                      allowOutsideClick: false,
+                      confirmButtonText: 'OK'
+                    }).then(() => {
+                      // Bersihkan lokal & reset
+                      localStorage.clear();
+                      document.getElementById('formLogin').reset();
+                      switchView('view-login');
+                    });
+                  }
+               })
+               // Panggil fungsi heartbit baru yang pakai Cache
+               .updateUserActivity(email, token);
           }
-        }, 60000); // 60000 ms = 1 menit
+        }, 10000); // 10 Detik
       }
 
       // Fungsi Logout Paksa (Tanpa konfirmasi user)
