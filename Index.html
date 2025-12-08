@@ -2173,7 +2173,8 @@
         transaksi_tukang: null,
         transaksi_guru: null,
         // Tambahan Cache Sekolah
-        sekolah: null
+        sekolah: null,
+        template_settings: null
       };
 
       // Variabel untuk menyimpan input mana yang sedang diketik user
@@ -5554,174 +5555,165 @@
       }
 
       // 2. Load Data ke Tabel Cetak
-      function loadListCetak(tipeRaw) {
+      // --- LOAD LIST CETAK PDF (WITH CACHE) ---
+      function loadListCetak(tipeRaw, forceRefresh = false) {
         const tipe = tipeRaw.toUpperCase(); 
-        const targetId = 'tbody-cetak-' + tipeRaw;
-        const tbody = document.getElementById(targetId);
-        const token = localStorage.getItem('userToken');
+        const cacheKey = 'transaksi_' + tipeRaw; // Sharing cache dengan menu Transaksi!
+        const tbody = document.getElementById('tbody-cetak-' + tipeRaw);
 
+        // 1. CEK CACHE
+        // Jika data sudah diload di menu Transaksi, kita pakai saja data itu!
+        if (!forceRefresh && DATA_CACHE[cacheKey]) {
+          renderTabelCetak(DATA_CACHE[cacheKey], tipeRaw);
+          return;
+        }
+
+        // 2. FETCH SERVER
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Sedang memuat data...</td></tr>';
+        const token = localStorage.getItem('userToken');
 
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if(res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada data transaksi.</td></tr>';
-              return;
-            }
-
-            res.data.forEach(item => {
-              // --- PERBAIKAN DISINI ---
-              // Tambahkan .replace(/'/g, "%27") agar aman dari tanda kutip satu
-              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
-              
-              let displayPihak = item.pihakKetiga;
-              if (tipeRaw === 'guru' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
-                  displayPihak = "-"; 
-              }
-
-              // --- LOGIKA TOMBOL BARU ---
-              
-              // 1. Tombol Lihat (Selalu Ada)
-              const btnLihat = `
-                <button class="btn btn-sm btn-outline-info me-1" 
-                  onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
-                  <i class="fas fa-eye"></i>
-                </button>
-              `;
-
-              let btnGenerate = '';
-              let btnCetak = '';
-
-              // Cek apakah PDF ID sudah ada dari Backend
-              if (item.pdfId && item.pdfId !== "") {
-                // KONDISI SUDAH GENERATE:
-                // 1. Tombol Cetak (Membuka file lama)
-                const linkPdf = `https://drive.google.com/file/d/${item.pdfId}/view?usp=sharing`;
-                
-                btnCetak = `
-                   <button class="btn btn-sm btn-dark me-1" 
-                     onclick="window.open('${linkPdf}', '_blank')" title="Cetak / Buka PDF">
-                     <i class="fas fa-print"></i>
-                   </button>
-                `;
-
-                // 2. Tombol Generate Ulang (Icon Sync/Refresh)
-                // Kita gunakan dataJson yang sudah diperbaiki di sini
-                btnGenerate = `
-                  <button class="btn btn-sm btn-outline-danger" 
-                    onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate Ulang (Hapus Lama)">
-                    <i class="fas fa-sync-alt"></i>
-                  </button>
-                `;
-
-              } else {
-                // KONDISI BELUM GENERATE:
-                // Hanya tombol Generate (Icon Cog/Gear)
-                btnGenerate = `
-                  <button class="btn btn-sm btn-warning" 
-                    onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate PDF Baru">
-                    <i class="fas fa-cog"></i>
-                  </button>
-                `;
-              }
-
-              const row = `
-                <tr>
-                  <td>${item.tanggalDisplay}</td>
-                  <td><div class="text-truncate" style="max-width: 250px;">${item.uraian}</div></td>
-                  <td>${displayPihak}</td>
-                  <td class="fw-bold">${formatRupiahJS(item.total)}</td>
-                  <td style="white-space: nowrap;">${btnLihat} ${btnCetak} ${btnGenerate}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-
+            // Update Cache Global
+            DATA_CACHE[cacheKey] = res.data;
+            renderTabelCetak(res.data, tipeRaw);
           } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
           }
         }).getTransaksiList(token, tipe);
       }
 
+      // --- RENDER TABEL CETAK (DIPISAH) ---
+      function renderTabelCetak(data, tipeRaw) {
+        const tbody = document.getElementById('tbody-cetak-' + tipeRaw);
+        tbody.innerHTML = '';
+
+        if(data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada data transaksi.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          // Encode data
+          const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
+          
+          let displayPihak = item.pihakKetiga;
+          if (tipeRaw === 'guru' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
+              displayPihak = "-"; 
+          }
+
+          // --- LOGIKA TOMBOL ---
+          const btnLihat = `
+            <button class="btn btn-sm btn-outline-info me-1" 
+              onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+
+          let btnGenerate = '';
+          let btnCetak = '';
+
+          // Cek apakah PDF ID sudah ada
+          if (item.pdfId && item.pdfId !== "") {
+            const linkPdf = `https://drive.google.com/file/d/${item.pdfId}/view?usp=sharing`;
+            
+            btnCetak = `
+                <button class="btn btn-sm btn-dark me-1" 
+                  onclick="window.open('${linkPdf}', '_blank')" title="Cetak / Buka PDF">
+                  <i class="fas fa-print"></i>
+                </button>
+            `;
+
+            btnGenerate = `
+              <button class="btn btn-sm btn-outline-danger" 
+                onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate Ulang">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            `;
+
+          } else {
+            btnGenerate = `
+              <button class="btn btn-sm btn-warning" 
+                onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate PDF Baru">
+                <i class="fas fa-cog"></i>
+              </button>
+            `;
+          }
+
+          const row = `
+            <tr>
+              <td>${item.tanggalDisplay}</td>
+              <td><div class="text-truncate" style="max-width: 250px;">${item.uraian}</div></td>
+              <td>${displayPihak}</td>
+              <td class="fw-bold">${formatRupiahJS(item.total)}</td>
+              <td style="white-space: nowrap;">${btnLihat} ${btnCetak} ${btnGenerate}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
       /* --- FUNGSI PROSES CETAK PDF (UPDATE) --- */
-      // Tambahkan parameter 'tipeTab' agar kita bisa reload tabel yang benar setelah selesai
+      // --- PROSES CETAK PDF (INVALIDATE CACHE) ---
       function prosesCetakPDF(id, encodedData, tipeTab) {
-        
         const data = JSON.parse(decodeURIComponent(encodedData));
         const token = localStorage.getItem('userToken');
 
-        // Cek teks konfirmasi (Baru vs Ulang)
+        // Cek teks konfirmasi
         let judul = 'Generate PDF?';
         let teks = `Sistem akan membuat laporan PDF untuk: ${data.uraian}`;
-        let tombolWarna = '#ffc107'; // Kuning (Warning)
+        let tombolWarna = '#ffc107'; 
         let tombolTeks = '<i class="fas fa-cog"></i> Generate';
 
-        // Jika sudah ada PDF ID (Generate Ulang)
         if (data.pdfId) {
             judul = 'Generate Ulang?';
-            teks = `Peringatan: File PDF lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?`;
-            tombolWarna = '#dc3545'; // Merah
+            teks = `Peringatan: File PDF lama akan <b>DIHAPUS</b> dan diganti baru. Lanjutkan?`;
+            tombolWarna = '#dc3545';
             tombolTeks = '<i class="fas fa-sync-alt"></i> Ya, Ganti File';
         }
 
         Swal.fire({
-          title: judul,
-          html: teks,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: tombolWarna,
-          cancelButtonColor: '#6c757d',
-          confirmButtonText: tombolTeks,
-          cancelButtonText: 'Batal'
+          title: judul, html: teks, icon: 'warning',
+          showCancelButton: true, confirmButtonColor: tombolWarna,
+          cancelButtonColor: '#6c757d', confirmButtonText: tombolTeks, cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
             
             Swal.fire({
-              title: 'Sedang Memproses...',
-              html: 'Mohon tunggu, sedang menyusun dokumen PDF...',
-              allowOutsideClick: false,
-              didOpen: () => { Swal.showLoading() }
+              title: 'Sedang Memproses...', html: 'Mohon tunggu, menyusun dokumen PDF...',
+              allowOutsideClick: false, didOpen: () => { Swal.showLoading() }
             });
 
+            // Persiapan Data
             let tipeTransaksi = data.tipe || 'TOKO';
             const namaMadrasah = document.getElementById('dashNamaSekolah').innerText || 'Madrasah';
             const nomorSurat = (data.dataSurat && data.dataSurat.permintaan) ? data.dataSurat.permintaan : 'DRAFT';
 
             const formUntukPDF = {
-              idTransaksi: id,               // [PENTING] Kirim ID Transaksi untuk update DB
-              tipe: tipeTransaksi,       
-              nomorSurat: nomorSurat,
-              pihakKetiga: data.pihakKetiga, 
-              pemesan: data.pemesan,
-              uraian: data.uraian,           
-              tanggal: data.tanggal,         
-              namaMadrasah: namaMadrasah,
-              total: data.total,             
-              items: data.items              
+              idTransaksi: id, tipe: tipeTransaksi, nomorSurat: nomorSurat,
+              pihakKetiga: data.pihakKetiga, pemesan: data.pemesan,
+              uraian: data.uraian, tanggal: data.tanggal,         
+              namaMadrasah: namaMadrasah, total: data.total, items: data.items              
             };
 
             google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if (res.status === 'success') {
+                
+                // --- UPDATE PENTING: HAPUS CACHE ---
+                // Kita pakai 'tipeTab' (misal: 'toko') untuk menyusun key cache
+                DATA_CACHE['transaksi_' + tipeTab] = null;
+                // ----------------------------------
+
                 Swal.fire({
-                  icon: 'success',
-                  title: 'Selesai!',
-                  text: 'Dokumen PDF berhasil dibuat/diperbarui.',
+                  icon: 'success', title: 'Selesai!', text: 'Dokumen PDF berhasil dibuat.',
                   footer: `<a href="${res.url}" target="_blank" class="btn btn-primary btn-lg"><i class="fas fa-external-link-alt me-2"></i>Buka PDF Sekarang</a>`,
-                  showConfirmButton: true,
-                  confirmButtonText: 'Oke'
+                  showConfirmButton: true, confirmButtonText: 'Oke'
                 }).then(() => {
-                    // [PENTING] Reload Tabel agar tombol berubah (Muncul icon print, generate jadi refresh)
+                    // Reload Tabel (akan fetch baru karena cache sudah null)
                     loadListCetak(tipeTab);
                 });
               } else {
-                // Gunakan properti 'html' bukan text biasa
-                Swal.fire({
-                  icon: 'error',
-                  title: 'Terjadi Kesalahan',
-                  html: res.message, // <--- Ini kuncinya agar HTML di Kode.gs terbaca
-                  width: '500px'     // Opsional: Agar popup sedikit lebih lebar
-                });
+                Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', html: res.message, width: '500px' });
               }
             }).generateLPJ(token, formUntukPDF);
           }
@@ -6042,27 +6034,41 @@
       /* --- TAMBAHKAN FUNGSI BARU INI DI BAWAH --- */
 
       // 1. Load Data ID Template dari Server
-      function loadTemplateSettings() {
+      // --- LOAD TEMPLATE SETTINGS (WITH CACHE) ---
+      function loadTemplateSettings(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const ids = ['tplIdToko', 'tplIdGuru', 'tplIdTukang'];
         
-        // Kasih efek loading kecil di placeholder
+        // 1. CEK CACHE
+        if (!forceRefresh && DATA_CACHE.template_settings) {
+          const d = DATA_CACHE.template_settings;
+          document.getElementById('tplIdToko').value = d.toko || '';
+          document.getElementById('tplIdGuru').value = d.guru || '';
+          document.getElementById('tplIdTukang').value = d.tukang || '';
+          return;
+        }
+
+        // 2. FETCH SERVER
         ids.forEach(id => document.getElementById(id).placeholder = "Memuat...");
 
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             const d = res.data;
+            
+            // Simpan ke Cache
+            DATA_CACHE.template_settings = d;
+
             document.getElementById('tplIdToko').value = d.toko || '';
             document.getElementById('tplIdGuru').value = d.guru || '';
             document.getElementById('tplIdTukang').value = d.tukang || '';
             
-            // Balikin placeholder
             ids.forEach(id => document.getElementById(id).placeholder = "Contoh: 1Fl8Jaf4j6XI...");
           }
         }).getTemplateSettings(token);
       }
 
       // 2. Simpan Data Template
+      // --- SIMPAN TEMPLATE (INVALIDATE CACHE) ---
       function simpanTemplate(e) {
         e.preventDefault();
         
@@ -6083,6 +6089,11 @@
           btn.disabled = false;
           
           if (res.status === 'success') {
+            // --- UPDATE: INVALIDATE CACHE ---
+            DATA_CACHE.template_settings = null;
+            loadTemplateSettings(true); // Reload untuk memastikan data tersimpan
+            // --------------------------------
+
             Swal.fire('Sukses', 'Pengaturan template berhasil disimpan!', 'success');
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
