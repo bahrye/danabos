@@ -237,6 +237,9 @@
             <input type="password" class="form-control" id="loginPass" required>
           </div>
           <button type="submit" class="btn btn-primary w-100">Masuk</button>
+          <div class="text-end mb-3">
+            <small><span class="text-muted cursor-pointer" onclick="switchView('view-reset')">Lupa Password?</span></small>
+          </div>
         </form>
         <div class="text-center mt-3">
           <small>Belum punya akun? <span class="text-primary cursor-pointer text-decoration-underline" onclick="switchView('view-register')">Daftar disini</span></small>
@@ -251,6 +254,7 @@
           <div class="mb-3">
             <label class="form-label">Nama Sekolah</label>
             <input type="text" class="form-control" id="regNama" placeholder="Contoh: MTS Negeri 1..." required>
+            <div class="form-text text-muted" style="font-size: 0.8rem;">Gunakan nama resmi sekolah.</div>
           </div>
           <div class="mb-3">
             <label class="form-label">Email</label>
@@ -260,11 +264,48 @@
             <label class="form-label">Password</label>
             <input type="password" class="form-control" id="regPass" required>
           </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Konfirmasi Password</label>
+            <input type="password" class="form-control" id="regPassConfirm" placeholder="Ketik ulang password..." required>
+          </div>
           <button type="submit" class="btn btn-success w-100">Daftar Sekarang</button>
         </form>
         <div class="text-center mt-3">
           <small>Sudah punya akun? <span class="text-primary cursor-pointer text-decoration-underline" onclick="switchView('view-login')">Login disini</span></small>
         </div>
+      </div>
+    </div>
+
+    <div id="view-reset" class="container view-section hidden">
+      <div class="card card-login p-4">
+        <h3 class="text-center mb-4 text-danger"><i class="fas fa-key"></i> Reset Password</h3>
+        
+        <div class="alert alert-info py-2" style="font-size: 0.85rem;">
+          <i class="fas fa-info-circle"></i> Masukkan Kode Pemulihan (Recovery Code) yang Anda dapatkan saat registrasi.
+        </div>
+
+        <form id="formReset" onsubmit="handleResetPassword(event)">
+          <div class="mb-3">
+            <label class="form-label">Email Sekolah</label>
+            <input type="email" class="form-control" id="resetEmail" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Kode Pemulihan (Recovery Code)</label>
+            <input type="text" class="form-control font-monospace text-uppercase" id="resetCode" placeholder="REC-XXXX..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password Baru</label>
+            <input type="password" class="form-control" id="resetPassNew" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Konfirmasi Password Baru</label>
+            <input type="password" class="form-control" id="resetPassConf" required>
+          </div>
+          
+          <button type="submit" class="btn btn-danger w-100 mb-2">Ubah Password</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="switchView('view-login')">Batal / Kembali Login</button>
+        </form>
       </div>
     </div>
 
@@ -365,7 +406,23 @@
 
           <div id="panel-dashboard" class="panel-content">
             <div class="d-flex justify-content-between align-items-center mb-4">
-              <h2>Dashboard <span id="schoolNameDisplay" class="text-primary fs-5"></span></h2>
+              <div class="d-flex align-items-center flex-wrap">
+                <h2 class="mb-0 me-2">Dashboard</h2>
+                
+                <span id="schoolNameDisplay" class="text-primary fs-5 fw-bold me-3"></span>
+                
+                <div class="bg-white border rounded px-2 py-1 shadow-sm d-flex align-items-center" style="font-size: 0.85rem;">
+                  <i class="fas fa-shield-alt text-secondary me-2"></i>
+                  <span class="text-muted me-2 small">Kode Pemulihan:</span>
+                  
+                  <span id="displayRecCode" class="fw-bold font-monospace text-dark me-2">******</span>
+                  
+                  <input type="hidden" id="realRecCode" value="">
+                  
+                  <i class="fas fa-eye text-primary cursor-pointer" id="iconToggleRec" onclick="toggleRecoveryCode()" title="Lihat/Sembunyikan Kode"></i>
+                </div>
+              </div>
+
               <button class="btn btn-primary" onclick="navigasiKe('panel-transaksi')">
                 <i class="fas fa-plus me-1"></i> Transaksi Belanja
               </button>
@@ -2243,21 +2300,53 @@
 
       function handleRegister(e) {
         e.preventDefault();
+        
+        // --- 1. VALIDASI PASSWORD MATCHING ---
+        const pass1 = document.getElementById('regPass').value;
+        const pass2 = document.getElementById('regPassConfirm').value;
+
+        if (pass1 !== pass2) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Password Tidak Cocok',
+            text: 'Konfirmasi password harus sama dengan password utama.'
+          });
+          return; // Hentikan proses jika tidak cocok
+        }
+        // ------------------------------------
+
         toggleLoading(true);
         
         const form = {
           namaSekolah: document.getElementById('regNama').value,
           email: document.getElementById('regEmail').value,
-          password: document.getElementById('regPass').value
+          password: pass1
         };
 
         google.script.run
-          .withFailureHandler(handleServerError) // [PERBAIKAN] Handler Error
+          .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res){
             toggleLoading(false);
             if(res.status === 'success') {
-              Swal.fire('Berhasil', res.message, 'success');
-              switchView('view-login');
+              // Reset Form
+              document.getElementById('formRegister').reset();
+              
+              // TAMPILKAN KODE PEMULIHAN
+              Swal.fire({
+                title: 'Registrasi Berhasil!',
+                html: `
+                  <p>Selamat, akun sekolah Anda telah aktif.</p>
+                  <div class="alert alert-warning text-start">
+                    <strong>PENTING:</strong><br>
+                    Simpan kode pemulihan ini. Kode ini digunakan jika Anda lupa password.<br><br>
+                    <h3 class="text-center text-dark font-monospace" style="user-select: all;">${res.recoveryCode}</h3>
+                  </div>
+                `,
+                icon: 'success',
+                confirmButtonText: 'Saya Sudah Simpan'
+              }).then(() => {
+                switchView('view-login');
+              });
             } else {
               Swal.fire({ icon: 'error', title: 'Registrasi Gagal', html: res.message });
             }
@@ -4960,6 +5049,7 @@
         const token = localStorage.getItem('userToken');
         
         document.getElementById('dashAnggaran').innerText = '...';
+        document.getElementById('displayRecCode').innerText = '...';
         
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
@@ -5031,8 +5121,130 @@
             document.getElementById('dashBendahara').innerText = p.bendahara || '-';
             document.getElementById('dashNipBendahara').innerText = p.nipBendahara || '-';
 
+            // --- BAGIAN UPDATE: LOGIKA DINAMIS KODE PEMULIHAN ---
+            const code = d.recoveryCode; // Bisa string kode, bisa "-" atau kosong
+            const displayEl = document.getElementById('displayRecCode');
+            const hiddenEl = document.getElementById('realRecCode');
+            const iconEl = document.getElementById('iconToggleRec');
+
+            // Reset Class Icon dulu
+            iconEl.className = ""; 
+            
+            // LOGIKA PENENTUAN STATUS
+            if (!code || code === '-' || code === '') {
+              // KASUS 1: BELUM PUNYA KODE (Akun Lama)
+              displayEl.innerText = "Belum Ada";
+              displayEl.classList.add('text-muted', 'fst-italic');
+              displayEl.classList.remove('font-monospace', 'fw-bold', 'text-dark');
+              
+              hiddenEl.value = "";
+              
+              // Ubah Icon jadi "Generate/Sync"
+              iconEl.className = "fas fa-sync-alt text-warning cursor-pointer";
+              iconEl.setAttribute('title', 'Klik untuk Buat Kode Pemulihan');
+              iconEl.onclick = function() { aksiGenerateKode(); }; // Fungsi baru
+              
+            } else {
+              // KASUS 2: SUDAH PUNYA KODE
+              displayEl.innerText = "******";
+              displayEl.classList.add('fw-bold', 'font-monospace', 'text-dark');
+              displayEl.classList.remove('text-muted', 'fst-italic', 'text-danger');
+              
+              hiddenEl.value = code;
+              
+              // Ubah Icon jadi "Mata/Lihat"
+              iconEl.className = "fas fa-eye text-primary cursor-pointer";
+              iconEl.setAttribute('title', 'Lihat/Sembunyikan Kode');
+              iconEl.onclick = function() { toggleRecoveryCode(); }; // Fungsi lama
+            }
+            // -----------------------------------------------------
+
           }
         }).getDashboardStats(token);
+      }
+
+      // 2. Tambahkan Fungsi Toggle (Klik Mata)
+      function toggleRecoveryCode() {
+        const displayEl = document.getElementById('displayRecCode');
+        const realVal = document.getElementById('realRecCode').value;
+        const icon = document.getElementById('iconToggleRec');
+        
+        // Cek kondisi saat ini
+        if (displayEl.innerText === "******") {
+          // KONDISI: Sedang tertutup -> BUKA
+          displayEl.innerText = realVal;
+          displayEl.classList.add('text-danger'); // Ubah warna jadi merah biar diperhatikan
+          displayEl.classList.remove('text-dark');
+          
+          // Ganti Icon jadi mata dicoret
+          icon.className = "fas fa-eye-slash text-danger cursor-pointer";
+          
+        } else {
+          // KONDISI: Sedang terbuka -> TUTUP
+          displayEl.innerText = "******";
+          displayEl.classList.add('text-dark');
+          displayEl.classList.remove('text-danger');
+          
+          // Ganti Icon jadi mata biasa
+          icon.className = "fas fa-eye text-primary cursor-pointer";
+        }
+      }
+
+      // 3. Fungsi Generate Kode Baru (Untuk Akun Lama)
+      function aksiGenerateKode() {
+        Swal.fire({
+          title: 'Buat Kode Pemulihan?',
+          text: "Akun Anda belum memiliki kode keamanan. Sistem akan membuatkan kode unik untuk reset password.",
+          icon: 'info',
+          showCancelButton: true,
+          confirmButtonColor: '#ffc107',
+          confirmButtonText: 'Ya, Buat Sekarang',
+          cancelButtonText: 'Nanti Saja'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            
+            // Tampilkan Loading di Icon
+            const iconEl = document.getElementById('iconToggleRec');
+            const displayEl = document.getElementById('displayRecCode');
+            
+            iconEl.className = "fas fa-spinner fa-spin text-secondary";
+            displayEl.innerText = "Memproses...";
+            
+            const token = localStorage.getItem('userToken');
+
+            google.script.run
+              .withFailureHandler(handleServerError)
+              .withSuccessHandler(function(res) {
+                if (res.status === 'success') {
+                  
+                  // Update UI Langsung (Tampilkan Kodenya agar user sadar)
+                  const newCode = res.newCode;
+                  
+                  document.getElementById('realRecCode').value = newCode;
+                  displayEl.innerText = newCode; // Tampilkan langsung dulu
+                  displayEl.classList.remove('text-muted', 'fst-italic');
+                  displayEl.classList.add('fw-bold', 'font-monospace', 'text-success'); // Hijau tanda sukses
+                  
+                  // Ubah Icon jadi Mata (Mode Terbuka)
+                  iconEl.className = "fas fa-eye-slash text-success cursor-pointer";
+                  iconEl.onclick = function() { toggleRecoveryCode(); };
+                  iconEl.setAttribute('title', 'Sembunyikan Kode');
+
+                  Swal.fire({
+                    title: 'Berhasil Dibuat!',
+                    html: `Kode Pemulihan Anda: <br><strong class="fs-3 font-monospace">${newCode}</strong><br><br>Harap catat kode ini baik-baik.`,
+                    icon: 'success'
+                  });
+
+                } else {
+                  Swal.fire('Gagal', res.message, 'error');
+                  // Kembalikan ke state awal jika gagal
+                  loadDashboardStats(); 
+                }
+              })
+              .generateRecoveryCodeOnly(token);
+          }
+        });
       }
 
       /* --- LOGIKA MENU CETAK PDF --- */
@@ -6015,6 +6227,41 @@
             rows[i].style.display = "none";
           }
         }
+      }
+
+      function handleResetPassword(e) {
+        e.preventDefault();
+        
+        const p1 = document.getElementById('resetPassNew').value;
+        const p2 = document.getElementById('resetPassConf').value;
+
+        if(p1 !== p2) {
+          Swal.fire('Password Tidak Cocok', 'Konfirmasi password baru tidak sama.', 'warning');
+          return;
+        }
+
+        toggleLoading(true);
+
+        const form = {
+          email: document.getElementById('resetEmail').value,
+          code: document.getElementById('resetCode').value,
+          newPassword: p1
+        };
+
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res){
+             toggleLoading(false);
+             if(res.status === 'success') {
+               document.getElementById('formReset').reset();
+               Swal.fire('Sukses', res.message, 'success').then(() => {
+                 switchView('view-login');
+               });
+             } else {
+               Swal.fire('Gagal', res.message, 'error');
+             }
+          })
+          .resetPasswordWithCode(form);
       }
 
     </script>
