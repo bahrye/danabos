@@ -122,83 +122,128 @@ function registerSchool(form) {
   }
 }
 
-/* --- FUNGSI LOGIN (DENGAN LOGIKA IDLE & PENIMPAAN SESI) --- */
+/* --- KONFIGURASI SESI --- */
+const SESSION_TIMEOUT_SEC = 30; // 30 Detik (Toleransi waktu idle sebelum dianggap offline)
+
+/* * HELPER: CACHE SERVICE 
+ * Menggunakan CacheService agar HEMAT KUOTA Spreadsheet dan RESPON CEPAT 
+ */
+function setSessionCache(email, data) {
+  const cache = CacheService.getScriptCache();
+  // Simpan data sesi dalam format JSON string
+  cache.put('SESI_' + email, JSON.stringify(data), 21600); // Expire 6 jam (max cache)
+}
+
+function getSessionCache(email) {
+  const cache = CacheService.getScriptCache();
+  const data = cache.get('SESI_' + email);
+  return data ? JSON.parse(data) : null;
+}
+
+function clearSessionCache(email) {
+  const cache = CacheService.getScriptCache();
+  cache.remove('SESI_' + email);
+}
+
+/* --- 1. LOGIN USER (LOGIKA REALTIME CACHE) --- */
 function loginUser(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
   
-  // Batas toleransi waktu aktif (2 menit)
-  const ACTIVE_THRESHOLD = 2 * 60 * 1000; 
-  
   for (let i = 1; i < data.length; i++) {
-    // Cek Email & Password
     if (data[i][2] == form.email && data[i][3] == form.password) {
       
-      const dbSessionId = data[i][5]; // Kolom F (Session ID)
-      const lastActive = data[i][7];  // Kolom H (Last Active) - Pastikan kolom ini ada
+      const email = form.email;
+      const cachedSession = getSessionCache(email);
+      const now = new Date().getTime();
       
-      const now = new Date();
       let isDeviceActive = false;
 
-      // Cek apakah perangkat lama MASIH AKTIF (Heartbeat < 2 menit)
-      if (dbSessionId && dbSessionId !== "" && lastActive instanceof Date) {
-        const diff = now.getTime() - lastActive.getTime();
-        if (diff < ACTIVE_THRESHOLD) {
+      // CEK STATUS CACHE (MEMORI)
+      if (cachedSession) {
+        // Hitung selisih waktu dari ping terakhir
+        const lastPing = cachedSession.lastPing || 0;
+        const diffSec = (now - lastPing) / 1000;
+        
+        // Jika ping terakhir kurang dari 15 detik yang lalu, berarti BENAR-BENAR AKTIF
+        if (diffSec < 15) {
           isDeviceActive = true;
         }
       }
 
-      // SKENARIO: Jika perangkat lama MASIH AKTIF -> TOLAK LOGIN BARU
-      // Ini mencegah Kasus 1 (Akses Bersamaan Real-time)
+      // KASUS 1: Perangkat A sedang aktif (Realtime) -> TOLAK B
       if (isDeviceActive) {
         return { 
           status: 'error', 
-          message: '<b>Akun Sedang Digunakan!</b><br>Akun ini sedang aktif melakukan kegiatan di perangkat lain.<br>Harap tunggu sampai perangkat tersebut idle (2 menit) atau logout.' 
+          message: '<b>Akun Sedang Online!</b><br>Akun terdeteksi sedang aktif di perangkat lain.<br>Silakan tunggu 10-15 detik setelah perangkat tersebut berhenti/ditutup, lalu coba lagi.' 
         };
       }
 
-      // SKENARIO: Perangkat lama IDLE atau Login Pertama -> TIMPA SESI
-      // Ini mengizinkan login di perangkat B, dan otomatis mematikan akses perangkat A
+      // KASUS 2: Perangkat A idle/tutup tab -> TIMPA SESI (Login Sukses)
       const newSessionId = Utilities.getUuid();
       
-      // Update Session ID Baru & Reset Waktu
-      ssMaster.getRange(i + 1, 6).setValue(newSessionId); 
-      ssMaster.getRange(i + 1, 8).setValue(new Date()); 
+      // Simpan ke Cache (Memori Cepat)
+      setSessionCache(email, {
+        token: newSessionId,
+        lastPing: now
+      });
+
+      // Simpan ke Spreadsheet (Hanya untuk backup/history, tidak untuk validasi realtime)
+      ssMaster.getRange(i + 1, 6).setValue(newSessionId);
 
       return { 
         status: 'success', 
         token: data[i][4],        
         namaSekolah: data[i][1],
-        sessionToken: newSessionId // Token Baru untuk Perangkat B
+        sessionToken: newSessionId 
       };
     }
   }
   return { status: 'error', message: 'Email atau Password salah!' };
 }
 
-/* --- FUNGSI HEARTBEAT (Update Aktivitas & Validasi Token) --- */
-/* Mengatasi Kasus 1: Jika A "bangun" dan kirim sinyal, dia akan ditolak karena Tokennya Beda */
+/* --- 2. HEARTBEAT (PING REALTIME - HEMAT KUOTA) --- */
 function updateUserActivity(email, clientToken) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
+  // Langsung cek ke Memori Cache (Sangat Cepat & Hemat)
+  const cachedSession = getSessionCache(email);
   
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] == email) {
-      const dbSession = data[i][5];
-      
-      // VALIDASI KETAT:
-      // Jika Token yang dikirim Client TIDAK SAMA dengan di DB
-      // Berarti sesi ini sudah diambil alih perangkat lain (Perangkat B).
-      if (String(dbSession) !== String(clientToken)) {
-        return { valid: false }; // Perintahkan Client A untuk Force Logout
+  if (!cachedSession) {
+    // Sesi hilang dari cache (server restart/lama idle) -> Force Logout
+    return { valid: false }; 
+  }
+
+  // VALIDASI KETAT TOKEN
+  if (cachedSession.token !== clientToken) {
+    // Token beda = Ada perangkat B yang baru saja login
+    return { valid: false };
+  }
+
+  // UPDATE WAKTU PING
+  // Kita perbarui 'lastPing' ke waktu sekarang
+  cachedSession.lastPing = new Date().getTime();
+  setSessionCache(email, cachedSession);
+  
+  return { valid: true };
+}
+
+/* --- 3. LOGOUT (HAPUS CACHE) --- */
+function logoutUserServer(email, clientToken) {
+  const cachedSession = getSessionCache(email);
+
+  // Hanya hapus jika token cocok (Mencegah A menghapus sesi B)
+  if (cachedSession && cachedSession.token === clientToken) {
+    clearSessionCache(email); // Hapus dari memori
+    
+    // Opsional: Hapus juga di Spreadsheet agar sinkron (tapi tidak wajib untuk realtime)
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+    const data = ssMaster.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][2] == email) {
+        ssMaster.getRange(i + 1, 6).setValue("");
+        break;
       }
-      
-      // Jika Cocok, Update Waktu Aktif
-      ssMaster.getRange(i + 1, 8).setValue(new Date());
-      return { valid: true };
     }
   }
-  return { valid: false };
 }
 
 /* --- FUNGSI BARU: CEK STATUS SESI BERKALA --- */
@@ -219,28 +264,6 @@ function checkSessionStatus(email, clientSessionToken) {
   }
   // Jika email tidak ketemu (misal dihapus admin), anggap tidak valid
   return { valid: false };
-}
-
-/* --- FUNGSI LOGOUT (Safe Logout) --- */
-/* Mengatasi Kasus 2: A logout tidak boleh menghapus sesi B */
-function logoutUserServer(email, clientToken) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] == email) {
-      const dbSession = data[i][5];
-      
-      // HANYA HAPUS DI DB JIKA TOKEN COCOK
-      // Jika A (Token Lama) minta logout, tapi di DB isinya Token B (Baru),
-      // Maka AUKAN permintaan A. Biarkan DB tetap terisi Token B.
-      if (String(dbSession) === String(clientToken)) {
-        ssMaster.getRange(i + 1, 6).setValue(""); // Hapus Sesi
-        ssMaster.getRange(i + 1, 8).setValue(""); // Hapus Waktu
-      }
-      break; 
-    }
-  }
 }
 
 /* --- FUNGSI CRUD DATA (User Spesifik) --- */
