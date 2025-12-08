@@ -2357,28 +2357,29 @@
       // Variabel Timer Global
       let sessionInterval = null;
 
-      // Fungsi Monitor Sesi & Heartbeat
       function startSessionMonitor() {
-        if(sessionInterval) clearInterval(sessionInterval); // Reset jika ada
+        if(sessionInterval) clearInterval(sessionInterval);
 
-        // Jalankan setiap 1 menit (60000 ms)
-        // Jangan terlalu cepat agar tidak membebani kuota Google Apps Script
+        // Cek setiap 1 menit (60 detik)
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
           
           if(email && token) {
-             // Panggil fungsi updateUserActivity (sekaligus cek validitas)
+             // Kirim Email DAN Token untuk validasi
              google.script.run.withSuccessHandler(function(res){
                if(!res.valid) {
-                 // JIKA SESI TIDAK VALID (Berarti sudah ditimpa oleh perangkat B)
-                 forceLogout();
+                 // Kasus 1 Teratasi:
+                 // Perangkat A menerima respon "Tidak Valid" karena Token di DB sudah berubah jadi milik B.
+                 // A dipaksa logout. B tetap aman.
+                 console.warn("Sesi tidak valid/diambil alih perangkat lain.");
+                 forceLogout(); 
                } else {
-                 console.log("Heartbeat sent: User Active");
+                 console.log("Heartbeat OK: Sesi Aktif");
                }
              }).updateUserActivity(email, token);
           }
-        }, 60000); // 60 Detik
+        }, 60000); // 60000 ms = 1 menit
       }
 
       // Fungsi Logout Paksa (Tanpa konfirmasi user)
@@ -2399,7 +2400,6 @@
         });
       }
 
-      // Update Fungsi Logout Manual
       function logout() {
         Swal.fire({
           title: 'Yakin ingin keluar?',
@@ -2411,10 +2411,15 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const email = localStorage.getItem('userEmail');
+            const token = localStorage.getItem('sessionToken'); // Ambil token saat ini
             
-            // Panggil logout di server untuk hapus ID sesi DB
-            if(email) google.script.run.logoutUserServer(email);
+            // Kasus 2 Teratasi:
+            // Kirim token ke server. Server akan cek:
+            // Jika Token A == Token DB -> Hapus DB (Logout bersih).
+            // Jika Token A != Token DB (karena sudah login B) -> Jangan hapus DB.
+            if(email && token) google.script.run.logoutUserServer(email, token);
 
+            // Bersihkan data lokal (Apapun yang terjadi di server, lokal harus bersih)
             localStorage.clear();
             clearInterval(sessionInterval);
             
