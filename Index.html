@@ -2161,6 +2161,21 @@
       let cacheSatuan = [];
       let cacheMasterUraian = [];
 
+      // --- GLOBAL CACHE STORAGE (UPDATED) ---
+      let DATA_CACHE = {
+        toko: null,
+        tukang: null,
+        guru: null,
+        uraian: null,
+        satuan: null,
+        // Cache khusus Transaksi (Digunakan bersama oleh menu Transaksi, Surat, & Tanggal)
+        transaksi_toko: null,
+        transaksi_tukang: null,
+        transaksi_guru: null,
+        // Tambahan Cache Sekolah
+        sekolah: null
+      };
+
       // Variabel untuk menyimpan input mana yang sedang diketik user
       let activeSatuanInput = null;
 
@@ -2486,80 +2501,97 @@
 
       /* --- LOGIC DATA SEKOLAH --- */
 
-      function loadDataSekolah() {
+      // --- LOAD DATA SEKOLAH (WITH CACHE) ---
+      function loadDataSekolah(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const schoolName = localStorage.getItem('userName');
         
+        // Set Nama Sekolah dari LocalStorage sebagai tampilan awal (fallback)
         document.getElementById('dsNamaSekolah').value = schoolName;
 
+        // 1. CEK CACHE
+        // Jika data ada di memori dan tidak dipaksa refresh, isi form langsung!
+        if (!forceRefresh && DATA_CACHE.sekolah) {
+          console.log("Data sekolah loaded from Cache.");
+          renderDataSekolah(DATA_CACHE.sekolah);
+          return;
+        }
+
+        // 2. FETCH SERVER
         toggleLoading(true);
         
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           toggleLoading(false);
           if (res.status === 'success') {
-            const d = res.data;
-            
-            // BERSIHKAN TANDA KUTIP (') SAAT MENAMPILKAN DATA
-            document.getElementById('dsNpsn').value = String(d.npsn).replace(/'/g, '');
-            
-            // Update untuk NSM
-            document.getElementById('dsNsm').value = String(d.nsm).replace(/'/g, ''); 
-            
-            document.getElementById('dsAlamat').value = d.alamat;
-            document.getElementById('dsProvinsi').value = d.provinsi;
-            document.getElementById('dsKabupaten').value = d.kabupaten;
-            document.getElementById('dsKecamatan').value = d.kecamatan;
-            document.getElementById('dsKelurahan').value = d.kelurahan;
-            document.getElementById('dsTempatTTD').value = d.tempatTTD;
-            document.getElementById('dsKepala').value = d.namaKepala;
-            document.getElementById('dsNipKepala').value = String(d.nipKepala).replace(/'/g, '');
-            document.getElementById('dsBendahara').value = d.namaBendahara;
-            document.getElementById('dsNipBendahara').value = String(d.nipBendahara).replace(/'/g, '');
-            document.getElementById('dsTelp').value = String(d.noTelp).replace(/'/g, '');
-            document.getElementById('dsEmail').value = d.email;
-
-            /* --- LOGIKA LOAD DANA BOS & PERIODE (TERPISAH) --- */
-            const savedBos = d.danaBOS; 
-            const savedPeriode = d.periodeAnggaran; // Ambil data periode dari kolom baru
-            
-            const selectBos = document.getElementById('dsDanaBos');
-            const inputBosManual = document.getElementById('dsDanaBosManual');
-            const inputPeriodeManual = document.getElementById('dsPeriodeManual');
-
-            // 1. Cek apakah Nama BOS ada di pilihan dropdown standar?
-            let isMatch = false;
-            for (let i = 0; i < selectBos.options.length; i++) {
-              if (selectBos.options[i].value === savedBos) {
-                isMatch = true;
-                break;
-              }
-            }
-
-            if (isMatch) {
-              // KASUS 1: Pilihan Standar (misal: Dana BOS Tahap 1)
-              selectBos.value = savedBos;
-              inputBosManual.value = "";       // Kosongkan manual
-              inputPeriodeManual.value = "";   // Kosongkan manual
-            } else if (savedBos) {
-              // KASUS 2: Pilihan Manual (misal: BOS Tulang)
-              selectBos.value = "Lainnya";     // Set dropdown ke Lainnya
-              inputBosManual.value = savedBos; // Isi kotak nama manual
-              inputPeriodeManual.value = savedPeriode; // Isi kotak periode manual
-            } else {
-              // KASUS 3: Belum ada data
-              selectBos.value = "";
-            }
-
-            // Update UI (Keterangan text dll)
-            cekPeriodeBos();
-            /* --- AKHIR LOGIKA LOAD --- */
-
-            document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
-            document.getElementById('dsTahun').value = d.tahunAnggaran;
+            // SIMPAN KE CACHE
+            DATA_CACHE.sekolah = res.data;
+            renderDataSekolah(res.data);
           } 
         }).getDataSekolah(token);
       }
 
+      // --- RENDER FORM DATA SEKOLAH (DIPISAH) ---
+      function renderDataSekolah(d) {
+        // Isi Nama Sekolah dari Database (Source of Truth)
+        if(d.namaSekolah) document.getElementById('dsNamaSekolah').value = d.namaSekolah;
+
+        // BERSIHKAN TANDA KUTIP (') SAAT MENAMPILKAN DATA
+        document.getElementById('dsNpsn').value = String(d.npsn).replace(/'/g, '');
+        document.getElementById('dsNsm').value = String(d.nsm).replace(/'/g, ''); 
+        
+        document.getElementById('dsAlamat').value = d.alamat;
+        document.getElementById('dsProvinsi').value = d.provinsi;
+        document.getElementById('dsKabupaten').value = d.kabupaten;
+        document.getElementById('dsKecamatan').value = d.kecamatan;
+        document.getElementById('dsKelurahan').value = d.kelurahan;
+        document.getElementById('dsTempatTTD').value = d.tempatTTD;
+        document.getElementById('dsKepala').value = d.namaKepala;
+        document.getElementById('dsNipKepala').value = String(d.nipKepala).replace(/'/g, '');
+        document.getElementById('dsBendahara').value = d.namaBendahara;
+        document.getElementById('dsNipBendahara').value = String(d.nipBendahara).replace(/'/g, '');
+        document.getElementById('dsTelp').value = String(d.noTelp).replace(/'/g, '');
+        document.getElementById('dsEmail').value = d.email;
+
+        /* --- LOGIKA LOAD DANA BOS & PERIODE --- */
+        const savedBos = d.danaBOS; 
+        const savedPeriode = d.periodeAnggaran; 
+        
+        const selectBos = document.getElementById('dsDanaBos');
+        const inputBosManual = document.getElementById('dsDanaBosManual');
+        const inputPeriodeManual = document.getElementById('dsPeriodeManual');
+
+        // Cek apakah Nama BOS ada di pilihan dropdown standar?
+        let isMatch = false;
+        for (let i = 0; i < selectBos.options.length; i++) {
+          if (selectBos.options[i].value === savedBos) {
+            isMatch = true;
+            break;
+          }
+        }
+
+        if (isMatch) {
+          // KASUS 1: Pilihan Standar
+          selectBos.value = savedBos;
+          inputBosManual.value = "";       
+          inputPeriodeManual.value = "";   
+        } else if (savedBos) {
+          // KASUS 2: Pilihan Manual
+          selectBos.value = "Lainnya";     
+          inputBosManual.value = savedBos; 
+          inputPeriodeManual.value = savedPeriode; 
+        } else {
+          // KASUS 3: Belum ada data
+          selectBos.value = "";
+        }
+
+        // Update UI (Keterangan text & visibilitas input manual)
+        cekPeriodeBos();
+        
+        document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
+        document.getElementById('dsTahun').value = d.tahunAnggaran;
+      }
+
+      // --- SIMPAN DATA SEKOLAH (INVALIDATE CACHE) ---
       function submitDataSekolah() {
         const token = localStorage.getItem('userToken');
         
@@ -2571,14 +2603,12 @@
           Swal.fire('Peringatan', 'Tempat TTD Wajib diisi!', 'warning'); return;
         }
 
-        /* --- LOGIKA BARU: DATA TERPISAH --- */
+        // Logika Data BOS Terpisah
         let finalNamaBos = "";
         let finalPeriode = "";
-
         const dropdownVal = document.getElementById('dsDanaBos').value;
 
         if (dropdownVal === 'Lainnya') {
-            // Jika Manual: Ambil dari Input Ketikan User
             finalNamaBos = document.getElementById('dsDanaBosManual').value.trim();
             finalPeriode = document.getElementById('dsPeriodeManual').value.trim();
             
@@ -2587,10 +2617,8 @@
                 return;
             }
         } else {
-            // Jika Standar: Ambil Nama dari Dropdown, Tentukan Periode Otomatis
             finalNamaBos = dropdownVal;
-            
-            // Mapping Periode Otomatis (Sesuai fungsi cekPeriodeBos)
+            // Mapping Periode Otomatis
             if (dropdownVal === 'Dana BOS Tahap 1') finalPeriode = "Januari - Juni";
             else if (dropdownVal === 'Dana BOS Tahap 2') finalPeriode = "Juli - Desember";
             else if (dropdownVal === 'Dana BOS Triwulan 1') finalPeriode = "Januari - Maret";
@@ -2599,7 +2627,6 @@
             else if (dropdownVal === 'Dana BOS Triwulan 4') finalPeriode = "Oktober - Desember";
         }
 
-        // Susun Form Data
         const formData = {
           namaSekolah: document.getElementById('dsNamaSekolah').value,
           npsn: document.getElementById('dsNpsn').value, 
@@ -2616,20 +2643,22 @@
           nipBendahara: document.getElementById('dsNipBendahara').value,
           noTelp: document.getElementById('dsTelp').value,
           email: document.getElementById('dsEmail').value,
-          
-          // KIRIM TERPISAH
           danaBOS: finalNamaBos,          
           periodeAnggaran: finalPeriode,  
-          
           jumlahAnggaran: cleanRibuan(document.getElementById('dsJumlahAnggaran').value),
           tahunAnggaran: document.getElementById('dsTahun').value
         };
 
-        // Kirim
         toggleLoading(true);
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           toggleLoading(false);
           if (res.status === 'success') {
+            // --- UPDATE PENTING: INVALIDATE CACHE ---
+            // Agar jika user buka menu ini lagi, datanya sudah terupdate
+            DATA_CACHE.sekolah = null;
+            loadDataSekolah(true); // Opsional: Reload form dengan data baru
+            // ----------------------------------------
+            
             Swal.fire('Sukses', 'Data Sekolah berhasil disimpan!', 'success');
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
@@ -2680,58 +2709,81 @@
       /* --- LOGIC URAIAN PEKERJAAN (UPDATE) --- */
 
       // 1. Update Tabel dengan Tombol Edit
-      function loadUraianData() {
+      // --- LOAD DATA URAIAN DENGAN CACHE ---
+      function loadUraianData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelUraianBody');
         
+        // 1. CEK CACHE
+        if (!forceRefresh && DATA_CACHE.uraian) {
+          renderTabelUraian(DATA_CACHE.uraian);
+          return;
+        }
+
+        // 2. FETCH SERVER JIKA CACHE KOSONG
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            tbody.innerHTML = ''; 
-            
-            if (res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data uraian.</td></tr>';
-              return;
-            }
-
-            res.data.forEach(item => {
-              const cleanNo = String(item.noBukti).replace(/'/g, ''); 
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
+            if (res.status === 'success') {
+              // SIMPAN KE CACHE
+              DATA_CACHE.uraian = res.data;
               
-              // PENTING: Kita kirim data ke fungsi editUraian saat tombol diklik
-              // Kita gunakan escape character untuk string agar aman
-              const btnEdit = `
-                <button class="btn btn-sm btn-outline-warning me-1" 
-                  onclick="modeEdit('${item.id}', '${cleanNo}', '${item.uraian}')" 
-                  title="Edit Data">
-                  <i class="fas fa-pencil-alt"></i>
-                </button>
-              `;
+              // Update juga cache master uraian (untuk autocomplete di form lain)
+              // Kita ambil array string uraian-nya saja
+              if(res.data && res.data.length > 0) {
+                  cacheMasterUraian = res.data.map(item => item.uraian);
+              }
+              
+              renderTabelUraian(res.data);
+            } else {
+              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data.</td></tr>';
+            }
+          }).getUraianList(token);
+      }
 
-              const btnHapus = `
-                <button class="btn btn-sm btn-outline-danger" 
-                  onclick="hapusUraian('${item.id}')" 
-                  title="Hapus Data">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              `;
+      // --- RENDER TABEL URAIAN ---
+      function renderTabelUraian(data) {
+        const tbody = document.getElementById('tabelUraianBody');
+        tbody.innerHTML = ''; 
+        
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data uraian.</td></tr>';
+          return;
+        }
 
-              const row = `
-                <tr>
-                  <td class="fw-bold text-primary">${cleanNo}</td>
-                  <td>${item.uraian}</td>
-                  <td style="white-space:nowrap;">
-                    ${btnEdit} ${btnHapus}
-                  </td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
+        data.forEach(item => {
+          const cleanNo = String(item.noBukti).replace(/'/g, ''); 
+          
+          // Escape untuk keamanan onclick
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning me-1" 
+              onclick="modeEdit('${item.id}', '${escapeJsAttribute(cleanNo)}', '${escapeJsAttribute(item.uraian)}')" 
+              title="Edit Data">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
 
-          } else {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data.</td></tr>';
-          }
-        }).getUraianList(token);
+          const btnHapus = `
+            <button class="btn btn-sm btn-outline-danger" 
+              onclick="hapusUraian('${item.id}')" 
+              title="Hapus Data">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td class="fw-bold text-primary">${escapeHtml(cleanNo)}</td>
+              <td>${escapeHtml(item.uraian)}</td>
+              <td style="white-space:nowrap;">
+                ${btnEdit} ${btnHapus}
+              </td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // 2. Fungsi Mengaktifkan Mode Edit (Data Uraian)
@@ -2774,14 +2826,15 @@
       }
 
       // 4. Update Logic Submit (Bisa Tambah Baru atau Edit)
+      // --- SUBMIT URAIAN (INVALIDATE CACHE) ---
       function submitUraian(e) {
         e.preventDefault();
         
         const token = localStorage.getItem('userToken');
-        const idEdit = document.getElementById('urId').value; // Cek apakah ada ID?
+        const idEdit = document.getElementById('urId').value; 
         
         const formData = {
-          id: idEdit, // Kirim ID (kosong jika baru, terisi jika edit)
+          id: idEdit, 
           noBukti: document.getElementById('urNoBukti').value,
           uraian: document.getElementById('urNama').value
         };
@@ -2791,18 +2844,61 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...';
         btn.disabled = true;
 
-        // LOGIC CABANG: Jika ada ID -> Edit, Jika tidak -> Baru
+        // Handler hasil submit
+        const handler = function(res) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+
+          if (res.status === 'success') {
+            batalEdit(); // Reset form
+            
+            // RESET CACHE & RELOAD
+            DATA_CACHE.uraian = null; 
+            loadUraianData(true); 
+            
+            const Toast = Swal.mixin({
+              toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+            });
+            Toast.fire({ icon: 'success', title: res.message });
+          } else {
+            Swal.fire({ icon: 'error', title: 'Gagal', html: res.message });
+          }
+        };
+
         if (idEdit) {
-          // --- MODE EDIT ---
-          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-            finishSubmit(res, btn, originalText);
-          }).editUraianItem(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).editUraianItem(token, formData);
         } else {
-          // --- MODE BARU ---
-          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-            finishSubmit(res, btn, originalText);
-          }).simpanUraianBaru(token, formData);
+          google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handler).simpanUraianBaru(token, formData);
         }
+      }
+
+      // --- HAPUS URAIAN (INVALIDATE CACHE) ---
+      // (Pastikan fungsi ini ada, karena sebelumnya mungkin belum didefinisikan secara eksplisit)
+      function hapusUraian(id) {
+        Swal.fire({
+          title: 'Hapus Uraian?', 
+          text: "Data uraian ini akan dihapus permanen.",
+          icon: 'warning', 
+          showCancelButton: true, 
+          confirmButtonColor: '#d33', 
+          confirmButtonText: 'Ya, Hapus'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const token = localStorage.getItem('userToken');
+            
+            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                // RESET CACHE & RELOAD
+                DATA_CACHE.uraian = null;
+                loadUraianData(true);
+                
+                Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+              } else {
+                Swal.fire({ icon: 'error', title: 'Gagal', html: res.message });
+              }
+            }).hapusUraianItem(token, id);
+          }
+        });
       }
 
       // Helper untuk membersihkan submit handler
@@ -2826,54 +2922,72 @@
       /* --- LOGIC DATA TOKO --- */
 
       // 1. Load Data
-      function loadTokoData() {
+      // --- LOAD DATA TOKO DENGAN CACHE ---
+      function loadTokoData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelTokoBody');
         
+        // 1. CEK CACHE: Jika data ada & tidak dipaksa refresh, pakai data lokal
+        if (!forceRefresh && DATA_CACHE.toko) {
+          renderTabelToko(DATA_CACHE.toko);
+          return;
+        }
+
+        // 2. JIKA CACHE KOSONG / FORCE REFRESH: Ambil dari Server
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
         google.script.run
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if (res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Belum ada data toko.</td></tr>';
-              return;
+            if (res.status === 'success') {
+              // Simpan ke Cache
+              DATA_CACHE.toko = res.data;
+              renderTabelToko(res.data);
+            } else {
+              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Gagal memuat data.</td></tr>';
             }
+          }).getTokoList(token);
+      }
 
-            res.data.forEach(item => {
-              // [FIX] Gunakan escapeJsAttribute untuk data yang masuk ke onclick
-              const btnEdit = `
-                <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditToko('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.jenis)}', '${escapeJsAttribute(item.alamat)}', '${escapeJsAttribute(item.telp)}', '${escapeJsAttribute(item.pemilik)}', '${escapeJsAttribute(item.tempat)}')" 
-                  title="Edit">
-                  <i class="fas fa-pencil-alt"></i>
-                </button>
-              `;
-              
-              const btnHapus = `
-                <button class="btn btn-sm btn-outline-danger" onclick="hapusToko('${item.id}')">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              `;
+      // --- FUNGSI RENDER TABEL TOKO (DIPISAH) ---
+      function renderTabelToko(data) {
+        const tbody = document.getElementById('tabelTokoBody');
+        tbody.innerHTML = '';
 
-              // [FIX] Gunakan escapeHtml untuk tampilan tabel
-              const row = `
-                <tr>
-                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
-                  <td>${escapeHtml(item.pemilik)}<br><small class="text-muted">${escapeHtml(item.telp)}</small></td>
-                  <td><span class="badge bg-light text-dark border">${escapeHtml(item.jenis)}</span></td>
-                  <td>${btnEdit} ${btnHapus}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-          }
-        }).getTokoList(token);
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Belum ada data toko.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning" 
+              onclick="modeEditToko('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.jenis)}', '${escapeJsAttribute(item.alamat)}', '${escapeJsAttribute(item.telp)}', '${escapeJsAttribute(item.pemilik)}', '${escapeJsAttribute(item.tempat)}')" 
+              title="Edit">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
+          
+          const btnHapus = `
+            <button class="btn btn-sm btn-outline-danger" onclick="hapusToko('${item.id}')">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+              <td>${escapeHtml(item.pemilik)}<br><small class="text-muted">${escapeHtml(item.telp)}</small></td>
+              <td><span class="badge bg-light text-dark border">${escapeHtml(item.jenis)}</span></td>
+              <td>${btnEdit} ${btnHapus}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // 2. Submit (Tambah & Edit)
+      // --- SUBMIT TOKO (INVALIDATE CACHE) ---
       function submitToko(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -2899,7 +3013,11 @@
           btn.disabled = false;
           if (res.status === 'success') {
             batalEditToko(); 
-            loadTokoData();
+            
+            // RESET CACHE & RELOAD
+            DATA_CACHE.toko = null; 
+            loadTokoData(true);
+            
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
               title: res.message, showConfirmButton: false, timer: 3000
@@ -2950,6 +3068,7 @@
       }
 
       // 5. Hapus Toko
+      // --- HAPUS TOKO (INVALIDATE CACHE) ---
       function hapusToko(id) {
         Swal.fire({
           title: 'Hapus Toko?', text: "Data tidak bisa dikembalikan.",
@@ -2959,7 +3078,10 @@
             const token = localStorage.getItem('userToken');
             google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
-                loadTokoData();
+                // RESET CACHE & RELOAD
+                DATA_CACHE.toko = null;
+                loadTokoData(true);
+                
                 Swal.fire('Terhapus!', 'Data toko dihapus.', 'success');
               }
             }).hapusTokoItem(token, id);
@@ -2991,53 +3113,71 @@
       /* --- LOGIC DATA TUKANG --- */
 
       // 1. Load Data
-      function loadTukangData() {
+      // --- LOAD DATA TUKANG DENGAN CACHE ---
+      function loadTukangData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelTukangBody');
         
+        // 1. CEK CACHE
+        if (!forceRefresh && DATA_CACHE.tukang) {
+          renderTabelTukang(DATA_CACHE.tukang);
+          return;
+        }
+
+        // 2. FETCH SERVER JIKA CACHE KOSONG
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
         google.script.run
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if (res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data tukang.</td></tr>';
-              return;
+            if (res.status === 'success') {
+              // SIMPAN KE CACHE
+              DATA_CACHE.tukang = res.data;
+              renderTabelTukang(res.data);
+            } else {
+              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data.</td></tr>';
             }
+          }).getTukangList(token);
+      }
 
-            res.data.forEach(item => {
-              // [FIX] Gunakan escapeJsAttribute
-              const btnEdit = `
-                <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditTukang('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.alamat)}')" 
-                  title="Edit">
-                  <i class="fas fa-pencil-alt"></i>
-                </button>
-              `;
-              
-              const btnHapus = `
-                <button class="btn btn-sm btn-outline-danger" onclick="hapusTukang('${item.id}')">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              `;
+      // --- RENDER TABEL TUKANG ---
+      function renderTabelTukang(data) {
+        const tbody = document.getElementById('tabelTukangBody');
+        tbody.innerHTML = '';
 
-              // [FIX] Gunakan escapeHtml
-              const row = `
-                <tr>
-                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
-                  <td>${escapeHtml(item.alamat)}</td>
-                  <td>${btnEdit} ${btnHapus}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-          }
-        }).getTukangList(token);
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data tukang.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning" 
+              onclick="modeEditTukang('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.alamat)}')" 
+              title="Edit">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
+          
+          const btnHapus = `
+            <button class="btn btn-sm btn-outline-danger" onclick="hapusTukang('${item.id}')">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+              <td>${escapeHtml(item.alamat)}</td>
+              <td>${btnEdit} ${btnHapus}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // 2. Submit (Tambah & Edit)
+      // --- SUBMIT TUKANG (INVALIDATE CACHE) ---
       function submitTukang(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -3059,7 +3199,11 @@
           btn.disabled = false;
           if (res.status === 'success') {
             batalEditTukang(); 
-            loadTukangData();
+            
+            // RESET CACHE & RELOAD
+            DATA_CACHE.tukang = null;
+            loadTukangData(true);
+            
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
               title: res.message, showConfirmButton: false, timer: 3000
@@ -3104,6 +3248,7 @@
       }
 
       // 5. Hapus Tukang
+      // --- HAPUS TUKANG (INVALIDATE CACHE) ---
       function hapusTukang(id) {
         Swal.fire({
           title: 'Hapus Data Tukang?', text: "Data tidak bisa dikembalikan.",
@@ -3113,7 +3258,10 @@
             const token = localStorage.getItem('userToken');
             google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
-                loadTukangData();
+                // RESET CACHE & RELOAD
+                DATA_CACHE.tukang = null;
+                loadTukangData(true);
+
                 Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
               }
             }).hapusTukangItem(token, id);
@@ -3124,53 +3272,70 @@
       /* --- LOGIC DATA GURU --- */
 
       // 1. Load Data
-      function loadGuruData() {
+      // --- LOAD DATA GURU DENGAN CACHE ---
+      function loadGuruData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelGuruBody');
         
+        if (!forceRefresh && DATA_CACHE.guru) {
+          renderTabelGuru(DATA_CACHE.guru);
+          return;
+        }
+
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
         google.script.run
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if (res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data guru.</td></tr>';
-              return;
+            if (res.status === 'success') {
+              DATA_CACHE.guru = res.data;
+              // Update juga variabel global lama untuk kompatibilitas input transaksi
+              cacheDataGuru = res.data; 
+              renderTabelGuru(res.data);
+            } else {
+              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data.</td></tr>';
             }
+          }).getGuruList(token);
+      }
 
-            res.data.forEach(item => {
-              // [FIX] Gunakan escapeJsAttribute
-              const btnEdit = `
-                <button class="btn btn-sm btn-outline-warning" 
-                  onclick="modeEditGuru('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.nip)}')" 
-                  title="Edit">
-                  <i class="fas fa-pencil-alt"></i>
-                </button>
-              `;
-              
-              const btnHapus = `
-                <button class="btn btn-sm btn-outline-danger" onclick="hapusGuru('${item.id}')">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              `;
+      // --- RENDER TABEL GURU ---
+      function renderTabelGuru(data) {
+        const tbody = document.getElementById('tabelGuruBody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Belum ada data guru.</td></tr>';
+          return;
+        }
 
-              // [FIX] Gunakan escapeHtml
-              const row = `
-                <tr>
-                  <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
-                  <td>${escapeHtml(item.nip)}</td>
-                  <td>${btnEdit} ${btnHapus}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-          }
-        }).getGuruList(token);
+        data.forEach(item => {
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning" 
+              onclick="modeEditGuru('${item.id}', '${escapeJsAttribute(item.nama)}', '${escapeJsAttribute(item.nip)}')" 
+              title="Edit">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
+          
+          const btnHapus = `
+            <button class="btn btn-sm btn-outline-danger" onclick="hapusGuru('${item.id}')">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td class="fw-bold text-primary">${escapeHtml(item.nama)}</td>
+              <td>${escapeHtml(item.nip)}</td>
+              <td>${btnEdit} ${btnHapus}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // 2. Submit (Tambah & Edit)
+      // --- SUBMIT GURU (INVALIDATE CACHE) ---
       function submitGuru(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -3192,7 +3357,11 @@
           btn.disabled = false;
           if (res.status === 'success') {
             batalEditGuru(); 
-            loadGuruData();
+            
+            // RESET CACHE
+            DATA_CACHE.guru = null;
+            loadGuruData(true);
+            
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
               title: res.message, showConfirmButton: false, timer: 3000
@@ -3238,6 +3407,7 @@
       }
 
       // 5. Hapus Guru
+      // --- HAPUS GURU (INVALIDATE CACHE) ---
       function hapusGuru(id) {
         Swal.fire({
           title: 'Hapus Data Guru?', text: "Data tidak bisa dikembalikan.",
@@ -3247,7 +3417,10 @@
             const token = localStorage.getItem('userToken');
             google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
-                loadGuruData();
+                // RESET CACHE
+                DATA_CACHE.guru = null;
+                loadGuruData(true);
+                
                 Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
               }
             }).hapusGuruItem(token, id);
@@ -3378,97 +3551,122 @@
 
       // 1. Tab Switching (Diperbarui untuk load data list)
       function bukaTab(tabName) {
-        // Hide semua content
+        // Hide semua content tab
         document.getElementById('tab-content-toko').classList.add('hidden');
         document.getElementById('tab-content-tukang').classList.add('hidden');
-        document.getElementById('tab-content-guru').classList.add('hidden'); // Baru
+        document.getElementById('tab-content-guru').classList.add('hidden');
         
         // Reset active buttons
         document.getElementById('tab-btn-toko').classList.remove('active');
         document.getElementById('tab-btn-tukang').classList.remove('active');
-        document.getElementById('tab-btn-guru').classList.remove('active'); // Baru
+        document.getElementById('tab-btn-guru').classList.remove('active');
 
-        // Show selected
+        // Show selected tab
         document.getElementById('tab-content-' + tabName).classList.remove('hidden');
         document.getElementById('tab-btn-' + tabName).classList.add('active');
 
-        // LOAD DATA LIST TRANSAKSI
+        // LOAD DATA LIST TRANSAKSI (Pakai Cache otomatis)
         if(tabName === 'toko') loadTransaksiData('TOKO');
         if(tabName === 'tukang') loadTransaksiData('TUKANG');
-        if(tabName === 'guru') loadTransaksiData('GURU'); // Baru
+        if(tabName === 'guru') loadTransaksiData('GURU');
       }
 
       // 2. Load Data List Transaksi (PERBAIKAN: HANDLING TANDA KUTIP)
-      function loadTransaksiData(tipe) {
-        const token = localStorage.getItem('userToken');
+      // --- LOAD DATA TRANSAKSI UTAMA (WITH CACHE) ---
+      function loadTransaksiData(tipeRaw, forceRefresh = false) {
+        const tipe = tipeRaw.toUpperCase(); // Pastikan format TOKO/TUKANG/GURU
+        const tipeKey = tipe.toLowerCase(); // Format key cache: toko/tukang/guru
+        const cacheKey = 'transaksi_' + tipeKey;
         
-        // 1. TENTUKAN TARGET TABLE BODY
+        // Tentukan Target Tabel
         let targetId;
         if (tipe === 'TOKO') targetId = 'listTransaksiToko';
         else if (tipe === 'TUKANG') targetId = 'listTransaksiTukang';
-        else targetId = 'listTransaksiGuru'; // Target untuk Guru
+        else targetId = 'listTransaksiGuru';
 
         const tbody = document.getElementById(targetId);
 
+        // 1. CEK CACHE
+        // Jika data sudah ada di memori (dari menu Surat/Tanggal atau tab sebelah), pakai langsung!
+        if (!forceRefresh && DATA_CACHE[cacheKey]) {
+          renderRiwayatTransaksi(DATA_CACHE[cacheKey], tipe, tbody);
+          return;
+        }
+
+        // 2. FETCH SERVER JIKA CACHE KOSONG
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+        const token = localStorage.getItem('userToken');
+
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
             if (res.status === 'success') {
-                tbody.innerHTML = '';
-                if(res.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Belum ada riwayat transaksi.</td></tr>';
-                    return;
-                }
-
-                res.data.forEach(item => {
-                    // --- PERBAIKAN DISINI ---
-                    // Tambahkan .replace(/'/g, "%27") agar aman dari tanda kutip satu
-                    const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
-                    
-                    // Tentukan parameter tipe untuk fungsi edit
-                    let tipeKecil;
-                    if (tipe === 'TOKO') tipeKecil = 'toko';
-                    else if (tipe === 'TUKANG') tipeKecil = 'tukang';
-                    else tipeKecil = 'guru';
-
-                    const btnDetail = `
-                        <button class="btn btn-sm btn-outline-info me-1" 
-                            onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    `;
-
-                    const btnEdit = `
-                        <button class="btn btn-sm btn-outline-warning me-1" 
-                            onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
-                            <i class="fas fa-pencil-alt"></i>
-                        </button>
-                    `;
-                    const btnHapus = `
-                        <button class="btn btn-sm btn-outline-danger" 
-                            onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    `;
-
-                    // Kolom Ke-3 berbeda untuk Guru (Bukan Pihak Ketiga, tapi Keterangan/Kosong)
-                    const displayPihak = item.pihakKetiga; 
-
-                    const row = `
-                        <tr>
-                            <td>${item.tanggalDisplay}</td> 
-                            <td><div class="text-truncate" style="max-width: 200px;" title="${item.uraian}">${item.uraian}</div></td>
-                            <td>${displayPihak}</td> 
-                            <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
-                            <td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
-                });
+              // SIMPAN KE CACHE GLOBAL
+              DATA_CACHE[cacheKey] = res.data;
+              
+              renderRiwayatTransaksi(res.data, tipe, tbody);
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
             }
-        }).getTransaksiList(token, tipe);
+          }).getTransaksiList(token, tipe);
+      }
+
+      // --- FUNGSI RENDER TABEL TRANSAKSI (DIPISAH) ---
+      function renderRiwayatTransaksi(data, tipe, tbody) {
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          // Encode data agar aman untuk fungsi onclick
+          const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
+          const tipeKecil = tipe.toLowerCase();
+
+          // Tombol Aksi
+          const btnDetail = `
+            <button class="btn btn-sm btn-outline-info me-1" 
+              onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning me-1" 
+              onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
+          
+          const btnHapus = `
+            <button class="btn btn-sm btn-outline-danger" 
+              onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          `;
+
+          // Kolom Pihak Ketiga (Khusus Guru ditampilkan Keterangan/Kosong jika default)
+          let displayPihak = item.pihakKetiga;
+          if (tipe === 'GURU' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
+              // Jika ingin menampilkan keterangan sebagai pengganti pihak ketiga untuk guru
+              // Pastikan logic ini sesuai dengan keinginan Anda (misal menampilkan Keterangan)
+              displayPihak = "-"; 
+          }
+
+          const row = `
+            <tr>
+              <td>${item.tanggalDisplay}</td> 
+              <td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>
+              <td>${escapeHtml(displayPihak)}</td> 
+              <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
+              <td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // 3. Mode Edit Transaksi (FUNGSI BARU & KOMPLEKS)
@@ -3689,6 +3887,7 @@
       }
 
       // 5. Hapus Transaksi
+      // --- HAPUS TRANSAKSI (INVALIDATE CACHE) ---
       function hapusTransaksi(id, tipe) {
         Swal.fire({
           title: 'Hapus Transaksi?', text: "Data tidak bisa dikembalikan.",
@@ -3699,7 +3898,12 @@
             google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
               if(res.status === 'success') {
                 Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
-                loadTransaksiData(tipe); // Reload tabel
+                
+                // --- UPDATE PENTING: INVALIDATE CACHE ---
+                DATA_CACHE['transaksi_' + tipe] = null;
+                // ---------------------------------------
+
+                loadTransaksiData(tipe.toUpperCase());
               } else {
                 Swal.fire({ icon: 'error', title: 'Gagal Menghapus', html: res.message });
               }
@@ -3709,132 +3913,88 @@
       }
 
       // --- LOGIC SIMPAN YANG DIPERBARUI (HANDLE EDIT & BARU) ---
+      // --- SIMPAN TRANSAKSI (INVALIDATE CACHE) ---
       function simpanTransaksi(tipe) {
-        // 1. Tentukan ID Elemen berdasarkan Tipe Tab
+        // 1. Tentukan ID Elemen
         let tableId, idHidden, btnId;
+        if (tipe === 'toko') { tableId='tabelItemToko'; idHidden='trTokoId'; btnId='btnSimpanTokoTrans'; }
+        else if (tipe === 'tukang') { tableId='tabelItemTukang'; idHidden='trTukangId'; btnId='btnSimpanTukangTrans'; }
+        else { tableId='tabelItemGuru'; idHidden='trGuruId'; btnId='btnSimpanGuruTrans'; }
 
-        if (tipe === 'toko') {
-          tableId = 'tabelItemToko';
-          idHidden = 'trTokoId';
-          btnId = 'btnSimpanTokoTrans';
-        } else if (tipe === 'tukang') {
-          tableId = 'tabelItemTukang';
-          idHidden = 'trTukangId';
-          btnId = 'btnSimpanTukangTrans';
-        } else { // guru
-          tableId = 'tabelItemGuru';
-          idHidden = 'trGuruId';
-          btnId = 'btnSimpanGuruTrans';
-        }
-
-        // 2. Ambil Baris Data & ID Edit (jika ada)
+        // 2. Validasi & Ambil Data Header
         const rows = document.querySelectorAll(`#${tableId} tbody tr`);
         const idEdit = document.getElementById(idHidden).value;
 
-        // Validasi: Pastikan ada item barang/jasa/guru yang diinput
         if (rows.length === 0) {
-          Swal.fire('Eror', 'Belum ada rincian yang dimasukkan!', 'error');
-          return;
+          Swal.fire('Eror', 'Belum ada rincian yang dimasukkan!', 'error'); return;
         }
 
-        // 3. Ambil Data Header Form (Tanggal, Uraian, dll)
         let tgl, uraian, pihak, pemesan, total;
-
         if (tipe === 'guru') {
-          // Logika Khusus Tab Honor Guru
           tgl = document.getElementById('trGuruTanggal').value;
           uraian = document.getElementById('trGuruUraian').value;
-          
-          // PERBAIKAN DISINI: Ambil dari input Keterangan
-          // Jika kosong, isi tanda strip (-)
           const ketVal = document.getElementById('trGuruKeterangan').value;
           pihak = ketVal ? ketVal : "-"; 
-          
-          pemesan = "-"; // Pemesan tetap strip karena rincian nama ada di tabel
+          pemesan = "-";
           total = document.getElementById('trGuruTotalValue').value;
         } else {
-          // Logika Umum (Toko & Tukang)
           const prefix = (tipe === 'toko') ? 'trToko' : 'trTukang';
-          
           tgl = document.getElementById(prefix + 'Tanggal').value;
           uraian = document.getElementById(prefix + 'Uraian').value;
-          pihak = document.getElementById(prefix + 'Nama').value;     // Nama Toko / Tukang
-          pemesan = document.getElementById(prefix + 'Pemesan').value; // Nama Guru Pemesan
+          pihak = document.getElementById(prefix + 'Nama').value;
+          pemesan = document.getElementById(prefix + 'Pemesan').value;
           total = document.getElementById(prefix + 'TotalValue').value;
         }
 
-        // 4. Validasi Form Header
-        if (!tgl || !uraian) {
-          Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal dan Uraian!', 'warning');
-          return;
-        }
-        
-        // Validasi tambahan khusus Toko & Tukang (Pihak Ketiga & Pemesan wajib diisi)
-        if (tipe !== 'guru' && (!pihak || !pemesan)) {
-          Swal.fire('Data Belum Lengkap', 'Pihak Ketiga dan Pemesan wajib diisi!', 'warning');
-          return;
-        }
+        if (!tgl || !uraian) { Swal.fire('Data Belum Lengkap', 'Harap lengkapi Tanggal dan Uraian!', 'warning'); return; }
+        if (tipe !== 'guru' && (!pihak || !pemesan)) { Swal.fire('Data Belum Lengkap', 'Pihak Ketiga dan Pemesan wajib diisi!', 'warning'); return; }
 
-        // 5. Ambil Rincian Item dari Tabel
+        // 3. Ambil Rincian Item
         let items = [];
         rows.forEach(row => {
           items.push({
             nama: row.querySelector('.item-nama').value, 
             vol: row.querySelector('.item-vol').value,
             sat: row.querySelector('.item-sat').value,
-            
-            // --- PERUBAHAN PENTING DISINI ---
-            // Bersihkan titik sebelum disimpan ke database
             harga: cleanRibuan(row.querySelector('.item-harga').value),
-            
             jumlah: row.querySelector('.item-jumlah-value').value
           });
         });
 
-        // 6. Siapkan Payload Data
         const payload = {
-          id: idEdit, // Kosong jika Baru, Terisi jika Edit
-          tipe: tipe.toUpperCase(), // 'TOKO', 'TUKANG', atau 'GURU'
-          tanggal: tgl,
-          uraian: uraian,
-          pihakKetiga: pihak,
-          pemesan: pemesan,
-          items: items,
-          total: total
+          id: idEdit, tipe: tipe.toUpperCase(), tanggal: tgl,
+          uraian: uraian, pihakKetiga: pihak, pemesan: pemesan,
+          items: items, total: total
         };
 
-        // 7. Proses Simpan ke Server (Google Apps Script)
         const token = localStorage.getItem('userToken');
         const btnSimpan = document.getElementById(btnId);
         const txtAsli = btnSimpan.innerHTML;
         
-        // Ubah tombol jadi loading
         btnSimpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memproses...';
         btnSimpan.disabled = true;
 
         const handleResult = function(res) {
-          // Kembalikan tombol
           btnSimpan.innerHTML = txtAsli;
           btnSimpan.disabled = false;
           
           if (res.status === 'success') {
             Swal.fire({
-              icon: 'success',
-              title: 'Berhasil!',
-              text: res.message,
-              showConfirmButton: false,
-              timer: 1500
+              icon: 'success', title: 'Berhasil!', text: res.message,
+              showConfirmButton: false, timer: 1500
             });
             
-            // Reset Form & Reload Tabel Riwayat
+            // --- UPDATE PENTING: INVALIDATE CACHE TRANSAKSI ---
+            DATA_CACHE['transaksi_' + tipe] = null; 
+            // -------------------------------------------------
+
             batalEditTransaksi(tipe); 
-            loadTransaksiData(tipe.toUpperCase());
+            loadTransaksiData(tipe.toUpperCase()); // Ini akan otomatis fetch baru karena cache null
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Transaksi', html: res.message });
           }
         };
 
-        // Percabangan: Panggil fungsi Edit atau Simpan Baru
         if (idEdit) {
           google.script.run.withFailureHandler(handleServerError).withSuccessHandler(handleResult).editTransaksiItem(token, payload);
         } else {
@@ -3843,69 +4003,106 @@
       }
 
       // 2. Load Dropdown Options
+      // --- LOAD OPSI TRANSAKSI (MULTI CACHE) ---
       function loadTransaksiOptions() {
         const token = localStorage.getItem('userToken');
-        
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            const d = res.data;
-            
-            // 1. SIMPAN DATA KE CACHE
-            cacheDataGuru = d.guru; 
-            cacheSatuan = d.satuan;
 
-            // Helper isi select header
-            const isiSelect = (id, data) => {
-              const el = document.getElementById(id);
-              if(!el) return;
-              const currentVal = el.value; 
+        // CEK APAKAH SEMUA CACHE SUDAH TERISI?
+        // Jika Toko, Guru, Tukang, Uraian, Satuan sudah ada di memori, TIDAK PERLU Fetch ulang.
+        if (DATA_CACHE.toko && DATA_CACHE.guru && DATA_CACHE.tukang && DATA_CACHE.uraian && DATA_CACHE.satuan) {
+          console.log("Semua opsi transaksi loaded from Cache.");
+          isiDropdownTransaksi(); // Render UI dari Cache
+          return;
+        }
+
+        // Jika ada yang kosong, baru panggil server
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
+            if (res.status === 'success') {
+              const d = res.data;
               
-              el.innerHTML = '<option value="">-- Pilih --</option>';
-              data.forEach(item => {
-                const val = String(item.nama).replace(/"/g, '&quot;'); 
-                el.innerHTML += `<option value="${val}">${item.nama}</option>`;
+              // ISI SEMUA CACHE SEKALIGUS
+              DATA_CACHE.guru = d.guru;
+              DATA_CACHE.toko = d.toko;
+              DATA_CACHE.tukang = d.tukang;
+              DATA_CACHE.uraian = d.uraian;
+              DATA_CACHE.satuan = d.satuan;
+              
+              // Kompatibilitas Variabel Lama
+              cacheDataGuru = d.guru; 
+              cacheSatuan = d.satuan;
+              cacheMasterUraian = d.uraian.map(u => u.uraian); // Extract uraian string array
+
+              isiDropdownTransaksi();
+            }
+          }).getAllOptions(token);
+      }
+
+      // --- HELPER: ISI DROPDOWN TRANSAKSI ---
+      function isiDropdownTransaksi() {
+          const d = DATA_CACHE; // Pakai data dari cache
+          
+          // Helper isi select
+          const isiSelect = (id, dataList, valueKey='nama') => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            const currentVal = el.value; 
+            
+            el.innerHTML = '<option value="">-- Pilih --</option>';
+            if(dataList && dataList.length > 0) {
+              dataList.forEach(item => {
+                // Handle struktur uraian yang menggunakan key 'uraian', lainnya 'nama'
+                const text = item[valueKey] || item.uraian || item.nama; 
+                const val = String(text).replace(/"/g, '&quot;'); 
+                el.innerHTML += `<option value="${val}">${text}</option>`;
               });
-              
-              if(currentVal) el.value = currentVal;
-            };
+            }
             
-            const uraianOps = d.uraian.map(u => ({nama: u.uraian}));
-            
-            // Isi Dropdown Header
-            isiSelect('trTokoUraian', uraianOps);
-            isiSelect('trTokoNama', d.toko);
-            isiSelect('trTokoPemesan', d.guru);
+            if(currentVal) el.value = currentVal;
+          };
+          
+          // Uraian ops biasanya list object {id, uraian...}
+          const uraianOps = d.uraian; 
 
-            isiSelect('trTukangUraian', uraianOps);
-            isiSelect('trTukangNama', d.tukang);
-            isiSelect('trTukangPemesan', d.guru);
-            
-            isiSelect('trGuruUraian', uraianOps); 
+          // Isi Dropdown Header
+          isiSelect('trTokoUraian', uraianOps, 'uraian');
+          isiSelect('trTokoNama', d.toko);
+          isiSelect('trTokoPemesan', d.guru);
 
-            // 2. UPDATE DROPDOWN DI TABEL RINCIAN GURU
-            const dropdownsDiTabel = document.querySelectorAll('#tabelItemGuru .item-nama');
-            
-            dropdownsDiTabel.forEach(select => {
-              // Cek apakah elemen ini adalah SELECT (karena bisa jadi sudah berubah jadi INPUT TEXT)
-              if (select.tagName === 'SELECT') {
-                  const valSebelumnya = select.value;
-                  
-                  // Susun Opsi: Default -> LAINNYA -> Data Guru
-                  let opts = '<option value="">-- Pilih Guru --</option>';
-                  opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>'; // MENU BARU
-                  
-                  cacheDataGuru.forEach(g => {
+          isiSelect('trTukangUraian', uraianOps, 'uraian');
+          isiSelect('trTukangNama', d.tukang);
+          isiSelect('trTukangPemesan', d.guru);
+          
+          isiSelect('trGuruUraian', uraianOps, 'uraian'); 
+
+          // Update Dropdown di Tabel Rincian Guru (Jika ada baris)
+          updateDropdownTabelGuru();
+      }
+
+      // --- HELPER: UPDATE DROPDOWN DI TABEL GURU ---
+      function updateDropdownTabelGuru() {
+          const dropdownsDiTabel = document.querySelectorAll('#tabelItemGuru .item-nama');
+          
+          dropdownsDiTabel.forEach(select => {
+            // Pastikan elemennya SELECT (bukan input manual)
+            if (select.tagName === 'SELECT') {
+                const valSebelumnya = select.value;
+                
+                let opts = '<option value="">-- Pilih Guru --</option>';
+                opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+                
+                if (DATA_CACHE.guru) {
+                  DATA_CACHE.guru.forEach(g => {
                     const val = String(g.nama).replace(/"/g, '&quot;');
                     opts += `<option value="${val}">${g.nama}</option>`;
                   });
-                  
-                  select.innerHTML = opts;
-                  if(valSebelumnya) select.value = valSebelumnya;
-              }
-            });
-
-          }
-        }).getAllOptions(token);
+                }
+                
+                select.innerHTML = opts;
+                if(valSebelumnya) select.value = valSebelumnya;
+            }
+          });
       }
 
       // --- FUNGSI GANTI DROPDOWN JADI INPUT TEXT (DENGAN TOMBOL X) ---
@@ -4299,67 +4496,82 @@
       }
 
       // 2. Load Data List
-      // GANTI FUNGSI INI DI Index.html
-      function loadDataSurat(tipe) {
+      // --- LOAD DATA SURAT (WITH CACHE) ---
+      function loadDataSurat(tipe, forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelSuratBody');
-        
+        const cacheKey = 'transaksi_' + tipe; // misal: transaksi_toko
+
+        // 1. CEK CACHE
+        if (!forceRefresh && DATA_CACHE[cacheKey]) {
+          renderTabelSurat(DATA_CACHE[cacheKey], tipe);
+          return;
+        }
+
+        // 2. FETCH SERVER
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data transaksi...</td></tr>';
 
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if(res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
-              return;
-            }
-
-            res.data.forEach(item => {
-              const s = item.dataSurat; 
-              let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
-              
-              if (s) {
-                if (s.permintaan && s.baPembayaran) {
-                    statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
-                } else {
-                    statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
-                }
-              }
-
-              // --- PERBAIKAN UTAMA DISINI ---
-              // Tambahkan .replace(/'/g, "%27") agar tanda kutip satu tidak merusak onclick
-              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
-              
-              const btnLihat = `
-                <button class="btn btn-sm btn-info text-white me-1" 
-                  onclick="lihatNomorSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Nomor">
-                  <i class="fas fa-eye"></i>
-                </button>
-              `;
-
-              const btnKelola = `
-                <button class="btn btn-sm btn-outline-primary" 
-                  onclick="bukaModalSurat('${tipe}', '${dataJson}')">
-                  <i class="fas fa-edit me-1"></i> Kelola
-                </button>
-              `;
-
-              const row = `
-                <tr>
-                  <td>${item.tanggalDisplay}</td> 
-                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
-                  <td>${item.pihakKetiga}</td>
-                  <td>${statusBadge}</td>
-                  <td style="white-space:nowrap;">${btnLihat} ${btnKelola}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-
+            // SIMPAN KE CACHE
+            DATA_CACHE[cacheKey] = res.data;
+            renderTabelSurat(res.data, tipe);
           } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
           }
-        }).getTransaksiList(token, tipe.toUpperCase()); 
+        }).getTransaksiList(token, tipe.toUpperCase());
+      }
+
+      // --- RENDER TABEL SURAT ---
+      function renderTabelSurat(data, tipe) {
+        const tbody = document.getElementById('tabelSuratBody');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          const s = item.dataSurat;
+          let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
+
+          if (s) {
+            if (s.permintaan && s.baPembayaran) {
+              statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
+            } else {
+              statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
+            }
+          }
+
+          // Encode data agar aman masuk ke fungsi onclick
+          const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
+
+          const btnLihat = `
+            <button class="btn btn-sm btn-info text-white me-1" 
+              onclick="lihatNomorSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Nomor">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+
+          const btnKelola = `
+            <button class="btn btn-sm btn-outline-primary" 
+              onclick="bukaModalSurat('${tipe}', '${dataJson}')">
+              <i class="fas fa-edit me-1"></i> Kelola
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td>${item.tanggalDisplay}</td> 
+              <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+              <td>${item.pihakKetiga}</td>
+              <td>${statusBadge}</td>
+              <td style="white-space:nowrap;">${btnLihat} ${btnKelola}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // TAMBAHKAN FUNGSI INI (Fungsi Baru untuk Popup Lihat Nomor)
@@ -4654,7 +4866,7 @@
       }
 
       // 4. Simpan Data Surat
-      // GANTI FUNGSI INI
+      // --- SIMPAN SURAT (INVALIDATE CACHE) ---
       function simpanSurat(e) {
         e.preventDefault();
         
@@ -4669,13 +4881,12 @@
           raw: {} 
         };
         
-        // [PERBAIKAN] Ambil Map Tanggal dari Dataset Form
+        // Ambil Map Tanggal dari Dataset Form (Logic dari update sebelumnya)
         const formEl = document.getElementById('formInputSurat');
         let dateMap = {};
         try {
           dateMap = JSON.parse(formEl.dataset.dateMap);
         } catch(err) {
-          // Fallback jika error, pakai tanggal transaksi global
           const tglGlobal = document.getElementById('suratTransTanggal').value;
           dateMap = {
             permintaan: tglGlobal, penawaran: tglGlobal, baPemeriksaan: tglGlobal, 
@@ -4683,7 +4894,6 @@
           };
         }
 
-        // Helper untuk parsing tanggal
         const getBulanTahun = (dateStr) => {
           if(!dateStr) return { b: '00', t: '0000' };
           const d = new Date(dateStr);
@@ -4694,27 +4904,23 @@
         };
 
         if (isAuto) {
-          // === MODE OTOMATIS (Bisa Campuran Auto & Manual) ===
+          // === MODE OTOMATIS ===
           
-          // Fungsi internal untuk memproses format placeholder
-          // Menerima parameter 'keyDate' untuk menentukan tanggal mana yang dipakai
+          // Fungsi internal pemroses format
           const processAutoFormat = (key, format, keyDate) => {
-              const tglDoc = dateMap[keyDate]; // Ambil tanggal spesifik
+              const tglDoc = dateMap[keyDate]; 
               const { b, t } = getBulanTahun(tglDoc);
 
               let result = format.replace(/\[bulan\]/g, b).replace(/\[tahun\]/g, t);
               
-              // Ambil input kecil (auto-input)
               const inputs = document.querySelectorAll(`.auto-input[data-key="${key}"]`);
               
-              // Inisialisasi object raw jika belum ada
               if (!dataSurat.raw[key]) dataSurat.raw[key] = {};
 
               inputs.forEach(inp => {
                   const tag = inp.getAttribute('data-tag');
                   const val = inp.value.trim();
                   
-                  // Simpan nilai mentah
                   if(tag !== 'DUMMY') {
                       dataSurat.raw[key][tag] = val; 
                       const regex = new RegExp(`\\[${tag}\\]`, 'g');
@@ -4733,8 +4939,6 @@
               }
           };
 
-          // Eksekusi dengan Mapping Tanggal yang Benar
-          // Parameter ke-3 adalah key di dalam dateMap
           dataSurat.permintaan = getFinalValue('permintaan', config.permintaan, 'permintaan');
           dataSurat.baPemeriksaan = getFinalValue('baPemeriksaan', config.pemeriksaan, 'baPemeriksaan');
           dataSurat.baSerahTerima = getFinalValue('baSerahTerima', config.bast, 'baSerahTerima');
@@ -4756,7 +4960,6 @@
           }
         }
 
-        // --- PROSES KIRIM KE SERVER ---
         const payload = { id: id, dataSurat: dataSurat };
         
         const btn = document.getElementById('btnSimpanSurat');
@@ -4771,12 +4974,17 @@
           btn.disabled = false;
 
           if (res.status === 'success') {
-            if(modalSuratBS) modalSuratBS.hide();
+            if(typeof modalSuratBS !== 'undefined') modalSuratBS.hide();
+            
+            // --- UPDATE PENTING: RESET CACHE ---
+            DATA_CACHE['transaksi_' + tipe] = null; // Hapus cache lama
+            loadDataSurat(tipe, true);              // Reload data baru
+            // -----------------------------------
+
             Swal.fire({ 
               icon: 'success', title: 'Tersimpan', 
               text: 'Data nomor surat berhasil diperbarui.', timer: 1500, showConfirmButton: false 
             });
-            loadDataSurat(tipe);
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
@@ -4800,64 +5008,79 @@
       }
 
       // 2. Load Data List untuk Tanggal
-      // GANTI FUNGSI INI DI Index.html
-      function loadDataTanggal(tipe) {
+      // --- LOAD DATA TANGGAL (WITH CACHE) ---
+      function loadDataTanggal(tipe, forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelTanggalBody');
-        
+        const cacheKey = 'transaksi_' + tipe; // Gunakan key yg sama dgn Surat!
+
+        // 1. CEK CACHE
+        if (!forceRefresh && DATA_CACHE[cacheKey]) {
+          renderTabelTanggal(DATA_CACHE[cacheKey], tipe);
+          return;
+        }
+
+        // 2. FETCH SERVER
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            tbody.innerHTML = '';
-            if(res.data.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
-              return;
-            }
-
-            res.data.forEach(item => {
-              const t = item.dataTanggal; 
-              let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
-              
-              if (t && t.baPembayaran) {
-                statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
-              } else if (t) {
-                statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
-              }
-
-              // --- PERBAIKAN UTAMA DISINI ---
-              const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
-              
-              const btnLihat = `
-                <button class="btn btn-sm btn-info text-white me-1" 
-                  onclick="lihatTanggalSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Tanggal">
-                  <i class="fas fa-eye"></i>
-                </button>
-              `;
-
-              const btnAtur = `
-                <button class="btn btn-sm btn-outline-success" 
-                  onclick="bukaModalTanggal('${tipe}', '${dataJson}')">
-                  <i class="fas fa-calendar-check me-1"></i> Atur
-                </button>
-              `;
-
-              const row = `
-                <tr>
-                  <td>${item.tanggalDisplay}</td> 
-                  <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
-                  <td>${item.pihakKetiga}</td>
-                  <td>${statusBadge}</td>
-                  <td style="white-space:nowrap;">${btnLihat} ${btnAtur}</td>
-                </tr>
-              `;
-              tbody.innerHTML += row;
-            });
-
+            // Simpan ke Cache
+            DATA_CACHE[cacheKey] = res.data;
+            renderTabelTanggal(res.data, tipe);
           } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat data.</td></tr>';
           }
         }).getTransaksiList(token, tipe.toUpperCase());
+      }
+
+      // --- RENDER TABEL TANGGAL ---
+      function renderTabelTanggal(data, tipe) {
+        const tbody = document.getElementById('tabelTanggalBody');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada data transaksi ' + tipe + '.</td></tr>';
+          return;
+        }
+
+        data.forEach(item => {
+          const t = item.dataTanggal;
+          let statusBadge = '<span class="badge bg-secondary">Belum Diatur</span>';
+
+          if (t && t.baPembayaran) {
+            statusBadge = '<span class="badge bg-success">Sudah Diisi</span>';
+          } else if (t) {
+            statusBadge = '<span class="badge bg-warning text-dark">Sebagian</span>';
+          }
+
+          const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
+
+          const btnLihat = `
+            <button class="btn btn-sm btn-info text-white me-1" 
+              onclick="lihatTanggalSurat('${tipe}', '${dataJson}')" title="Lihat Daftar Tanggal">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+
+          const btnAtur = `
+            <button class="btn btn-sm btn-outline-success" 
+              onclick="bukaModalTanggal('${tipe}', '${dataJson}')">
+              <i class="fas fa-calendar-check me-1"></i> Atur
+            </button>
+          `;
+
+          const row = `
+            <tr>
+              <td>${item.tanggalDisplay}</td> 
+              <td><div class="text-truncate" style="max-width:250px;">${item.uraian}</div></td>
+              <td>${item.pihakKetiga}</td>
+              <td>${statusBadge}</td>
+              <td style="white-space:nowrap;">${btnLihat} ${btnAtur}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
       }
 
       // TAMBAHKAN FUNGSI INI (Fungsi Baru untuk Popup Lihat Tanggal)
@@ -5008,25 +5231,22 @@
       }
 
       // 4. Simpan Data Tanggal
+      // --- SIMPAN TANGGAL (INVALIDATE CACHE) ---
       function simpanTanggal(e) {
         e.preventDefault();
         
         const tipe = document.getElementById('tglTransTipe').value;
         const id = document.getElementById('tglTransId').value;
 
-        // Ambil Data Form
         const dataTanggal = {
-          permintaan: document.getElementById('tglSuratPermintaan').value, // Ambil dari input readonly
+          permintaan: document.getElementById('tglSuratPermintaan').value,
           penawaran: document.getElementById('tglSuratPenawaran').value,
           baPemeriksaan: document.getElementById('tglBaPemeriksaan').value,
           baSerahTerima: document.getElementById('tglBaSerahTerima').value,
           baPembayaran: document.getElementById('tglBaPembayaran').value
         };
 
-        const payload = {
-          id: id,
-          dataTanggal: dataTanggal
-        };
+        const payload = { id: id, dataTanggal: dataTanggal };
 
         const btn = document.getElementById('btnSimpanTanggal');
         const txtAsli = btn.innerHTML;
@@ -5040,16 +5260,18 @@
           btn.disabled = false;
 
           if (res.status === 'success') {
-            if(modalTanggalBS) modalTanggalBS.hide();
+            if(typeof modalTanggalBS !== 'undefined') modalTanggalBS.hide();
             
+            // --- UPDATE PENTING: RESET CACHE ---
+            DATA_CACHE['transaksi_' + tipe] = null; 
+            loadDataTanggal(tipe, true); 
+            // -----------------------------------
+
             Swal.fire({
               icon: 'success', title: 'Tersimpan', 
               text: 'Data tanggal dokumen berhasil diperbarui.',
               timer: 1500, showConfirmButton: false
             });
-
-            loadDataTanggal(tipe);
-
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
