@@ -89,27 +89,31 @@ function registerSchool(form) {
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
 
-    // 7. Generate Kode Pemulihan Unik
-    // Mengambil 8 karakter acak dari UUID dan dijadikan huruf besar
+    // 7. Generate Kode Pemulihan Unik (Biarkan tetap ada sebagai cadangan)
     const recoveryCode = "REC-" + Utilities.getUuid().slice(0, 8).toUpperCase();
 
-    // 8. Simpan User ke Master Database
-    // Struktur Kolom: [Time, Nama, Email, Pass, DbID, SessionID, RECOVERY_CODE]
-    // Kita tambahkan recoveryCode di kolom ke-7 (Index 6)
+    // 8. SIMPAN DATA KE DATABASE
+    // Struktur Baru: [Time, Nama, Email, Pass, DbID, SessionID, RecoveryCode, QUESTION, ANSWER]
+    
+    const cleanSecret = form.securityAnswer ? form.securityAnswer.toString().trim().toLowerCase() : "-";
+    const questionId = form.securityQuestion || "-"; // Simpan ID pertanyaannya
+
     ssMaster.appendRow([
       new Date(), 
       form.namaSekolah, 
       newEmailClean, 
       form.password, 
       newDbId, 
-      "",            // Session ID kosong awal
-      recoveryCode   // <--- KOLOM BARU
+      "",            
+      recoveryCode,   
+      questionId,     // <--- KOLOM H (Index 7): ID Pertanyaan
+      cleanSecret     // <--- KOLOM I (Index 8): Jawaban
     ]);
 
     return { 
       status: 'success', 
       message: 'Registrasi berhasil!', 
-      recoveryCode: recoveryCode // Kembalikan kode ini ke client untuk ditampilkan
+      recoveryCode: recoveryCode
     };
 
   } catch (e) {
@@ -120,6 +124,42 @@ function registerSchool(form) {
     );
     return { status: 'error', message: pesan };
   }
+}
+
+/* --- UPDATE: RESET PASSWORD DENGAN PERTANYAAN & JAWABAN --- */
+function resetPasswordByQuestion(form) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  
+  const emailTarget = form.email.trim().toLowerCase();
+  const questionTarget = form.question; // ID Pertanyaan yang dipilih saat reset
+  const answerTarget = form.answer.trim().toLowerCase(); 
+  
+  for (let i = 1; i < data.length; i++) {
+    const dbEmail = String(data[i][2]).toLowerCase();
+    
+    if (dbEmail === emailTarget) {
+      // Ambil Data dari DB
+      const dbQuestion = String(data[i][7] || ""); // Kolom H
+      const dbAnswer = String(data[i][8] || "").toLowerCase(); // Kolom I
+      
+      // 1. Cek Apakah Pertanyaannya Cocok?
+      if (dbQuestion !== questionTarget) {
+        return { status: 'error', message: 'Jenis pertanyaan keamanan tidak sesuai dengan yang Anda daftarkan.' };
+      }
+
+      // 2. Cek Apakah Jawabannya Cocok?
+      if (dbAnswer === answerTarget) {
+        // Update Password
+        ssMaster.getRange(i + 1, 4).setValue(form.newPassword);
+        return { status: 'success', message: 'Verifikasi Berhasil! Password telah diubah.' };
+      } else {
+        return { status: 'error', message: 'Jawaban keamanan salah.' };
+      }
+    }
+  }
+  
+  return { status: 'error', message: 'Email tidak ditemukan.' };
 }
 
 /* --- KONFIGURASI SESI --- */
