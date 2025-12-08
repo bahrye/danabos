@@ -2178,6 +2178,20 @@
 
       // 2. Pindah Menu Sidebar (Dashboard <-> Buat LPJ <-> Pengaturan)
       function navigasiKe(panelId, linkElement) {
+        // --- TAMBAHAN: CEK SESI SEBELUM PINDAH MENU ---
+        // Ini hemat kuota karena hanya jalan saat user klik menu
+        const email = localStorage.getItem('userEmail');
+        const token = localStorage.getItem('sessionToken');
+        
+        if(email && token) {
+          google.script.run.withSuccessHandler(function(res){
+              if(!res.valid) {
+                handleSessionInvalid(); // Panggil fungsi logout paksa di atas
+              }
+          }).updateUserActivity(email, token);
+        }
+        // ----------------------------------------------
+        
         // 1. Mobile Sidebar logic
         if (window.innerWidth < 768) {
           const sidebar = document.getElementById('sidebarMenu');
@@ -2354,43 +2368,65 @@
           .registerSchool(form);
       }
 
+      /* --- LOGIKA SESI HEMAT KUOTA (BURST MODE) --- */
       let sessionInterval = null;
+      let sessionCheckCount = 0;
+      const SESSION_CHECK_LIMIT = 6; // 6 kali x 5 detik = 30 detik
 
       function startSessionMonitor() {
+        // Hapus interval lama jika ada
         if(sessionInterval) clearInterval(sessionInterval);
+        
+        // Reset penghitung
+        sessionCheckCount = 0;
 
-        // JALANKAN SETIAP 10 DETIK (Realtime & Ringan)
-        // Karena server pakai Cache, ini aman & tidak boros kuota.
+        console.log("Mulai monitoring sesi (Mode: 30 Detik Awal)...");
+
+        // JALANKAN SETIAP 5 DETIK
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
           
-          if(email && token) {
-             google.script.run
-               .withSuccessHandler(function(res){
-                  if(!res.valid) {
-                    console.warn("Sesi diambil alih. Logout otomatis.");
-                    // Stop interval dulu biar gak spam alert
-                    clearInterval(sessionInterval); 
-                    
-                    Swal.fire({
-                      icon: 'warning',
-                      title: 'Sesi Berakhir',
-                      text: 'Akun Anda telah login di perangkat lain.',
-                      allowOutsideClick: false,
-                      confirmButtonText: 'OK'
-                    }).then(() => {
-                      // Bersihkan lokal & reset
-                      localStorage.clear();
-                      document.getElementById('formLogin').reset();
-                      switchView('view-login');
-                    });
-                  }
-               })
-               // Panggil fungsi heartbit baru yang pakai Cache
-               .updateUserActivity(email, token);
+          // Tambah counter
+          sessionCheckCount++;
+
+          // HENTIKAN OTOMATIS JIKA SUDAH 1 MENIT (6x Cek)
+          if (sessionCheckCount > SESSION_CHECK_LIMIT) {
+            clearInterval(sessionInterval);
+            console.log("Monitoring sesi latar belakang dihentikan untuk hemat kuota.");
+            return;
           }
-        }, 10000); // 10 Detik
+          
+          if(email && token) {
+              google.script.run
+                .withSuccessHandler(function(res){
+                  // Jika Token di server berbeda dengan yang dipegang browser ini
+                  if(!res.valid) {
+                    handleSessionInvalid();
+                  }
+                })
+                // Menggunakan fungsi heartbeat yang ringan
+                .updateUserActivity(email, token);
+          }
+        }, 5000); // 5 Detik
+      }
+
+      // Fungsi terpisah untuk menangani sesi tidak valid (biar rapi)
+      function handleSessionInvalid() {
+        clearInterval(sessionInterval); // Stop interval segera
+        
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sesi Berakhir',
+          text: 'Akun ini telah login di perangkat/browser lain. Anda akan dikeluarkan.',
+          allowOutsideClick: false,
+          confirmButtonText: 'OK'
+        }).then(() => {
+          // Bersihkan lokal & reset
+          localStorage.clear();
+          document.getElementById('formLogin').reset();
+          switchView('view-login');
+        });
       }
 
       // Fungsi Logout Paksa (Tanpa konfirmasi user)
