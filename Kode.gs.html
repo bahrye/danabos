@@ -145,60 +145,79 @@ function clearSessionCache(email) {
   cache.remove('SESI_' + email);
 }
 
-/* --- 1. LOGIN USER (LOGIKA REALTIME CACHE) --- */
+/* --- 1. LOGIN USER (OPTIMASI: TEXT FINDER) --- */
 function loginUser(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
   
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] == form.email && data[i][3] == form.password) {
-      
-      const email = form.email;
-      const cachedSession = getSessionCache(email);
-      const now = new Date().getTime();
-      
-      let isDeviceActive = false;
+  // OPTIMASI: Gunakan TextFinder untuk mencari Email di Kolom C (Index 3)
+  // Ini jauh lebih cepat daripada meloop seluruh baris data
+  const finder = ssMaster.getRange("C:C").createTextFinder(form.email).matchEntireCell(true);
+  const found = finder.findNext();
 
-      // CEK STATUS CACHE (MEMORI)
-      if (cachedSession) {
-        // Hitung selisih waktu dari ping terakhir
-        const lastPing = cachedSession.lastPing || 0;
-        const diffSec = (now - lastPing) / 1000;
-        
-        // Jika ping terakhir kurang dari 15 detik yang lalu, berarti BENAR-BENAR AKTIF
-        if (diffSec < 15) {
-          isDeviceActive = true;
-        }
+  // Jika Email Tidak Ditemukan
+  if (!found) {
+    return { status: 'error', message: 'Email atau Password salah!' };
+  }
+
+  // Jika Email Ditemukan, ambil baris tersebut
+  const rowIdx = found.getRow();
+  
+  // Ambil data hanya pada baris user tersebut (Kolom A sampai G / 1 sampai 7)
+  // Struktur: [0:Time, 1:Nama, 2:Email, 3:Pass, 4:DbID, 5:SessionID, 6:RecoveryCode]
+  const userData = ssMaster.getRange(rowIdx, 1, 1, 7).getValues()[0];
+
+  // Cek Password (userData[3])
+  // Pastikan konversi string agar aman
+  if (String(userData[3]) === String(form.password)) {
+    
+    const email = form.email;
+    const cachedSession = getSessionCache(email);
+    const now = new Date().getTime();
+    
+    let isDeviceActive = false;
+
+    // CEK STATUS CACHE (MEMORI)
+    if (cachedSession) {
+      // Hitung selisih waktu dari ping terakhir
+      const lastPing = cachedSession.lastPing || 0;
+      const diffSec = (now - lastPing) / 1000;
+      
+      // Jika ping terakhir kurang dari 15 detik yang lalu, berarti BENAR-BENAR AKTIF
+      if (diffSec < 15) {
+        isDeviceActive = true;
       }
+    }
 
-      // KASUS 1: Perangkat A sedang aktif (Realtime) -> TOLAK B
-      if (isDeviceActive) {
-        return { 
-          status: 'error', 
-          message: '<b>Akun Sedang Online!</b><br>Akun terdeteksi sedang aktif di perangkat lain.<br>Silakan tunggu 10-15 detik setelah perangkat tersebut berhenti/ditutup, lalu coba lagi.' 
-        };
-      }
-
-      // KASUS 2: Perangkat A idle/tutup tab -> TIMPA SESI (Login Sukses)
-      const newSessionId = Utilities.getUuid();
-      
-      // Simpan ke Cache (Memori Cepat)
-      setSessionCache(email, {
-        token: newSessionId,
-        lastPing: now
-      });
-
-      // Simpan ke Spreadsheet (Hanya untuk backup/history, tidak untuk validasi realtime)
-      ssMaster.getRange(i + 1, 6).setValue(newSessionId);
-
+    // KASUS 1: Perangkat A sedang aktif (Realtime) -> TOLAK B
+    if (isDeviceActive) {
       return { 
-        status: 'success', 
-        token: data[i][4],        
-        namaSekolah: data[i][1],
-        sessionToken: newSessionId 
+        status: 'error', 
+        message: '<b>Akun Sedang Online!</b><br>Akun terdeteksi sedang aktif di perangkat lain.<br>Silakan tunggu 10-15 detik setelah perangkat tersebut berhenti/ditutup, lalu coba lagi.' 
       };
     }
+
+    // KASUS 2: Perangkat A idle/tutup tab -> TIMPA SESI (Login Sukses)
+    const newSessionId = Utilities.getUuid();
+    
+    // Simpan ke Cache (Memori Cepat)
+    setSessionCache(email, {
+      token: newSessionId,
+      lastPing: now
+    });
+
+    // Simpan ke Spreadsheet (Kolom F / ke-6)
+    // Kita gunakan rowIdx yang didapat dari TextFinder tadi
+    ssMaster.getRange(rowIdx, 6).setValue(newSessionId);
+
+    return { 
+      status: 'success', 
+      token: userData[4],        // ID Spreadsheet Sekolah
+      namaSekolah: userData[1],  // Nama Sekolah
+      sessionToken: newSessionId 
+    };
   }
+  
+  // Jika Email ketemu tapi Password salah
   return { status: 'error', message: 'Email atau Password salah!' };
 }
 
