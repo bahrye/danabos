@@ -2357,24 +2357,28 @@
       // Variabel Timer Global
       let sessionInterval = null;
 
-      // Fungsi Monitor Sesi (Dijalankan saat login berhasil atau reload halaman)
+      // Fungsi Monitor Sesi & Heartbeat
       function startSessionMonitor() {
         if(sessionInterval) clearInterval(sessionInterval); // Reset jika ada
 
-        // Cek setiap 10 detik (10000 ms) agar tidak terlalu membebani server
+        // Jalankan setiap 1 menit (60000 ms)
+        // Jangan terlalu cepat agar tidak membebani kuota Google Apps Script
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
           
           if(email && token) {
+             // Panggil fungsi updateUserActivity (sekaligus cek validitas)
              google.script.run.withSuccessHandler(function(res){
                if(!res.valid) {
-                 // JIKA SESI TIDAK VALID (Misal: Ada yang login di HP lain)
+                 // JIKA SESI TIDAK VALID (Berarti sudah ditimpa oleh perangkat B)
                  forceLogout();
+               } else {
+                 console.log("Heartbeat sent: User Active");
                }
-             }).checkSessionStatus(email, token);
+             }).updateUserActivity(email, token);
           }
-        }, 10000); 
+        }, 60000); // 60 Detik
       }
 
       // Fungsi Logout Paksa (Tanpa konfirmasi user)
