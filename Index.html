@@ -269,6 +269,18 @@
             <label class="form-label">Konfirmasi Password</label>
             <input type="password" class="form-control" id="regPassConfirm" placeholder="Ketik ulang password..." required>
           </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Pertanyaan Keamanan</label>
+            <select class="form-select mb-2" id="regQuestion">
+              <option value="ibu">Siapa nama ibu kandung Anda?</option>
+              <option value="hewan">Apa nama hewan peliharaan pertama Anda?</option>
+              <option value="sekolah">Apa nama SD tempat Anda bersekolah?</option>
+              <option value="kota">Di kota mana Anda lahir?</option>
+            </select>
+            <input type="text" class="form-control" id="regSecretAnswer" placeholder="Jawaban Anda (Satu kata saja)" required>
+            <div class="form-text text-muted" style="font-size: 0.8rem;">Digunakan untuk reset password jika lupa.</div>
+          </div>
           <button type="submit" class="btn btn-success w-100">Daftar Sekarang</button>
         </form>
         <div class="text-center mt-3">
@@ -281,8 +293,14 @@
       <div class="card card-login p-4">
         <h3 class="text-center mb-4 text-danger"><i class="fas fa-key"></i> Reset Password</h3>
         
-        <div class="alert alert-info py-2" style="font-size: 0.85rem;">
-          <i class="fas fa-info-circle"></i> Masukkan Kode Pemulihan (Recovery Code) yang Anda dapatkan saat registrasi.
+        <div class="d-flex justify-content-center mb-4">
+          <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" name="resetMethod" id="methodCode" autocomplete="off" checked onclick="toggleResetMethod('code')">
+            <label class="btn btn-outline-danger btn-sm" for="methodCode">Pakai Kode</label>
+
+            <input type="radio" class="btn-check" name="resetMethod" id="methodQna" autocomplete="off" onclick="toggleResetMethod('qna')">
+            <label class="btn btn-outline-danger btn-sm" for="methodQna">Pertanyaan Keamanan</label>
+          </div>
         </div>
 
         <form id="formReset" onsubmit="handleResetPassword(event)">
@@ -290,21 +308,38 @@
             <label class="form-label">Email Sekolah</label>
             <input type="email" class="form-control" id="resetEmail" required>
           </div>
-          <div class="mb-3">
+
+          <div id="input-group-code" class="mb-3">
             <label class="form-label">Kode Pemulihan (Recovery Code)</label>
-            <input type="text" class="form-control font-monospace text-uppercase" id="resetCode" placeholder="REC-XXXX..." required>
+            <input type="text" class="form-control font-monospace text-uppercase" id="resetCode" placeholder="REC-XXXX...">
+            <div class="form-text">Kode yang didapat saat registrasi.</div>
           </div>
+
+          <div id="input-group-qna" class="mb-3 hidden">
+            <label class="form-label fw-bold">Verifikasi Keamanan</label>
+            
+            <select class="form-select mb-2" id="resetQuestion" required>
+                <option value="" selected disabled>-- Pilih Pertanyaan Saat Daftar --</option>
+                <option value="ibu">Siapa nama ibu kandung Anda?</option>
+                <option value="hewan">Apa nama hewan peliharaan pertama Anda?</option>
+                <option value="sekolah">Apa nama SD tempat Anda bersekolah?</option>
+                <option value="kota">Di kota mana Anda lahir?</option>
+            </select>
+
+            <input type="text" class="form-control" id="resetAnswer" placeholder="Ketik Jawaban Anda...">
+          </div>
+
           <div class="mb-3">
             <label class="form-label">Password Baru</label>
             <input type="password" class="form-control" id="resetPassNew" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Konfirmasi Password Baru</label>
+            <label class="form-label">Konfirmasi Password</label>
             <input type="password" class="form-control" id="resetPassConf" required>
           </div>
           
           <button type="submit" class="btn btn-danger w-100 mb-2">Ubah Password</button>
-          <button type="button" class="btn btn-outline-secondary w-100" onclick="switchView('view-login')">Batal / Kembali Login</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="switchView('view-login')">Batal</button>
         </form>
       </div>
     </div>
@@ -2365,7 +2400,9 @@
         const form = {
           namaSekolah: document.getElementById('regNama').value,
           email: document.getElementById('regEmail').value,
-          password: pass1
+          password: document.getElementById('regPass').value,
+          securityQuestion: document.getElementById('regQuestion').value,
+          securityAnswer: document.getElementById('regSecretAnswer').value
         };
 
         google.script.run
@@ -6563,39 +6600,125 @@
         }
       }
 
+      // 1. Toggle Tampilan Input
+      function toggleResetMethod(method) {
+        const grpCode = document.getElementById('input-group-code');
+        const grpQna = document.getElementById('input-group-qna');
+        const inputCode = document.getElementById('resetCode');
+        const inputAnswer = document.getElementById('resetAnswer');
+
+        if (method === 'code') {
+          grpCode.classList.remove('hidden');
+          grpQna.classList.add('hidden');
+          inputCode.required = true;
+          inputAnswer.required = false;
+        } else {
+          grpCode.classList.add('hidden');
+          grpQna.classList.remove('hidden');
+          inputCode.required = false;
+          inputAnswer.required = true;
+        }
+      }
+
+      // 2. Handle Submit Reset (Modifikasi)
       function handleResetPassword(e) {
         e.preventDefault();
         
+        // 1. Ambil Input Password & Email
         const p1 = document.getElementById('resetPassNew').value;
         const p2 = document.getElementById('resetPassConf').value;
+        const email = document.getElementById('resetEmail').value;
 
+        // 2. Validasi: Password Baru harus sama
         if(p1 !== p2) {
           Swal.fire('Password Tidak Cocok', 'Konfirmasi password baru tidak sama.', 'warning');
           return;
         }
 
+        // 3. Tampilkan Loading
         toggleLoading(true);
 
-        const form = {
-          email: document.getElementById('resetEmail').value,
-          code: document.getElementById('resetCode').value,
-          newPassword: p1
-        };
+        // 4. Cek Metode Mana yang Sedang Aktif (Radio Button)
+        const isMethodCode = document.getElementById('methodCode').checked;
 
-        google.script.run
-          .withFailureHandler(handleServerError)
-          .withSuccessHandler(function(res){
-             toggleLoading(false);
-             if(res.status === 'success') {
-               document.getElementById('formReset').reset();
-               Swal.fire('Sukses', res.message, 'success').then(() => {
-                 switchView('view-login');
-               });
-             } else {
-               Swal.fire('Gagal', res.message, 'error');
-             }
-          })
-          .resetPasswordWithCode(form);
+        if (isMethodCode) {
+          // ============================================
+          // OPSI A: Reset Menggunakan KODE PEMULIHAN
+          // ============================================
+          const form = {
+            email: email,
+            code: document.getElementById('resetCode').value, // Ambil Kode
+            newPassword: p1
+          };
+
+          // Panggil fungsi server lama
+          google.script.run
+            .withFailureHandler(handleServerError)
+            .withSuccessHandler(resetCallback) // Gunakan callback helper
+            .resetPasswordWithCode(form);
+
+        } else {
+          // ============================================
+          // OPSI B: Reset Menggunakan PERTANYAAN KEAMANAN (UPDATE)
+          // ============================================
+          
+          // Ambil Value dari Dropdown Pertanyaan & Input Jawaban
+          const questionVal = document.getElementById('resetQuestion').value;
+          const answerVal = document.getElementById('resetAnswer').value;
+
+          // Validasi: User wajib memilih pertanyaan dari dropdown
+          if (!questionVal || questionVal === "") {
+            toggleLoading(false);
+            Swal.fire('Peringatan', 'Harap pilih Pertanyaan Keamanan terlebih dahulu.', 'warning');
+            return;
+          }
+
+          const form = {
+            email: email,
+            question: questionVal, // Kirim ID Pertanyaan (misal: 'ibu', 'hewan')
+            answer: answerVal,     // Kirim Jawaban User
+            newPassword: p1
+          };
+
+          // Panggil fungsi server baru
+          google.script.run
+            .withFailureHandler(handleServerError)
+            .withSuccessHandler(resetCallback) // Gunakan callback helper
+            .resetPasswordByQuestion(form);
+        }
+      }
+
+      // --- FUNGSI HELPER CALLBACK (Agar kode lebih rapi) ---
+      function resetCallback(res) {
+        toggleLoading(false); // Matikan loading
+        
+        if(res.status === 'success') {
+          // Jika Berhasil: Reset Form & Kembali ke Login
+          document.getElementById('formReset').reset();
+          
+          // Kembalikan tampilan ke default (Mode Kode)
+          if(typeof toggleResetMethod === 'function') {
+              toggleResetMethod('code'); 
+              document.getElementById('methodCode').checked = true;
+          }
+          
+          Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: res.message,
+            confirmButtonText: 'Login Sekarang'
+          }).then(() => {
+            switchView('view-login');
+          });
+
+        } else {
+          // Jika Gagal: Tampilkan Pesan Error
+          Swal.fire({
+            icon: 'error',
+            title: 'Gagal',
+            text: res.message
+          });
+        }
       }
 
     </script>
