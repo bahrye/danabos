@@ -2361,19 +2361,32 @@
               // Reset Form
               document.getElementById('formRegister').reset();
               
-              // TAMPILKAN KODE PEMULIHAN
+              // TAMPILKAN KODE PEMULIHAN (VERSI COMPACT)
               Swal.fire({
                 title: 'Registrasi Berhasil!',
                 html: `
-                  <p>Selamat, akun sekolah Anda telah aktif.</p>
-                  <div class="alert alert-warning text-start">
-                    <strong>PENTING:</strong><br>
-                    Simpan kode pemulihan ini. Kode ini digunakan jika Anda lupa password.<br><br>
-                    <h3 class="text-center text-dark font-monospace" style="user-select: all;">${res.recoveryCode}</h3>
+                  <p class="mb-3 text-muted" style="font-size: 0.9rem;">Akun sekolah Anda telah aktif.</p>
+                  
+                  <div class="alert alert-warning text-start py-2 px-3 mb-0" style="font-size: 0.85rem;">
+                    <strong class="text-dark"><i class="fas fa-key me-1"></i> Simpan Kode Pemulihan:</strong>
+                    
+                    <div class="bg-white rounded border border-warning mt-2 py-2 text-center">
+                       <span class="fs-5 fw-bold font-monospace text-dark" style="user-select: all; letter-spacing: 1px;">${res.recoveryCode}</span>
+                    </div>
+                    
+                    <div class="mt-2 text-muted lh-1" style="font-size: 0.75rem;">
+                      *Wajib disimpan. Kode ini digunakan untuk reset password jika lupa.
+                    </div>
                   </div>
                 `,
                 icon: 'success',
-                confirmButtonText: 'Saya Sudah Simpan'
+                width: '420px', // Membatasi lebar agar tidak terlalu lebar
+                padding: '1.25rem', // Mengurangi padding bawaan
+                confirmButtonText: 'Oke, Saya Simpan',
+                customClass: {
+                  title: 'fs-4', // Mengecilkan font judul
+                  popup: 'rounded-4'
+                }
               }).then(() => {
                 switchView('view-login');
               });
