@@ -176,40 +176,55 @@
         border-color: #0d6efd;
       }
 
-      /* --- STYLE UNTUK AUTOCOMPLETE LIST --- */
+      /* --- STYLE UNTUK AUTOCOMPLETE LIST (UPDATED) --- */
       .autocomplete-wrapper {
-        position: relative; /* WAJIB RELATIVE */
+        position: relative;
+        width: 100%;
       }
 
       .suggestion-list {
         position: absolute;
-        top: 100%;
+        top: 100%; /* Tepat di bawah input */
         left: 0;
         right: 0;
-        z-index: 1050; /* Pastikan tinggi agar diatas tabel/modal */
+        z-index: 9999; /* Pastikan di atas segalanya */
+        
         background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        max-height: 200px;
+        border: 1px solid rgba(0,0,0,0.15); /* Border halus */
+        border-top: none; /* Menyatu dengan input */
+        border-radius: 0 0 8px 8px; /* Sudut bawah membulat */
+        
+        max-height: 250px;
         overflow-y: auto;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2); /* Shadow lebih tebal agar terlihat mengambang */
-        font-size: 14px;
-      }
-
-      .suggestion-item {
-        padding: 8px 12px;
-        cursor: pointer;
-        border-bottom: 1px solid #f1f1f1;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15); /* Shadow melayang (floating effect) */
         font-size: 0.9rem;
       }
 
+      .suggestion-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        background-color: #fff;
+        transition: background 0.2s;
+        color: #333;
+      }
+
       .suggestion-item:hover {
-        background-color: #e9ecef;
+        background-color: #f0f7ff; /* Warna biru sangat muda saat hover */
         color: #0d6efd;
       }
 
       .suggestion-item:last-child {
-        border-bottom: none;
+        border-bottom: none !important;
+        border-radius: 0 0 8px 8px;
+      }
+
+      /* Scrollbar halus untuk list */
+      .suggestion-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      .suggestion-list::-webkit-scrollbar-thumb {
+        background-color: #ccc;
+        border-radius: 3px;
       }
 
       .letter-spacing-2 { letter-spacing: 5px; }
@@ -1284,18 +1299,22 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3 align-items-end">
-                      <div class="d-flex gap-2 align-items-center flex-wrap">
-                        <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('toko')">
+                    <div class="d-flex justify-content-between mt-3 align-items-center">
+                      
+                      <div class="d-flex align-items-center">
+                        
+                        <button type="button" class="btn btn-outline-primary text-nowrap me-2" onclick="tambahBaris('toko')">
                           <i class="fas fa-plus me-1"></i> Tambah Baris
                         </button>
-                        <div class="autocomplete-wrapper" style="min-width: 250px;">
+                        
+                        <div class="autocomplete-wrapper" style="width: 300px; max-width: 50vw;">
                           <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
                             <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Barang..." oninput="handleCariBarang(this, 'toko')" autocomplete="off">
                           </div>
                           <div id="saran-barang-toko" class="suggestion-list"></div>
                         </div>
+
                       </div>
 
                       <div>
@@ -1518,18 +1537,22 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3 align-items-end">
-                      <div class="d-flex gap-2 align-items-center flex-wrap">
-                        <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('tukang')">
+                    <div class="d-flex justify-content-between mt-3 align-items-center">
+                      
+                      <div class="d-flex align-items-center">
+                        
+                        <button type="button" class="btn btn-outline-primary text-nowrap me-2" onclick="tambahBaris('tukang')">
                           <i class="fas fa-plus me-1"></i> Tambah Baris
                         </button>
-                        <div class="autocomplete-wrapper" style="min-width: 250px;">
+                        
+                        <div class="autocomplete-wrapper" style="width: 300px; max-width: 50vw;">
                           <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
                             <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Material/Upah..." oninput="handleCariBarang(this, 'tukang')" autocomplete="off">
                           </div>
                           <div id="saran-barang-tukang" class="suggestion-list"></div>
                         </div>
+
                       </div>
 
                       <div>
@@ -2220,7 +2243,9 @@
 
       let cacheDataGuru = [];
       let cacheSatuan = [];
-      let cacheMasterUraian = [];
+      // Ganti baris: let cacheMasterUraian = []; dengan 2 variabel ini:
+      let cacheUserUraian = []; // Data dari riwayat inputan user (DataUraian)
+      let cacheRefUraian = [];  // Data dari Master Referensi (Sheet Uraian)
 
       // --- GLOBAL CACHE STORAGE (UPDATED) ---
       let DATA_CACHE = {
@@ -2776,7 +2801,6 @@
       /* --- LOGIC URAIAN PEKERJAAN (UPDATE) --- */
 
       // 1. Update Tabel dengan Tombol Edit
-      // --- LOAD DATA URAIAN DENGAN CACHE ---
       function loadUraianData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const tbody = document.getElementById('tabelUraianBody');
@@ -2787,7 +2811,7 @@
           return;
         }
 
-        // 2. FETCH SERVER JIKA CACHE KOSONG
+        // 2. FETCH SERVER
         tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary text-sm"></div><br>Memuat data...</td></tr>';
 
         google.script.run
@@ -2797,10 +2821,10 @@
               // SIMPAN KE CACHE
               DATA_CACHE.uraian = res.data;
               
-              // Update juga cache master uraian (untuk autocomplete di form lain)
-              // Kita ambil array string uraian-nya saja
+              // --- PERBAIKAN DISINI: Simpan ke cacheUserUraian ---
               if(res.data && res.data.length > 0) {
-                  cacheMasterUraian = res.data.map(item => item.uraian);
+                  // Ambil text uraiannya saja
+                  cacheUserUraian = res.data.map(item => item.uraian);
               }
               
               renderTabelUraian(res.data);
@@ -6081,14 +6105,15 @@
       }
 
       function loadMasterReferensi() {
-        // Cek jika cache sudah ada isinya, tidak perlu load lagi (hemat kuota)
-        if (cacheMasterUraian.length > 0) return;
+        // Cek jika cache sudah ada isinya
+        if (cacheRefUraian.length > 0) return;
 
         const token = localStorage.getItem('userToken');
         google.script.run.withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            cacheMasterUraian = res.data;
-            console.log("Referensi Uraian Loaded: " + cacheMasterUraian.length + " items");
+            // --- PERBAIKAN DISINI: Simpan ke cacheRefUraian ---
+            cacheRefUraian = res.data;
+            console.log("Referensi Master Loaded: " + cacheRefUraian.length + " items");
           }
         }).getReferensiUraianMaster(token);
       }
@@ -6097,37 +6122,51 @@
         const keyword = el.value.toLowerCase();
         const listEl = document.getElementById('listSaranUraian');
         
-        // 1. Validasi: Minimal 3 huruf
+        // 1. Validasi: Minimal 3 huruf, jika kurang sembunyikan list
         if (keyword.length < 3) {
           listEl.style.display = 'none';
           return;
         }
 
-        // 2. Filter Data dari Cache
-        const matches = cacheMasterUraian.filter(item => 
+        // 2. GABUNGKAN DATA: Master Referensi + Riwayat User (Unik/Tidak Dobel)
+        // Ini mencegah hasil kosong jika salah satu sumber belum ada datanya
+        const rawCombined = [...cacheRefUraian, ...cacheUserUraian];
+        const uniqueSource = [...new Set(rawCombined)]; // Hapus duplikat
+
+        // 3. FILTER Data
+        const matches = uniqueSource.filter(item => 
           String(item).toLowerCase().includes(keyword)
         );
 
-        // 3. Render Hasil
+        // 4. RENDER HASIL (Tampilan List Bersih)
         if (matches.length > 0) {
           let html = '';
-          // Batasi tampilan maksimal 10 saran agar tidak kepanjangan
+          // Batasi tampilan maksimal 10 saran
           const limit = matches.length > 10 ? 10 : matches.length;
           
           for(let i=0; i<limit; i++) {
-            // Escape petik satu agar tidak error di onclick
             const valSafe = matches[i].replace(/'/g, "\\'"); 
-            html += `<div class="suggestion-item" onclick="pilihSaranUraian('${valSafe}')">
-                      <i class="fas fa-search text-secondary me-2 small"></i> ${matches[i]}
-                    </div>`;
+            
+            // UI ITEM: Sederhana, icon kecil, padding pas
+            html += `
+              <div class="suggestion-item border-bottom" onclick="pilihSaranUraian('${valSafe}')">
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-check-circle text-success me-2" style="font-size:0.8rem"></i>
+                  <span>${matches[i]}</span>
+                </div>
+              </div>`;
           }
           
           listEl.innerHTML = html;
+          
+          // POSISI MANUAL (Agar tidak merusak layout kontainer)
+          // Kita pastikan dia melayang di atas elemen lain
           listEl.style.display = 'block';
+          
         } else {
-          // Opsional: Tampilkan "Tidak ada data" atau sembunyikan
-          listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic">Data tidak ditemukan, lanjutkan mengetik...</div>';
-          listEl.style.display = 'block';
+          // Jika tidak ada data, SEMBUNYIKAN saja (jangan tampilkan kotak kosong/pesan error)
+          // Sesuai permintaan agar tidak terlihat seperti "kontainer" error
+          listEl.style.display = 'none';
         }
       }
 
