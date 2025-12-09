@@ -446,18 +446,25 @@ function checkSessionStatus(email, clientSessionToken) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
   
+  // Normalisasi email input
+  const targetEmail = email.trim().toLowerCase();
+
   for (let i = 1; i < data.length; i++) {
-    if (data[i][2] == email) {
-      const dbSession = data[i][5]; // Ambil Session ID di DB
+    const dbEmail = String(data[i][2]).toLowerCase();
+    
+    if (dbEmail === targetEmail) {
+      const dbSession = data[i][5]; // Kolom F (Session ID di DB)
       
-      // Jika Session di DB kosong (direset) ATAU beda dengan yang dipegang client
+      // Validasi:
+      // 1. Session ID di DB tidak boleh kosong
+      // 2. Session ID di DB harus SAMA PERSIS dengan yang dipegang Client
       if (!dbSession || dbSession !== clientSessionToken) {
         return { valid: false };
       }
       return { valid: true };
     }
   }
-  // Jika email tidak ketemu (misal dihapus admin), anggap tidak valid
+  // Jika email tidak ketemu
   return { valid: false };
 }
 
