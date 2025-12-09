@@ -25,7 +25,39 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/* --- FUNGSI REGISTRASI & LOGIN --- */
+/* --- HELPER KEAMANAN: HASH & SALT --- */
+
+/**
+ * Membuat Salt (kode acak unik) untuk setiap user
+ */
+function generateSalt() {
+  return Utilities.getUuid(); // Menggunakan UUID sebagai salt yang unik
+}
+
+/**
+ * Mengubah Password + Salt menjadi Hash SHA-256
+ */
+function hashPassword(password, salt) {
+  if (!password || !salt) return "";
+  
+  // Gabungkan password dengan salt
+  const raw = String(password) + String(salt);
+  
+  // Proses Hashing menggunakan SHA-256
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw);
+  
+  // Konversi byte array ke String Hexadecimal
+  let hash = "";
+  for (let i = 0; i < digest.length; i++) {
+    let byte = digest[i];
+    if (byte < 0) byte += 256; // Handle signed byte
+    let byteStr = byte.toString(16);
+    if (byteStr.length == 1) byteStr = "0" + byteStr;
+    hash += byteStr;
+  }
+  
+  return hash;
+}
 
 /* --- FUNGSI REGISTRASI (UPDATE: HAPUS RECOVERY CODE & SECURITY QUESTION) --- */
 function registerSchool(form) {
@@ -79,20 +111,24 @@ function registerSchool(form) {
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
 
+    // --- PROSES SECURITY ---
+    const salt = generateSalt(); // Buat Salt baru
+    const passwordHash = hashPassword(form.password, salt); // Hash password user
+
     // 3. SIMPAN DATA KE DATABASE MASTER (USER)
-    // Struktur: [Time, Nama, Email, Pass, DbID, SessionID, RecCode, Question, Answer]
-    // Kita kosongkan 3 kolom terakhir (RecCode, Question, Answer) karena sudah tidak dipakai.
+    // Struktur: [Time, Nama, Email, PassHash, DbID, SessionID, RecCode, SALT, Answer]
+    // Kita gunakan Kolom H (Index 7) untuk menyimpan SALT.
     
     ssMaster.appendRow([
       new Date(), 
       form.namaSekolah, 
       newEmailClean, 
-      form.password, 
+      passwordHash, // SIMPAN HASH, BUKAN PLAIN TEXT
       newDbId, 
       "",            
-      "", // Kolom G (Recovery Code) - DIKOSONGKAN
-      "", // Kolom H (Question ID) - DIKOSONGKAN
-      ""  // Kolom I (Answer) - DIKOSONGKAN
+      "", // Kolom G (Recovery Code)
+      salt, // Kolom H (DULU Question, SEKARANG JADI SALT)
+      ""  // Kolom I (Answer - Kosong)
     ]);
 
     return { 
@@ -223,8 +259,15 @@ function confirmResetOtp(form) {
       }
 
       // 3. SUKSES - UPDATE DATA
-      // Update Password (Kolom D / 4)
-      ssMaster.getRange(rowIdx, 4).setValue(newPass);
+      
+      const newSalt = generateSalt(); // Generate Salt Baru
+      const newHash = hashPassword(newPass, newSalt); // Hash Password Baru
+      
+      // Update Password Hash (Kolom D / 4)
+      ssMaster.getRange(rowIdx, 4).setValue(newHash);
+
+      // Update Salt (Kolom H / 8) -> PENTING: Simpan salt baru juga
+      ssMaster.getRange(rowIdx, 8).setValue(newSalt);
       
       // Update Last Reset Date (Kolom L / 12) -> Kunci agar tidak bisa reset lagi hari ini
       ssMaster.getRange(rowIdx, 12).setValue(todayDateObj);
@@ -263,7 +306,7 @@ function clearSessionCache(email) {
   cache.remove('SESI_' + email);
 }
 
-/* --- 1. LOGIN USER (OPTIMASI: TEXT FINDER) --- */
+/* --- 1. LOGIN USER (OPTIMASI: TEXT FINDER & SECURE HASH) --- */
 function loginUser(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   
@@ -280,13 +323,18 @@ function loginUser(form) {
   // Jika Email Ditemukan, ambil baris tersebut
   const rowIdx = found.getRow();
   
-  // Ambil data hanya pada baris user tersebut (Kolom A sampai G / 1 sampai 7)
-  // Struktur: [0:Time, 1:Nama, 2:Email, 3:Pass, 4:DbID, 5:SessionID, 6:RecoveryCode]
-  const userData = ssMaster.getRange(rowIdx, 1, 1, 7).getValues()[0];
+  // UPDATE: Ambil data sampai Kolom H (Index 8) karena Salt tersimpan di sana
+  // Struktur Array: [0:Time, 1:Nama, 2:Email, 3:PassHash, 4:DbID, 5:SessionID, 6:RecCode, 7:SALT]
+  const userData = ssMaster.getRange(rowIdx, 1, 1, 8).getValues()[0];
 
-  // Cek Password (userData[3])
-  // Pastikan konversi string agar aman
-  if (String(userData[3]) === String(form.password)) {
+  const storedHash = String(userData[3]); // Password di DB (sekarang Hash)
+  const storedSalt = String(userData[7]); // Salt di DB (Kolom H / Index 7)
+
+  // 1. Generate Hash dari inputan user saat ini menggunakan Salt yang ada di DB
+  const inputHash = hashPassword(form.password, storedSalt);
+
+  // 2. Bandingkan Hash Inputan dengan Hash Database
+  if (inputHash === storedHash) {
     
     const email = form.email;
     const cachedSession = getSessionCache(email);
@@ -335,7 +383,7 @@ function loginUser(form) {
     };
   }
   
-  // Jika Email ketemu tapi Password salah
+  // Jika Hash tidak cocok (Password Salah)
   return { status: 'error', message: 'Email atau Password salah!' };
 }
 
@@ -2416,4 +2464,31 @@ function testKirimEmailManual() {
     htmlBody: "Jika email ini masuk, berarti izin sudah oke."
   });
   console.log("Email berhasil dikirim");
+}
+
+function migrasiPasswordKeHash() {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  
+  // Mulai dari baris ke-2 (Index 1) karena baris 1 adalah Header
+  for (let i = 1; i < data.length; i++) {
+    const currentPass = String(data[i][3]); // Kolom D (Password)
+    const currentSalt = data[i][7];         // Kolom H (Salt)
+    
+    // Cek apakah data ini belum di-hash (misal: Salt-nya masih kosong)
+    // Asumsi: Password hash SHA-256 panjangnya 64 karakter. Jika < 64 kemungkinan masih plain text.
+    // Atau cek kolom Salt kosong.
+    if (!currentSalt || currentSalt === "" || currentPass.length < 64) {
+      
+      const salt = generateSalt();
+      const hash = hashPassword(currentPass, salt);
+      
+      // Simpan kembali ke Spreadsheet (Baris = i+1)
+      ssMaster.getRange(i + 1, 4).setValue(hash); // Update Kolom D (Password jadi Hash)
+      ssMaster.getRange(i + 1, 8).setValue(salt); // Update Kolom H (Isi Salt)
+      
+      Logger.log("Berhasil migrasi user: " + data[i][1]);
+    }
+  }
+  Logger.log("Migrasi Selesai.");
 }
