@@ -2530,3 +2530,43 @@ function migrasiPasswordKeHash() {
   }
   Logger.log("Migrasi Selesai.");
 }
+
+/* --- FUNGSI UBAH PASSWORD (USER LOGGED IN) --- */
+function changeUserPassword(form) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  
+  // 1. Cari User berdasarkan Email
+  const finder = ssMaster.getRange("C:C").createTextFinder(form.email).matchEntireCell(true);
+  const found = finder.findNext();
+
+  if (!found) {
+    return { status: 'error', message: 'User tidak ditemukan.' };
+  }
+
+  const rowIdx = found.getRow();
+  // Ambil data user saat ini [Time, Nama, Email, PassHash, DbID, SessionID, RecCode, SALT]
+  // Password Hash ada di kolom 4 (D), Salt ada di kolom 8 (H)
+  const userData = ssMaster.getRange(rowIdx, 1, 1, 8).getValues()[0];
+  
+  const storedHash = String(userData[3]); 
+  const storedSalt = String(userData[7]); 
+
+  // 2. Verifikasi Password Lama
+  const oldHashInput = hashPassword(form.oldPass, storedSalt);
+
+  if (oldHashInput !== storedHash) {
+    return { status: 'error', message: 'Password Lama salah!' };
+  }
+
+  // 3. Proses Ganti Password Baru
+  const newSalt = generateSalt();             // Buat Salt Baru
+  const newHash = hashPassword(form.newPass, newSalt); // Hash Password Baru dengan Salt Baru
+
+  // 4. Simpan ke Database
+  // Update Kolom D (Password Hash)
+  ssMaster.getRange(rowIdx, 4).setValue(newHash);
+  // Update Kolom H (Salt)
+  ssMaster.getRange(rowIdx, 8).setValue(newSalt);
+
+  return { status: 'success', message: 'Password berhasil diubah.' };
+}
