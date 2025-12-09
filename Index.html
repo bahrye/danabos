@@ -2594,11 +2594,13 @@
         show ? el.classList.remove('hidden') : el.classList.add('hidden');
       }
 
+      /* --- UPDATE PADA INDEX.HTML --- */
+
       function handleLogin(e) {
         e.preventDefault();
         toggleLoading(true);
         
-        const emailInput = document.getElementById('loginEmail').value; // Ambil email
+        const emailInput = document.getElementById('loginEmail').value; 
         const form = {
           email: emailInput,
           password: document.getElementById('loginPass').value
@@ -2608,22 +2610,45 @@
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res){
             toggleLoading(false);
+            
             if(res.status === 'success') {
-              // SIMPAN DATA SESI
+              // [PERBAIKAN 1] BERSIHKAN TOTAL DATA LAMA SEBELUM MENYIMPAN YANG BARU
+              // Ini mencegah data User A 'bocor' ke User B
+              localStorage.clear(); 
+              
+              // Reset Cache Global Variable ke kondisi awal (KOSONG)
+              DATA_CACHE = {
+                  toko: null, tukang: null, guru: null, uraian: null, satuan: null,
+                  transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null,
+                  sekolah: null, template_settings: null, dashboard: null
+              };
+              
+              // Reset Variabel Global lain
+              cacheDataGuru = [];
+              cacheSatuan = [];
+              cacheRefUraian = [];
+              cacheUserUraian = [];
+
+              // Reset Tampilan UI yang mungkin masih nyangkut
+              document.getElementById('schoolNameDisplay').innerText = "";
+              document.getElementById('dashNamaSekolah').innerText = "-";
+              
+              // [PERBAIKAN 2] BARU SIMPAN DATA USER BARU (USER B)
               localStorage.setItem('userToken', res.token);
               localStorage.setItem('userName', res.namaSekolah);
-              
-              // BARU: Simpan Email & Session Token
               localStorage.setItem('userEmail', emailInput);
               localStorage.setItem('sessionToken', res.sessionToken);
               
               const elName = document.getElementById('schoolNameDisplay');
               if(elName) elName.innerText = "(" + res.namaSekolah + ")";
               
+              // Pindah View
               switchView('view-admin');
-              loadDashboardStats(); 
               
-              // Mulai Pengecekan Sesi Otomatis
+              // Load Data Baru (Fresh dari Server milik User B)
+              loadDashboardStats(true); // Gunakan true untuk force refresh
+              
+              // Mulai Monitor Sesi
               startSessionMonitor();
 
             } else {
@@ -2787,20 +2812,31 @@
         }).then((result) => {
           if (result.isConfirmed) {
             const email = localStorage.getItem('userEmail');
-            const token = localStorage.getItem('sessionToken'); // Ambil token saat ini
+            const token = localStorage.getItem('sessionToken');
             
-            // Kasus 2 Teratasi:
-            // Kirim token ke server. Server akan cek:
-            // Jika Token A == Token DB -> Hapus DB (Logout bersih).
-            // Jika Token A != Token DB (karena sudah login B) -> Jangan hapus DB.
+            // Request Logout ke Server
             if(email && token) google.script.run.logoutUserServer(email, token);
 
-            // Bersihkan data lokal (Apapun yang terjadi di server, lokal harus bersih)
-            localStorage.clear();
-            clearInterval(sessionInterval);
+            // --- PEMBERSIHAN TOTAL CLIENT SIDE ---
+            localStorage.clear(); // Hapus Storage
             
-            if (typeof cacheDataGuru !== 'undefined') cacheDataGuru = [];
+            // Reset Cache Variable
+            DATA_CACHE = {
+                toko: null, tukang: null, guru: null, uraian: null, satuan: null,
+                transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null,
+                sekolah: null, template_settings: null, dashboard: null
+            };
+            cacheDataGuru = [];
+            cacheSatuan = [];
+            
+            // Hentikan interval cek sesi
+            if(sessionInterval) clearInterval(sessionInterval);
+            
+            // Reset Form UI
             document.getElementById('formLogin').reset();
+            document.getElementById('schoolNameDisplay').innerText = "";
+            
+            // Pindah ke Login
             switchView('view-login');
             
             Swal.fire({
@@ -6024,35 +6060,56 @@
       }
 
       // 3. Tambahkan pemanggilan initFilterTahun di window.onload
-      /* --- GABUNGAN WINDOW.ONLOAD (Login Check + Session + Filter) --- */
       window.onload = function() {
-        
-        // 1. Jalankan Inisialisasi Filter Tahun (PENTING: Agar dropdown tahun terisi)
+        // 1. Jalankan Inisialisasi Filter
         initFilterTahun(); 
 
-        // 2. Ambil Data dari LocalStorage
+        // 2. Ambil Data LocalStorage
         const token = localStorage.getItem('userToken');
-        const sessionToken = localStorage.getItem('sessionToken'); // Cek token sesi baru
+        const sessionToken = localStorage.getItem('sessionToken');
+        const email = localStorage.getItem('userEmail');
 
-        // 3. Logika Pengecekan Login
-        if(token && sessionToken) {
-          // --- JIKA SUDAH LOGIN ---
-          switchView('view-admin');
+        // 3. Logika Pengecekan Login Lebih Ketat
+        if(token && sessionToken && email) {
           
-          const savedName = localStorage.getItem('userName');
-          if(savedName) {
-            const elName = document.getElementById('schoolNameDisplay');
-            if(elName) elName.innerText = "(" + savedName + ")";
-          }
-          
-          // Load data dashboard
-          loadDashboardStats(); 
-          
-          // [BARU] Jalankan Monitor Sesi Otomatis
-          startSessionMonitor(); 
-          
+          // Tampilkan loading sebentar sambil memverifikasi sesi
+          toggleLoading(true);
+
+          // Verifikasi ke Server apakah sesi ini masih valid?
+          google.script.run
+            .withSuccessHandler(function(res) {
+              toggleLoading(false);
+              
+              if (res.valid) {
+                  // JIKA VALID: Lanjut masuk
+                  switchView('view-admin');
+                  const savedName = localStorage.getItem('userName');
+                  if(savedName) document.getElementById('schoolNameDisplay').innerText = "(" + savedName + ")";
+                  
+                  loadDashboardStats(); 
+                  startSessionMonitor();
+              } else {
+                  // JIKA TIDAK VALID (Misal: Double Login / Expired):
+                  // Hapus semua data lokal agar User B tidak melihat data User A
+                  localStorage.clear();
+                  document.getElementById('formLogin').reset();
+                  switchView('view-login');
+                  
+                  // Opsional: Beritahu user
+                  // console.log("Sesi kadaluarsa atau invalid, kembali ke login.");
+              }
+            })
+            .withFailureHandler(function() {
+              toggleLoading(false);
+              // Jika server error/offline, aman-nya logout kan saja
+              localStorage.clear();
+              switchView('view-login');
+            })
+            .checkSessionStatus(email, sessionToken); // <-- Panggil fungsi baru di Server (lihat poin 3)
+            
         } else {
-          // --- JIKA BELUM LOGIN ---
+          // JIKA BELUM LOGIN
+          localStorage.clear(); // Pastikan bersih
           switchView('view-login');
         }
       };
