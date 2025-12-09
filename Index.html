@@ -194,7 +194,7 @@
         border-top: none; /* Menyatu dengan input */
         border-radius: 0 0 8px 8px; /* Sudut bawah membulat */
         
-        max-height: 250px;
+        max-height: 300px;
         overflow-y: auto;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15); /* Shadow melayang (floating effect) */
         font-size: 0.9rem;
@@ -6122,32 +6122,50 @@
         const keyword = el.value.toLowerCase();
         const listEl = document.getElementById('listSaranUraian');
         
-        // 1. Validasi: Minimal 3 huruf, jika kurang sembunyikan list
-        if (keyword.length < 3) {
+        // 1. Validasi: Minimal 2 huruf (biar lebih responsif)
+        if (keyword.length < 2) {
           listEl.style.display = 'none';
           return;
         }
 
-        // 2. GABUNGKAN DATA: Master Referensi + Riwayat User (Unik/Tidak Dobel)
-        // Ini mencegah hasil kosong jika salah satu sumber belum ada datanya
+        // 2. GABUNGKAN DATA
         const rawCombined = [...cacheRefUraian, ...cacheUserUraian];
-        const uniqueSource = [...new Set(rawCombined)]; // Hapus duplikat
+        const uniqueSource = [...new Set(rawCombined)]; 
 
         // 3. FILTER Data
-        const matches = uniqueSource.filter(item => 
+        let matches = uniqueSource.filter(item => 
           String(item).toLowerCase().includes(keyword)
         );
 
-        // 4. RENDER HASIL (Tampilan List Bersih)
+        // --- TAMBAHAN BARU: SORTING CLIENT SIDE ---
+        matches.sort((a, b) => {
+          const valA = String(a).toLowerCase();
+          const valB = String(b).toLowerCase();
+
+          // Prioritas 1: Sama persis
+          if (valA === keyword && valB !== keyword) return -1;
+          if (valB === keyword && valA !== keyword) return 1;
+
+          // Prioritas 2: Diawali keyword
+          const startA = valA.startsWith(keyword);
+          const startB = valB.startsWith(keyword);
+          if (startA && !startB) return -1;
+          if (!startA && startB) return 1;
+
+          // Prioritas 3: Panjang String (Lebih pendek lebih dulu)
+          return valA.length - valB.length;
+        });
+        // ------------------------------------------
+
+        // 4. RENDER HASIL
         if (matches.length > 0) {
           let html = '';
-          // Batasi tampilan maksimal 10 saran
-          const limit = matches.length > 10 ? 10 : matches.length;
+          // NAIKKAN BATAS TAMPILAN client side juga (misal jadi 20)
+          const limit = matches.length > 20 ? 20 : matches.length;
           
           for(let i=0; i<limit; i++) {
             const valSafe = matches[i].replace(/'/g, "\\'"); 
             
-            // UI ITEM: Sederhana, icon kecil, padding pas
             html += `
               <div class="suggestion-item border-bottom" onclick="pilihSaranUraian('${valSafe}')">
                 <div class="d-flex align-items-center">
@@ -6158,14 +6176,9 @@
           }
           
           listEl.innerHTML = html;
-          
-          // POSISI MANUAL (Agar tidak merusak layout kontainer)
-          // Kita pastikan dia melayang di atas elemen lain
           listEl.style.display = 'block';
           
         } else {
-          // Jika tidak ada data, SEMBUNYIKAN saja (jangan tampilkan kotak kosong/pesan error)
-          // Sesuai permintaan agar tidak terlihat seperti "kontainer" error
           listEl.style.display = 'none';
         }
       }
