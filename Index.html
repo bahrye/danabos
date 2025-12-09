@@ -2065,7 +2065,6 @@
           <div id="panel-data-sekolah" class="panel-content hidden">
             <div class="d-flex justify-content-between align-items-center mb-4">
               <h2><i class="fas fa-school text-primary"></i> Data Sekolah</h2>
-              <button class="btn btn-primary" onclick="submitDataSekolah()"><i class="fas fa-save"></i> Simpan Data</button>
             </div>
 
             <div class="mt-4 pt-3 border-top">
@@ -2236,7 +2235,8 @@
         transaksi_guru: null,
         // Tambahan Cache Sekolah
         sekolah: null,
-        template_settings: null
+        template_settings: null,
+        dashboard: null
       };
 
       // Variabel untuk menyimpan input mana yang sedang diketik user
@@ -2707,15 +2707,22 @@
 
         toggleLoading(true);
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          toggleLoading(false);
+          toggleLoading(false); // 1. Loading dimatikan disini
+          
           if (res.status === 'success') {
-            // --- UPDATE PENTING: INVALIDATE CACHE ---
-            // Agar jika user buka menu ini lagi, datanya sudah terupdate
+            // --- UPDATE CACHE ---
             DATA_CACHE.sekolah = null;
-            loadDataSekolah(true); // Opsional: Reload form dengan data baru
-            // ----------------------------------------
+            DATA_CACHE.dashboard = null;
+            
+            // --- PERBAIKAN DISINI ---
+            // HAPUS atau KOMENTARI baris: loadDataSekolah(true);
+            // Alasannya: Baris ini memancing spinner loading muncul lagi. 
+            // Karena form sudah berisi data terbaru yang baru saja diketik user, kita tidak perlu reload.
+            
+            // loadDataSekolah(true);  <-- HAPUS INI
             
             Swal.fire('Sukses', 'Data Sekolah berhasil disimpan!', 'success');
+            
           } else {
             Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', html: res.message });
           }
@@ -3957,6 +3964,7 @@
                 
                 // --- UPDATE PENTING: INVALIDATE CACHE ---
                 DATA_CACHE['transaksi_' + tipe] = null;
+                DATA_CACHE.dashboard = null;
                 // ---------------------------------------
 
                 loadTransaksiData(tipe.toUpperCase());
@@ -4042,6 +4050,7 @@
             
             // --- UPDATE PENTING: INVALIDATE CACHE TRANSAKSI ---
             DATA_CACHE['transaksi_' + tipe] = null; 
+            DATA_CACHE.dashboard = null;
             // -------------------------------------------------
 
             batalEditTransaksi(tipe); 
@@ -5394,86 +5403,102 @@
         return parseFloat(bersih) || 0;
       }
 
-      /* --- LOGIKA DASHBOARD (UPDATE LENGKAP) --- */
+      /* --- FUNGSI DASHBOARD (UPDATE CACHE) --- */
 
-      function loadDashboardStats() {
+      // 1. Fungsi Utama Load Dashboard
+      function loadDashboardStats(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         
-        // Update hanya elemen yang masih ada (Anggaran)
-        // HAPUS baris: document.getElementById('displayRecCode').innerText = '...';
+        // A. CEK CACHE: Jika data ada & tidak dipaksa refresh
+        if (!forceRefresh && DATA_CACHE.dashboard) {
+          console.log("Dashboard data loaded from Cache.");
+          renderDashboardStats(DATA_CACHE.dashboard);
+          return;
+        }
+
+        // B. TAMPILKAN LOADING (Hanya jika mengambil data baru dari server)
         document.getElementById('dashAnggaran').innerText = '...';
+        document.getElementById('dashPengeluaran').innerText = '...';
+        document.getElementById('dashSisa').innerText = '...';
+        document.getElementById('dashJmlTrans').innerText = '...';
         
+        // C. AMBIL DARI SERVER
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            const d = res.data;
-            const p = d.profile || {}; // Data Profil Sekolah
-
-            // 1. Render Statistik
-            const anggaran = parseFloat(d.anggaran) || 0;
-            const pengeluaran = parseFloat(d.pengeluaran) || 0;
-            const jmlTrans = d.jumlahTransaksi || 0;
-            const sisa = anggaran - pengeluaran;
-
-            document.getElementById('dashAnggaran').innerText = formatRupiahJS(anggaran);
-            document.getElementById('dashPengeluaran').innerText = formatRupiahJS(pengeluaran);
-            document.getElementById('dashSisa').innerText = formatRupiahJS(sisa);
-            document.getElementById('dashJmlTrans').innerText = jmlTrans + " Item";
-
-            // Pewarnaan Kartu Sisa
-            const cardSisa = document.getElementById('cardSisaAnggaran');
-            const titleSisa = cardSisa.querySelector('h6');
-            const iconSisa = cardSisa.querySelector('i');
-            const angkaSisa = cardSisa.querySelector('h3');
-            const ketSisa = cardSisa.querySelector('small');
+            // Simpan ke Cache
+            DATA_CACHE.dashboard = res.data;
             
-            // Reset class dasar
-            cardSisa.className = 'card p-3 shadow-sm h-100'; 
-
-            if (sisa > 0) {
-              cardSisa.style.backgroundColor = '#ffc107'; 
-              if(titleSisa) titleSisa.className = 'mb-0 text-dark fw-bold opacity-75';
-              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-dark opacity-50';
-              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-dark';
-              if(ketSisa)   ketSisa.className = 'text-dark opacity-75';
-            } else if (sisa === 0) {
-              cardSisa.style.backgroundColor = '#198754';
-              if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
-              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
-              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
-              if(ketSisa)   ketSisa.className = 'text-white-50';
-            } else {
-              cardSisa.style.backgroundColor = '#dc3545';
-              if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
-              if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
-              if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
-              if(ketSisa)   ketSisa.className = 'text-white-50';
-            }
-
-            // 2. Render Profil Sekolah
-            document.getElementById('dashNamaSekolah').innerText = p.nama || '-';
-            document.getElementById('dashNpsn').innerText = p.npsn || '-';
-            document.getElementById('dashNsm').innerText = p.nsm || '-';
-            document.getElementById('dashAlamat').innerText = p.alamat || '-';
-            
-            document.getElementById('dashKelurahan').innerText = p.kelurahan || '-';
-            document.getElementById('dashKecamatan').innerText = p.kecamatan || '-';
-            
-            let kabProv = p.kabupaten || '-';
-            if(p.provinsi) kabProv += ' - ' + p.provinsi;
-            document.getElementById('dashKabupaten').innerText = kabProv;
-
-            document.getElementById('dashTelp').innerText = p.noTelp || '-';
-            document.getElementById('dashEmail').innerText = p.email || '-';
-            
-            document.getElementById('dashKepala').innerText = p.kepala || '-';
-            document.getElementById('dashNipKepala').innerText = p.nipKepala || '-';
-            document.getElementById('dashBendahara').innerText = p.bendahara || '-';
-            document.getElementById('dashNipBendahara').innerText = p.nipBendahara || '-';
-
-            // --- BAGIAN LOGIKA KODE PEMULIHAN TELAH DIHAPUS ---
-            // (Karena Anda sudah tidak menggunakannya)
+            // Tampilkan Data
+            renderDashboardStats(res.data);
           }
         }).getDashboardStats(token);
+      }
+
+      // 2. Fungsi Helper Render (Memisahkan tampilan dari logika load)
+      function renderDashboardStats(d) {
+        const p = d.profile || {}; // Data Profil Sekolah
+
+        // Render Statistik
+        const anggaran = parseFloat(d.anggaran) || 0;
+        const pengeluaran = parseFloat(d.pengeluaran) || 0;
+        const jmlTrans = d.jumlahTransaksi || 0;
+        const sisa = anggaran - pengeluaran;
+
+        document.getElementById('dashAnggaran').innerText = formatRupiahJS(anggaran);
+        document.getElementById('dashPengeluaran').innerText = formatRupiahJS(pengeluaran);
+        document.getElementById('dashSisa').innerText = formatRupiahJS(sisa);
+        document.getElementById('dashJmlTrans').innerText = jmlTrans + " Item";
+
+        // Pewarnaan Kartu Sisa
+        const cardSisa = document.getElementById('cardSisaAnggaran');
+        const titleSisa = cardSisa.querySelector('h6');
+        const iconSisa = cardSisa.querySelector('i');
+        const angkaSisa = cardSisa.querySelector('h3');
+        const ketSisa = cardSisa.querySelector('small');
+        
+        // Reset class dasar
+        cardSisa.className = 'card p-3 shadow-sm h-100'; 
+
+        if (sisa > 0) {
+          cardSisa.style.backgroundColor = '#ffc107'; 
+          if(titleSisa) titleSisa.className = 'mb-0 text-dark fw-bold opacity-75';
+          if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-dark opacity-50';
+          if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-dark';
+          if(ketSisa)   ketSisa.className = 'text-dark opacity-75';
+        } else if (sisa === 0) {
+          cardSisa.style.backgroundColor = '#198754';
+          if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
+          if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
+          if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
+          if(ketSisa)   ketSisa.className = 'text-white-50';
+        } else {
+          cardSisa.style.backgroundColor = '#dc3545';
+          if(titleSisa) titleSisa.className = 'mb-0 text-white-50';
+          if(iconSisa)  iconSisa.className = 'fas fa-chart-pie fa-lg text-white opacity-50';
+          if(angkaSisa) angkaSisa.className = 'fw-bold mb-0 text-white';
+          if(ketSisa)   ketSisa.className = 'text-white-50';
+        }
+
+        // Render Profil Sekolah
+        document.getElementById('dashNamaSekolah').innerText = p.nama || '-';
+        document.getElementById('dashNpsn').innerText = p.npsn || '-';
+        document.getElementById('dashNsm').innerText = p.nsm || '-';
+        document.getElementById('dashAlamat').innerText = p.alamat || '-';
+        
+        document.getElementById('dashKelurahan').innerText = p.kelurahan || '-';
+        document.getElementById('dashKecamatan').innerText = p.kecamatan || '-';
+        
+        let kabProv = p.kabupaten || '-';
+        if(p.provinsi) kabProv += ' - ' + p.provinsi;
+        document.getElementById('dashKabupaten').innerText = kabProv;
+
+        document.getElementById('dashTelp').innerText = p.noTelp || '-';
+        document.getElementById('dashEmail').innerText = p.email || '-';
+        
+        document.getElementById('dashKepala').innerText = p.kepala || '-';
+        document.getElementById('dashNipKepala').innerText = p.nipKepala || '-';
+        document.getElementById('dashBendahara').innerText = p.bendahara || '-';
+        document.getElementById('dashNipBendahara').innerText = p.nipBendahara || '-';
       }
 
       /* --- LOGIKA MENU CETAK PDF --- */
