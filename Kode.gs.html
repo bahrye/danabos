@@ -2165,7 +2165,7 @@ function ensureColumn(sheet, headerName) {
 
 /**
  * Fungsi ini mendefinisikan struktur kolom yang WAJIB ada di setiap sheet.
- * Jika kode Anda berkembang, tambahkan nama kolom baru di sini.
+ * UPDATE: Menambahkan sheet referensi (Satuan & Data Barang) agar ikut disinkronisasi.
  */
 const DB_SCHEMA = {
   'DataSekolah': [
@@ -2194,6 +2194,16 @@ const DB_SCHEMA = {
   ],
   'DataPengaturan': [
     "KEY", "VALUE"
+  ],
+  // --- TAMBAHAN BARU UNTUK REFERENSI ---
+  'Satuan': [
+    "Nama Satuan", "Kategori", "Contoh Penggunaan"
+  ],
+  'Data Barang': [
+    "Nama Barang", "Satuan", "Harga Referensi" 
+  ],
+  'Uraian': [
+    "Daftar Referensi Uraian" // Header tunggal untuk master uraian
   ]
 };
 
