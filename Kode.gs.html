@@ -27,77 +27,62 @@ function doGet(e) {
 
 /* --- FUNGSI REGISTRASI & LOGIN --- */
 
-/* --- FUNGSI REGISTRASI (UPDATE: VALIDASI KETAT NAMA & EMAIL) --- */
+/* --- FUNGSI REGISTRASI (UPDATE: HAPUS RECOVERY CODE & SECURITY QUESTION) --- */
 function registerSchool(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
   
-  // Normalisasi nama sekolah yang baru didaftarkan
+  // Normalisasi nama sekolah & email
   const newSchoolNameClean = normalizeName(form.namaSekolah);
   const newEmailClean = form.email.trim().toLowerCase();
 
   // LOOP CEK DUPLIKASI
   for (let i = 1; i < data.length; i++) {
-    const existingNameRaw = data[i][1]; // Kolom Nama Sekolah
-    const existingEmail = data[i][2];   // Kolom Email
+    const existingNameRaw = data[i][1]; 
+    const existingEmail = data[i][2];   
     
-    // 1. Validasi Email
     if (String(existingEmail).toLowerCase() === newEmailClean) {
-      return { status: 'error', message: '<b>Email sudah terdaftar!</b><br>Silakan gunakan email lain atau lakukan reset password.' };
+      return { status: 'error', message: '<b>Email sudah terdaftar!</b><br>Silakan login atau reset password.' };
     }
 
-    // 2. Validasi Nama Sekolah (Fuzzy Match)
     const existingNameClean = normalizeName(existingNameRaw);
-    
     if (existingNameClean === newSchoolNameClean) {
       return { 
         status: 'error', 
-        message: '<b>Sekolah Sudah Terdaftar!</b><br>Nama sekolah: "'+ form.namaSekolah +'" terdeteksi mirip dengan data yang sudah ada ("'+ existingNameRaw +'").<br>Satu sekolah hanya boleh memiliki satu akun.' 
+        message: '<b>Sekolah Sudah Terdaftar!</b><br>Nama sekolah: "'+ form.namaSekolah +'" mirip dengan data yang sudah ada.' 
       };
     }
   }
 
   try {
-    // 1. Ambil Folder Utama
+    // 1. Setup Folder & File Sekolah
     const parentFolder = DriveApp.getFolderById(CONFIG.MASTER_PARENT_FOLDER_ID);
-
-    // 2. Buat Folder [Nama Sekolah]
     const schoolFolder = parentFolder.createFolder(form.namaSekolah);
-    const schoolFolderId = schoolFolder.getId();
-
-    // 3. Buat Sub-Folder
+    
     const folderKop = schoolFolder.createFolder("Kop Sekolah");
     const folderGenerate = schoolFolder.createFolder("File Generate");
 
-    // 4. Copy Template DB
     const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DB_ID);
     const newDbFile = templateFile.makeCopy('DB LPJ - ' + form.namaSekolah, schoolFolder);
     const newDbId = newDbFile.getId();
 
-    // 5. Set Permission
     newDbFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
 
-    // 6. SIMPAN ID FOLDER KE DATABASE SEKOLAH
+    // 2. Simpan Config Folder di Database Sekolah Baru
     const ssNew = SpreadsheetApp.openById(newDbId);
     let sheetSet = ssNew.getSheetByName('DataPengaturan');
     if (!sheetSet) {
       sheetSet = ssNew.insertSheet('DataPengaturan');
       sheetSet.appendRow(['KEY', 'VALUE']);
     }
-
-    sheetSet.appendRow(['FOLDER_SEKOLAH_ID', schoolFolderId]);
+    sheetSet.appendRow(['FOLDER_SEKOLAH_ID', schoolFolder.getId()]);
     sheetSet.appendRow(['FOLDER_KOP_ID', folderKop.getId()]);
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
 
-    // 7. Generate Kode Pemulihan Unik (Biarkan tetap ada sebagai cadangan)
-    const recoveryCode = "REC-" + Utilities.getUuid().slice(0, 8).toUpperCase();
-
-    // 8. SIMPAN DATA KE DATABASE
-    // Struktur Baru: [Time, Nama, Email, Pass, DbID, SessionID, RecoveryCode, QUESTION, ANSWER]
+    // 3. SIMPAN DATA KE DATABASE MASTER (USER)
+    // Struktur: [Time, Nama, Email, Pass, DbID, SessionID, RecCode, Question, Answer]
+    // Kita kosongkan 3 kolom terakhir (RecCode, Question, Answer) karena sudah tidak dipakai.
     
-    const cleanSecret = form.securityAnswer ? form.securityAnswer.toString().trim().toLowerCase() : "-";
-    const questionId = form.securityQuestion || "-"; // Simpan ID pertanyaannya
-
     ssMaster.appendRow([
       new Date(), 
       form.namaSekolah, 
@@ -105,61 +90,154 @@ function registerSchool(form) {
       form.password, 
       newDbId, 
       "",            
-      recoveryCode,   
-      questionId,     // <--- KOLOM H (Index 7): ID Pertanyaan
-      cleanSecret     // <--- KOLOM I (Index 8): Jawaban
+      "", // Kolom G (Recovery Code) - DIKOSONGKAN
+      "", // Kolom H (Question ID) - DIKOSONGKAN
+      ""  // Kolom I (Answer) - DIKOSONGKAN
     ]);
 
     return { 
       status: 'success', 
-      message: 'Registrasi berhasil!', 
-      recoveryCode: recoveryCode
+      message: 'Registrasi berhasil! Silakan login.' 
     };
 
   } catch (e) {
-    const pesan = beautifyError(
-      "Gagal Mendaftarkan Sekolah", 
-      e, 
-      "Cek koneksi internet atau hubungi Admin."
-    );
+    const pesan = beautifyError("Gagal Registrasi", e, "Hubungi Admin.");
     return { status: 'error', message: pesan };
   }
 }
 
-/* --- UPDATE: RESET PASSWORD DENGAN PERTANYAAN & JAWABAN --- */
-function resetPasswordByQuestion(form) {
+/* --- FITUR RESET PASSWORD OTP (NEW) --- */
+
+/**
+ * Tahap 1: Request OTP
+ * - Cek Email
+ * - Cek Batas Harian (Maks 1x per hari)
+ * - Generate OTP & Kirim Email
+ */
+/* --- UPDATE: REQUEST OTP DENGAN VALIDASI 1X KIRIM --- */
+function requestResetOtp(emailInput) {
+  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+  const data = ssMaster.getDataRange().getValues();
+  const targetEmail = emailInput.trim().toLowerCase();
+  
+  const today = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
+  const now = new Date();
+
+  for (let i = 1; i < data.length; i++) {
+    const dbEmail = String(data[i][2]).toLowerCase(); // Kolom C (Index 2)
+    
+    if (dbEmail === targetEmail) {
+      const rowIdx = i + 1;
+      
+      // 1. CEK BATAS SUKSES RESET HARIAN (Kolom L / Index 11)
+      const lastReset = data[i][11]; 
+      let lastResetDate = "";
+      if (lastReset) {
+         lastResetDate = Utilities.formatDate(new Date(lastReset), "GMT+7", "yyyy-MM-dd");
+      }
+
+      if (lastResetDate === today) {
+        return { 
+          status: 'error', 
+          message: '<b>Batas Terlampaui!</b><br>Anda sudah berhasil mereset password hari ini.<br>Akses reset dibatasi 1 kali per 24 jam.' 
+        };
+      }
+
+      // 2. [BARU] CEK APAKAH SUDAH ADA OTP AKTIF (BELUM DIPAKAI)
+      const existingOtp = data[i][9];       // Kolom J (Index 9)
+      const existingExpiry = data[i][10];   // Kolom K (Index 10)
+      
+      // Jika ada OTP, DAN belum kadaluarsa
+      if (existingOtp && existingOtp !== "" && existingExpiry && new Date(existingExpiry) > now) {
+         return { 
+          status: 'error', 
+          message: '<b>Kode OTP Sudah Dikirim!</b><br>Sistem mendeteksi kode OTP aktif telah dikirim ke email ini dan belum kadaluarsa.<br><br>Silakan cek Inbox/Spam Anda, atau gunakan menu <b>"Sudah punya kode?"</b> untuk memasukkan kode tersebut.' 
+        };
+      }
+
+      // --- JIKA LOLOS VALIDASI, BARU GENERATE BARU ---
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6 Digit
+      const expiryTime = new Date(now.getTime() + (24 * 60 * 60 * 1000)); // +24 Jam
+      
+      // Simpan ke DB (Kolom J & K)
+      ssMaster.getRange(rowIdx, 10).setValue(otpCode);
+      ssMaster.getRange(rowIdx, 11).setValue(expiryTime);
+
+      try {
+        MailApp.sendEmail({
+          to: targetEmail,
+          subject: "[LPJ BOS] Kode Verifikasi Reset Password",
+          htmlBody: `
+            <h3>Permintaan Reset Password</h3>
+            <p>Kode OTP Anda adalah:</p>
+            <h1 style="background:#f4f4f4; padding:10px 20px; display:inline-block; letter-spacing:5px; border-radius:5px;">${otpCode}</h1>
+            <p>Kode berlaku 24 jam. Jangan berikan kode ini ke siapapun.</p>
+          `
+        });
+      } catch (e) {
+        return { status: 'error', message: 'Gagal kirim email: ' + e.toString() };
+      }
+
+      return { status: 'success', message: 'Kode OTP telah dikirim ke email Anda.' };
+    }
+  }
+
+  return { status: 'error', message: 'Email tidak terdaftar.' };
+}
+
+/**
+ * Tahap 2: Verifikasi OTP & Ganti Password
+ * - Cek Kesesuaian OTP
+ * - Cek Expiry OTP
+ * - Update Password
+ * - Update Last Reset Date (Untuk kunci harian)
+ */
+function confirmResetOtp(form) {
   const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
   const data = ssMaster.getDataRange().getValues();
   
-  const emailTarget = form.email.trim().toLowerCase();
-  const questionTarget = form.question; // ID Pertanyaan yang dipilih saat reset
-  const answerTarget = form.answer.trim().toLowerCase(); 
+  const targetEmail = form.email.trim().toLowerCase();
+  const inputOtp = String(form.otp).trim();
+  const newPass = form.newPassword;
   
+  const todayDateObj = new Date(); // Waktu sekarang untuk update last reset
+
   for (let i = 1; i < data.length; i++) {
     const dbEmail = String(data[i][2]).toLowerCase();
     
-    if (dbEmail === emailTarget) {
-      // Ambil Data dari DB
-      const dbQuestion = String(data[i][7] || ""); // Kolom H
-      const dbAnswer = String(data[i][8] || "").toLowerCase(); // Kolom I
+    if (dbEmail === targetEmail) {
+      const rowIdx = i + 1;
       
-      // 1. Cek Apakah Pertanyaannya Cocok?
-      if (dbQuestion !== questionTarget) {
-        return { status: 'error', message: 'Jenis pertanyaan keamanan tidak sesuai dengan yang Anda daftarkan.' };
+      const dbOtp = String(data[i][9]); // Kolom J
+      const dbExpiry = new Date(data[i][10]); // Kolom K
+
+      // 1. Validasi OTP Kosong/Salah
+      if (!dbOtp || dbOtp === "" || dbOtp !== inputOtp) {
+        return { status: 'error', message: 'Kode OTP salah.' };
       }
 
-      // 2. Cek Apakah Jawabannya Cocok?
-      if (dbAnswer === answerTarget) {
-        // Update Password
-        ssMaster.getRange(i + 1, 4).setValue(form.newPassword);
-        return { status: 'success', message: 'Verifikasi Berhasil! Password telah diubah.' };
-      } else {
-        return { status: 'error', message: 'Jawaban keamanan salah.' };
+      // 2. Validasi Kadaluarsa (24 Jam)
+      if (new Date() > dbExpiry) {
+        return { status: 'error', message: 'Kode OTP sudah kadaluarsa. Silakan minta kode baru.' };
       }
+
+      // 3. SUKSES - UPDATE DATA
+      // Update Password (Kolom D / 4)
+      ssMaster.getRange(rowIdx, 4).setValue(newPass);
+      
+      // Update Last Reset Date (Kolom L / 12) -> Kunci agar tidak bisa reset lagi hari ini
+      ssMaster.getRange(rowIdx, 12).setValue(todayDateObj);
+
+      // Hapus OTP agar tidak bisa dipakai ulang (Opsional, tapi secure)
+      ssMaster.getRange(rowIdx, 10).setValue(""); 
+      ssMaster.getRange(rowIdx, 11).setValue("");
+
+      return { status: 'success', message: 'Password berhasil diubah! Silakan login.' };
     }
   }
   
-  return { status: 'error', message: 'Email tidak ditemukan.' };
+  return { status: 'error', message: 'Terjadi kesalahan sistem. Akun tidak ditemukan.' };
 }
 
 /* --- KONFIGURASI SESI --- */
@@ -2298,31 +2376,6 @@ function normalizeName(name) {
     .replace(/[^a-z0-9]/g, ''); // Hapus simbol (titik, koma, strip, dll)
 }
 
-/* --- FUNGSI RESET PASSWORD (METODE RECOVERY CODE) --- */
-function resetPasswordWithCode(form) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
-  
-  const emailTarget = form.email.trim().toLowerCase();
-  const codeTarget = form.code.trim().toUpperCase(); // Pastikan format sama
-  
-  for (let i = 1; i < data.length; i++) {
-    const dbEmail = String(data[i][2]).toLowerCase();
-    const dbCode = String(data[i][6]).toUpperCase(); // Ambil dari kolom G (Index 6)
-    
-    // Cek kecocokan Email DAN Kode Pemulihan
-    if (dbEmail === emailTarget && dbCode === codeTarget) {
-      
-      // Update Password (Kolom D / Index 3)
-      ssMaster.getRange(i + 1, 4).setValue(form.newPassword);
-      
-      return { status: 'success', message: 'Password berhasil diubah! Silakan login dengan password baru.' };
-    }
-  }
-  
-  return { status: 'error', message: 'Email atau Kode Pemulihan salah!' };
-}
-
 /* --- FUNGSI GENERATE RECOVERY CODE SUSULAN (UNTUK AKUN LAMA) --- */
 function generateRecoveryCodeOnly(token) {
   try {
@@ -2353,4 +2406,14 @@ function generateRecoveryCodeOnly(token) {
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
+}
+
+function testKirimEmailManual() {
+  // Ganti dengan email Anda sendiri untuk tes
+  MailApp.sendEmail({
+    to: "emailanda@gmail.com", 
+    subject: "Tes Izin Script",
+    htmlBody: "Jika email ini masuk, berarti izin sudah oke."
+  });
+  console.log("Email berhasil dikirim");
 }
