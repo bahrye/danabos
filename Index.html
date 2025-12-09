@@ -123,7 +123,20 @@
       .cursor-pointer { cursor: pointer; }
       
       /* Loading Overlay */
-      .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+      /* --- UPDATE CSS (Cari class .loading-overlay) --- */
+      .loading-overlay { 
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%; 
+        background: rgba(255,255,255,0.9); /* Sedikit lebih pekat agar tulisan terbaca */
+        z-index: 9999; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        flex-direction: column; /* TAMBAHKAN INI: Agar teks turun ke bawah */
+      }
 
       /* --- STYLE TAB CUSTOM --- */
       /* Keadaan Tidak Aktif (Default) */
@@ -375,9 +388,10 @@
     <div id="global-satuan-list" class="suggestion-list" style="display:none; position: absolute; z-index: 9999;"></div>
 
     <div id="loading" class="loading-overlay hidden">
-      <div class="spinner-border text-primary" role="status">
+      <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
         <span class="visually-hidden">Loading...</span>
       </div>
+      <h5 id="loadingText" class="fw-bold text-secondary">Memuat...</h5>
     </div>
 
     <div id="view-login" class="container view-section">
@@ -2589,16 +2603,28 @@
         }
       };
 
-      function toggleLoading(show) {
+      /**
+       * Fungsi Loading dengan Pesan Dinamis
+       * @param {boolean} show - Tampilkan (true) atau Sembunyikan (false)
+       * @param {string} text - (Opsional) Pesan teks yang ingin ditampilkan
+       */
+      function toggleLoading(show, text = "Memuat...") {
         const el = document.getElementById('loading');
-        show ? el.classList.remove('hidden') : el.classList.add('hidden');
+        const txtEl = document.getElementById('loadingText');
+        
+        if (show) {
+          if(txtEl) txtEl.innerText = text; // Set teks sesuai permintaan
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
       }
 
       /* --- UPDATE PADA INDEX.HTML --- */
 
       function handleLogin(e) {
         e.preventDefault();
-        toggleLoading(true);
+        toggleLoading(true, "Memverifikasi Akun...");
         
         const emailInput = document.getElementById('loginEmail').value; 
         const form = {
@@ -6059,57 +6085,44 @@
         }
       }
 
-      // 3. Tambahkan pemanggilan initFilterTahun di window.onload
+      /* --- UPDATE di window.onload --- */
       window.onload = function() {
-        // 1. Jalankan Inisialisasi Filter
         initFilterTahun(); 
 
-        // 2. Ambil Data LocalStorage
         const token = localStorage.getItem('userToken');
         const sessionToken = localStorage.getItem('sessionToken');
         const email = localStorage.getItem('userEmail');
 
-        // 3. Logika Pengecekan Login Lebih Ketat
         if(token && sessionToken && email) {
           
-          // Tampilkan loading sebentar sambil memverifikasi sesi
-          toggleLoading(true);
+          // GUNAKAN TEKS KHUSUS DISINI
+          toggleLoading(true, "Memeriksa Sesi..."); 
 
-          // Verifikasi ke Server apakah sesi ini masih valid?
           google.script.run
             .withSuccessHandler(function(res) {
-              toggleLoading(false);
+              toggleLoading(false); // Matikan loading
               
               if (res.valid) {
-                  // JIKA VALID: Lanjut masuk
                   switchView('view-admin');
                   const savedName = localStorage.getItem('userName');
                   if(savedName) document.getElementById('schoolNameDisplay').innerText = "(" + savedName + ")";
-                  
                   loadDashboardStats(); 
                   startSessionMonitor();
               } else {
-                  // JIKA TIDAK VALID (Misal: Double Login / Expired):
-                  // Hapus semua data lokal agar User B tidak melihat data User A
                   localStorage.clear();
                   document.getElementById('formLogin').reset();
                   switchView('view-login');
-                  
-                  // Opsional: Beritahu user
-                  // console.log("Sesi kadaluarsa atau invalid, kembali ke login.");
               }
             })
             .withFailureHandler(function() {
               toggleLoading(false);
-              // Jika server error/offline, aman-nya logout kan saja
               localStorage.clear();
               switchView('view-login');
             })
-            .checkSessionStatus(email, sessionToken); // <-- Panggil fungsi baru di Server (lihat poin 3)
+            .checkSessionStatus(email, sessionToken);
             
         } else {
-          // JIKA BELUM LOGIN
-          localStorage.clear(); // Pastikan bersih
+          localStorage.clear();
           switchView('view-login');
         }
       };
