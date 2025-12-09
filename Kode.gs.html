@@ -59,34 +59,45 @@ function hashPassword(password, salt) {
   return hash;
 }
 
-/* --- FUNGSI REGISTRASI (UPDATE: HAPUS RECOVERY CODE & SECURITY QUESTION) --- */
+/* --- FUNGSI REGISTRASI (UPDATE: DENGAN LOCK SERVICE) --- */
 function registerSchool(form) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
-  
-  // Normalisasi nama sekolah & email
-  const newSchoolNameClean = normalizeName(form.namaSekolah);
-  const newEmailClean = form.email.trim().toLowerCase();
-
-  // LOOP CEK DUPLIKASI
-  for (let i = 1; i < data.length; i++) {
-    const existingNameRaw = data[i][1]; 
-    const existingEmail = data[i][2];   
-    
-    if (String(existingEmail).toLowerCase() === newEmailClean) {
-      return { status: 'error', message: '<b>Email sudah terdaftar!</b><br>Silakan login atau reset password.' };
-    }
-
-    const existingNameClean = normalizeName(existingNameRaw);
-    if (existingNameClean === newSchoolNameClean) {
-      return { 
-        status: 'error', 
-        message: '<b>Sekolah Sudah Terdaftar!</b><br>Nama sekolah: "'+ form.namaSekolah +'" mirip dengan data yang sudah ada.' 
-      };
-    }
+  // A. MEMULAI PENGUNCIAN
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000); // Tunggu antrean maks 30 detik
+  } catch (e) {
+    return { status: 'error', message: 'Pendaftaran sedang padat. Mohon coba sesaat lagi.' };
   }
 
   try {
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+    const data = ssMaster.getDataRange().getValues();
+    
+    // Normalisasi nama sekolah & email
+    const newSchoolNameClean = normalizeName(form.namaSekolah);
+    const newEmailClean = form.email.trim().toLowerCase();
+
+    // LOOP CEK DUPLIKASI (Sekarang aman dari race condition)
+    for (let i = 1; i < data.length; i++) {
+      const existingNameRaw = data[i][1]; 
+      const existingEmail = data[i][2];   
+      
+      if (String(existingEmail).toLowerCase() === newEmailClean) {
+        return { status: 'error', message: '<b>Email sudah terdaftar!</b><br>Silakan login atau reset password.' };
+      }
+
+      const existingNameClean = normalizeName(existingNameRaw);
+      if (existingNameClean === newSchoolNameClean) {
+        return { 
+          status: 'error', 
+          message: '<b>Sekolah Sudah Terdaftar!</b><br>Nama sekolah: "'+ form.namaSekolah +'" mirip dengan data yang sudah ada.' 
+        };
+      }
+    }
+
+    // PROSES SETUP FOLDER & FILE
+    // (Proses ini agak lama, tapi dengan Lock, kita pastikan data di DB User tidak terduplikasi)
+    
     // 1. Setup Folder & File Sekolah
     const parentFolder = DriveApp.getFolderById(CONFIG.MASTER_PARENT_FOLDER_ID);
     const schoolFolder = parentFolder.createFolder(form.namaSekolah);
@@ -112,23 +123,21 @@ function registerSchool(form) {
     sheetSet.appendRow(['FOLDER_PDF_ID', folderGenerate.getId()]);
 
     // --- PROSES SECURITY ---
-    const salt = generateSalt(); // Buat Salt baru
-    const passwordHash = hashPassword(form.password, salt); // Hash password user
+    const salt = generateSalt(); 
+    const passwordHash = hashPassword(form.password, salt); 
 
     // 3. SIMPAN DATA KE DATABASE MASTER (USER)
-    // Struktur: [Time, Nama, Email, PassHash, DbID, SessionID, RecCode, SALT, Answer]
-    // Kita gunakan Kolom H (Index 7) untuk menyimpan SALT.
-    
+    // appendRow sekarang aman karena dikunci
     ssMaster.appendRow([
       new Date(), 
       form.namaSekolah, 
       newEmailClean, 
-      passwordHash, // SIMPAN HASH, BUKAN PLAIN TEXT
+      passwordHash, 
       newDbId, 
       "",            
-      "", // Kolom G (Recovery Code)
-      salt, // Kolom H (DULU Question, SEKARANG JADI SALT)
-      ""  // Kolom I (Answer - Kosong)
+      "", 
+      salt, 
+      ""  
     ]);
 
     return { 
@@ -139,6 +148,9 @@ function registerSchool(form) {
   } catch (e) {
     const pesan = beautifyError("Gagal Registrasi", e, "Hubungi Admin.");
     return { status: 'error', message: pesan };
+  } finally {
+    // B. LEPASKAN KUNCI
+    lock.releaseLock();
   }
 }
 
@@ -305,86 +317,100 @@ function clearSessionCache(email) {
   cache.remove('SESI_' + email.toLowerCase());
 }
 
-/* --- 1. LOGIN USER (DIPERBARUI: LOGIKA TIMEOUT & OVERWRITE) --- */
+/* --- 1. LOGIN USER (UPDATE: DENGAN LOCK SERVICE) --- */
 function loginUser(form) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  
-  // 1. Cari User
-  const finder = ssMaster.getRange("C:C").createTextFinder(form.email).matchEntireCell(true);
-  const found = finder.findNext();
-
-  if (!found) {
-    return { status: 'error', message: 'Email atau Password salah!' };
+  // A. MEMULAI PENGUNCIAN (LOCK)
+  const lock = LockService.getScriptLock();
+  try {
+    // Tunggu antrean maksimal 30 detik. Jika lebih, lempar error.
+    lock.waitLock(30000); 
+  } catch (e) {
+    return { status: 'error', message: 'Server sedang sibuk menangani banyak login. Silakan coba lagi dalam beberapa detik.' };
   }
 
-  const rowIdx = found.getRow();
-  // Ambil data user [0:Time, 1:Nama, 2:Email, 3:PassHash, 4:DbID, 5:SessionID, 6:RecCode, 7:SALT]
-  const userData = ssMaster.getRange(rowIdx, 1, 1, 8).getValues()[0];
-
-  const storedHash = String(userData[3]); 
-  const storedSalt = String(userData[7]); 
-
-  // 2. Verifikasi Password
-  const inputHash = hashPassword(form.password, storedSalt);
-
-  if (inputHash === storedHash) {
+  try {
+    // --- KODE ASLI MULAI DARI SINI ---
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
     
-    const email = form.email;
-    const cachedSession = getSessionCache(email);
-    const now = new Date().getTime();
-    
-    let isDeviceActive = false;
+    // 1. Cari User
+    const finder = ssMaster.getRange("C:C").createTextFinder(form.email).matchEntireCell(true);
+    const found = finder.findNext();
 
-    // 3. CEK STATUS CACHE SESI LAMA
-    if (cachedSession) {
-      const lastPing = cachedSession.lastPing || 0;
-      const diffSec = (now - lastPing) / 1000; // Selisih detik
-      const diffMin = diffSec / 60;            // Selisih menit
-
-      // LOGIKA BARU: 
-      // Jika selisih waktu KURANG dari 15 detik, berarti perangkat 1 masih benar-benar aktif (online).
-      // TAPI, jika sudah lebih dari 30 menit (atau bahkan 1 menit), kita anggap itu sesi hantu/lupa logout -> TIMPA SAJA.
-      
-      if (diffSec < 15) { 
-        // Perangkat 1 benar-benar sedang online saat ini
-        isDeviceActive = true; 
-      }
-      
-      // Jika sudah lebih dari 30 menit tidak aktif, paksa isDeviceActive jadi false (Boleh Login)
-      if (diffMin >= MAX_IDLE_TIME_MINUTES) {
-        isDeviceActive = false; 
-      }
+    if (!found) {
+      return { status: 'error', message: 'Email atau Password salah!' };
     }
 
-    // KASUS 1: Perangkat A sedang aktif Realtime (kurang dari 15 detik lalu ada ping) -> TOLAK
-    if (isDeviceActive) {
+    const rowIdx = found.getRow();
+    // Ambil data user [0:Time, 1:Nama, 2:Email, 3:PassHash, 4:DbID, 5:SessionID, 6:RecCode, 7:SALT]
+    const userData = ssMaster.getRange(rowIdx, 1, 1, 8).getValues()[0];
+
+    const storedHash = String(userData[3]); 
+    const storedSalt = String(userData[7]); 
+
+    // 2. Verifikasi Password
+    const inputHash = hashPassword(form.password, storedSalt);
+
+    if (inputHash === storedHash) {
+      
+      const email = form.email;
+      const cachedSession = getSessionCache(email);
+      const now = new Date().getTime();
+      
+      let isDeviceActive = false;
+
+      // 3. CEK STATUS CACHE SESI LAMA
+      if (cachedSession) {
+        const lastPing = cachedSession.lastPing || 0;
+        const diffSec = (now - lastPing) / 1000;
+        const diffMin = diffSec / 60;
+
+        if (diffSec < 15) { 
+          isDeviceActive = true; 
+        }
+        
+        if (diffMin >= MAX_IDLE_TIME_MINUTES) {
+          isDeviceActive = false; 
+        }
+      }
+
+      // KASUS 1: Perangkat A sedang aktif Realtime -> TOLAK
+      if (isDeviceActive) {
+        return { 
+          status: 'error', 
+          message: '<b>Akun Sedang Online!</b><br>Akun ini sedang digunakan di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu beberapa saat.' 
+        };
+      }
+
+      // KASUS 2: BUAT SESI BARU (TIMPA)
+      const newSessionId = Utilities.getUuid();
+      
+      // Simpan ke Cache
+      setSessionCache(email, {
+        token: newSessionId,
+        lastPing: now
+      });
+
+      // Simpan ke Spreadsheet (PENULISAN KE DB INI SEKARANG AMAN KARENA DI-LOCK)
+      ssMaster.getRange(rowIdx, 6).setValue(newSessionId);
+
       return { 
-        status: 'error', 
-        message: '<b>Akun Sedang Online!</b><br>Akun ini sedang digunakan di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu beberapa saat.' 
+        status: 'success', 
+        token: userData[4],        
+        namaSekolah: userData[1],  
+        sessionToken: newSessionId 
       };
     }
-
-    // KASUS 2: Sesi lama sudah tidak aktif/kadaluarsa -> BUAT SESI BARU (TIMPA)
-    const newSessionId = Utilities.getUuid();
     
-    // Simpan ke Cache
-    setSessionCache(email, {
-      token: newSessionId,
-      lastPing: now
-    });
+    return { status: 'error', message: 'Email atau Password salah!' };
+    // --- KODE ASLI BERAKHIR DI SINI ---
 
-    // Simpan ke Spreadsheet (Agar admin bisa liat token terakhir)
-    ssMaster.getRange(rowIdx, 6).setValue(newSessionId);
-
-    return { 
-      status: 'success', 
-      token: userData[4],        
-      namaSekolah: userData[1],  
-      sessionToken: newSessionId 
-    };
+  } catch (e) {
+    return { status: 'error', message: 'Terjadi kesalahan sistem: ' + e.toString() };
+  } finally {
+    // B. LEPASKAN KUNCI (WAJIB)
+    // Apapun yang terjadi (sukses/error), kunci harus dilepas agar antrean berikutnya bisa masuk
+    lock.releaseLock();
   }
-  
-  return { status: 'error', message: 'Email atau Password salah!' };
 }
 
 /* --- 2. HEARTBEAT (PING REALTIME - DENGAN AUTO LOGOUT 30 MENIT) --- */
@@ -441,30 +467,62 @@ function logoutUserServer(email, clientToken) {
   }
 }
 
-/* --- FUNGSI BARU: CEK STATUS SESI BERKALA --- */
+/* --- FUNGSI CEK STATUS SESI (OPTIMIZED: CACHE FIRST) --- */
 function checkSessionStatus(email, clientSessionToken) {
-  const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
-  const data = ssMaster.getDataRange().getValues();
-  
-  // Normalisasi email input
+  // Normalisasi email
   const targetEmail = email.trim().toLowerCase();
 
-  for (let i = 1; i < data.length; i++) {
-    const dbEmail = String(data[i][2]).toLowerCase();
-    
-    if (dbEmail === targetEmail) {
-      const dbSession = data[i][5]; // Kolom F (Session ID di DB)
-      
-      // Validasi:
-      // 1. Session ID di DB tidak boleh kosong
-      // 2. Session ID di DB harus SAMA PERSIS dengan yang dipegang Client
-      if (!dbSession || dbSession !== clientSessionToken) {
-        return { valid: false };
-      }
-      return { valid: true };
+  // 1. CEK CACHE TERLEBIH DAHULU (Sangat Cepat & Hemat Kuota)
+  // CacheService jauh lebih ringan daripada membuka Spreadsheet
+  const cachedSession = getSessionCache(targetEmail);
+
+  if (cachedSession) {
+    // Jika data sesi ada di memori cache server
+    if (cachedSession.token === clientSessionToken) {
+      return { valid: true }; // Token Cocok -> Sesi Valid
+    } else {
+      // Token di cache berbeda dengan yang dikirim browser
+      // Artinya user ini baru saja login di perangkat lain
+      return { valid: false };
     }
   }
-  // Jika email tidak ketemu
+
+  // 2. FALLBACK KE SPREADSHEET (Hanya jika Cache Kosong)
+  // Ini adalah jaring pengaman. Cache bisa hilang (expired) atau server restart.
+  // Jika cache kosong, barulah kita "terpaksa" buka Spreadsheet.
+  try {
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+    const data = ssMaster.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      const dbEmail = String(data[i][2]).toLowerCase();
+
+      if (dbEmail === targetEmail) {
+        const dbSession = data[i][5]; // Kolom F (Session ID di DB)
+
+        // Validasi: Apakah Token di DB cocok dengan Client?
+        if (dbSession && dbSession === clientSessionToken) {
+          
+          // SELF-HEALING: Kembalikan data ke Cache agar request berikutnya cepat lagi
+          // Ini mencegah pembukaan spreadsheet berulang-ulang untuk user yang sama
+          setSessionCache(targetEmail, {
+            token: dbSession,
+            lastPing: new Date().getTime()
+          });
+          
+          return { valid: true };
+        }
+        return { valid: false }; // Token di DB sudah berubah/kosong
+      }
+    }
+  } catch (e) {
+    // Jika Spreadsheet gagal dibuka (misal limit kuota Google habis),
+    // kita return false agar user diminta login ulang demi keamanan.
+    console.error("Error checkSessionStatus: " + e.toString());
+    return { valid: false };
+  }
+
+  // Jika email tidak ditemukan di DB
   return { valid: false };
 }
 
