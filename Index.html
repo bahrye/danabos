@@ -2748,10 +2748,14 @@
           .registerSchool(form);
       }
 
-      /* --- LOGIKA SESI HEMAT KUOTA (BURST MODE) --- */
+      /* --- LOGIKA SESI HEMAT KUOTA (BURST MODE - OPTIMIZED FOR 100 USERS) --- */
       let sessionInterval = null;
       let sessionCheckCount = 0;
-      const SESSION_CHECK_LIMIT = 6; // 6 kali x 5 detik = 30 detik
+      
+      // [UBAH 1] Naikkan batas limit agar durasi monitoring total lebih panjang
+      // Lama: 6 kali (total 30 detik). 
+      // Baru: 30 kali (total 10 menit). Setelah 10 menit idle, script berhenti ping server.
+      const SESSION_CHECK_LIMIT = 30; 
 
       function startSessionMonitor() {
         // Hapus interval lama jika ada
@@ -2760,9 +2764,10 @@
         // Reset penghitung
         sessionCheckCount = 0;
 
-        console.log("Mulai monitoring sesi (Mode: 30 Detik Awal)...");
+        console.log("Mulai monitoring sesi (Mode: Optimasi 100 User)...");
 
-        // JALANKAN SETIAP 5 DETIK
+        // [UBAH 2] Ganti Interval dari 5000 (5 detik) menjadi 20000 (20 Detik)
+        // Matematika: 100 user / 20 detik = 5 request/detik (Sangat Aman untuk Google)
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
@@ -2770,7 +2775,7 @@
           // Tambah counter
           sessionCheckCount++;
 
-          // HENTIKAN OTOMATIS JIKA SUDAH 1 MENIT (6x Cek)
+          // HENTIKAN OTOMATIS JIKA SUDAH MENCAPAI LIMIT
           if (sessionCheckCount > SESSION_CHECK_LIMIT) {
             clearInterval(sessionInterval);
             console.log("Monitoring sesi latar belakang dihentikan untuk hemat kuota.");
@@ -2788,7 +2793,7 @@
                 // Menggunakan fungsi heartbeat yang ringan
                 .updateUserActivity(email, token);
           }
-        }, 5000); // 5 Detik
+        }, 20000); // <--- GANTI DISINI JADI 20000 (20 Detik)
       }
 
       // Fungsi terpisah untuk menangani sesi tidak valid (biar rapi)
