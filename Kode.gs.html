@@ -2363,34 +2363,52 @@ function beautifyError(judul, errorObj, saran) {
          '</div>';
 }
 
-/* --- FUNGSI PENCARIAN REFERENSI BARANG (FITUR BARU) --- */
+/* --- FUNGSI PENCARIAN REFERENSI BARANG (DIPERBARUI: SORTING & LIMIT) --- */
 function cariBarangReferensi(token, keyword) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('Data Barang');
     
-    // Jika sheet tidak ada, kembalikan array kosong (atau bisa buat otomatis)
     if (!sheet) return { status: 'success', data: [] };
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'success', data: [] };
 
-    // Ambil Data Kolom A (Nama) dan B (Satuan)
-    // Kita ambil semua dulu baru filter di script (lebih cepat untuk data < 5000 baris)
+    // Ambil Data
     const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); 
     
     const lowerKey = keyword.toLowerCase();
     
-    // Filter data yang mengandung keyword
-    const results = data
+    // 1. Filter data yang mengandung keyword
+    let results = data
       .filter(row => row[0] && String(row[0]).toLowerCase().includes(lowerKey))
       .map(row => ({
         nama: row[0],
         satuan: row[1] || ''
       }));
 
-    // Batasi hasil maksimal 15 agar tidak memberatkan UI
-    return { status: 'success', data: results.slice(0, 15) };
+    // 2. SORTING CERDAS (Logika Baru)
+    results.sort((a, b) => {
+      const nameA = String(a.nama).toLowerCase();
+      const nameB = String(b.nama).toLowerCase();
+      
+      // Prioritas 1: Kecocokan Persis (Exact Match)
+      if (nameA === lowerKey && nameB !== lowerKey) return -1;
+      if (nameB === lowerKey && nameA !== lowerKey) return 1;
+
+      // Prioritas 2: Diawali dengan Keyword (Starts With)
+      const startA = nameA.startsWith(lowerKey);
+      const startB = nameB.startsWith(lowerKey);
+      if (startA && !startB) return -1;
+      if (!startA && startB) return 1;
+
+      // Prioritas 3: Jumlah Huruf Paling Sedikit (Shortest Length)
+      // Ini agar "Map" (3 huruf) muncul sebelum "Mapel" (5 huruf)
+      return nameA.length - nameB.length;
+    });
+
+    // 3. Batasi hasil maksimal 50 (sebelumnya cuma 15) agar scroll lebih panjang
+    return { status: 'success', data: results.slice(0, 50) };
 
   } catch (e) {
     return { status: 'error', message: e.toString() };
