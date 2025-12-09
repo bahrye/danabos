@@ -293,6 +293,81 @@
         /* Pastikan tabel tidak memicu scroll parent */
         overscroll-behavior-x: contain; 
       }
+
+      /* --- CSS KHUSUS TAB SCROLLABLE (MOBILE) --- */
+      .nav-tabs-scrollable {
+        display: flex;
+        flex-wrap: nowrap !important; /* Mencegah tab turun ke bawah */
+        overflow-x: auto;             /* Mengaktifkan scroll samping */
+        overflow-y: hidden;
+        white-space: nowrap;          /* Teks tidak terpotong */
+        -webkit-overflow-scrolling: touch; /* Scroll halus di iOS */
+        border-bottom: 1px solid #dee2e6;
+        
+        /* Hilangkan scrollbar agar bersih */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+      }
+
+      .nav-tabs-scrollable::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+      }
+
+      .nav-tabs-scrollable .nav-item {
+        flex: 0 0 auto; /* Item tidak menyusut */
+      }
+
+      .nav-tabs-scrollable .nav-link {
+        border-bottom: none; /* Agar border bawah menyatu */
+        font-size: 0.9rem;   /* Sedikit mengecilkan font di mobile agar muat lebih banyak */
+        padding: 10px 15px;
+      }
+
+      /* --- PERBAIKAN TABEL INPUT TRANSAKSI (MOBILE) --- */
+
+      /* 1. Memaksa tabel input agar melebar (memunculkan scroll horizontal) */
+      .table-input-scroll {
+        min-width: 800px; /* Tabel dipaksa lebar minimal 800px agar lega */
+      }
+
+      /* 2. Mengatur lebar minimal setiap kolom agar input tidak gepeng */
+      .col-nama   { width: 30%; min-width: 200px; }
+      .col-vol    { width: 10%; min-width: 80px; } /* Diperlebar agar angka terlihat */
+      .col-sat    { width: 15%; min-width: 100px; }
+      .col-harga  { width: 20%; min-width: 140px; }
+      .col-jumlah { width: 20%; min-width: 140px; }
+      .col-aksi   { width: 5%;  min-width: 50px; }
+
+      /* 3. Perbaikan Tombol Aksi di Bawah Tabel */
+      .action-container {
+        display: flex;
+        flex-wrap: wrap; /* Agar tombol turun ke bawah jika layar sempit */
+        gap: 10px;       /* Jarak antar elemen */
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* Di HP, elemen pencarian dan tombol simpan jadi full width agar mudah ditekan */
+      @media (max-width: 767.98px) {
+        .action-group-left, 
+        .action-group-right {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        
+        .autocomplete-wrapper {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        /* Tombol tambah baris & simpan jadi lebar penuh */
+        .action-group-left button,
+        .action-group-right button {
+          width: 100%; 
+        }
+      }
     </style>
   </head>
   <body>
@@ -885,7 +960,7 @@
           <div id="panel-nomor-surat" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-file-alt text-primary"></i> Pengaturan Nomor Surat</h2>
 
-            <ul class="nav nav-tabs mb-4">
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
               <li class="nav-item">
                 <button class="nav-link active fw-bold" id="tab-surat-toko" onclick="bukaTabSurat('toko')">
                   <i class="fas fa-store me-2"></i> Transaksi Toko
@@ -1099,7 +1174,7 @@
           <div id="panel-tanggal-surat" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-calendar-alt text-primary"></i> Pengaturan Tanggal Surat</h2>
 
-            <ul class="nav nav-tabs mb-4">
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
               <li class="nav-item">
                 <button class="nav-link active fw-bold" id="tab-tgl-toko" onclick="bukaTabTanggal('toko')">
                   <i class="fas fa-store me-2"></i> Transaksi Toko
@@ -1289,7 +1364,7 @@
           <div id="panel-transaksi" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-shopping-cart text-primary"></i> Transaksi Belanja</h2>
 
-            <ul class="nav nav-tabs mb-4" id="transaksiTabs">
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4" id="transaksiTabs">
               <li class="nav-item">
                 <button class="nav-link active fw-bold" id="tab-btn-toko" onclick="bukaTab('toko')">
                   <i class="fas fa-store me-2"></i> Belanja Toko
@@ -1346,7 +1421,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Daftar Barang Belanjaan</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemToko">
+                      <table class="table table-bordered align-middle text-nowrap table-input-scroll" id="tabelItemToko">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="31%">Nama Barang</th>
@@ -1370,34 +1445,34 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3 align-items-center">
+                    <div class="action-container mt-3">
                       
-                      <div class="d-flex align-items-center">
+                      <div class="action-group-left d-flex align-items-center gap-2">
                         
-                        <button type="button" class="btn btn-outline-primary text-nowrap me-2" onclick="tambahBaris('toko')">
+                        <button type="button" class="btn btn-outline-primary text-nowrap" onclick="tambahBaris('toko')">
                           <i class="fas fa-plus me-1"></i> Tambah Baris
                         </button>
                         
-                        <div class="autocomplete-wrapper" style="width: 300px; max-width: 50vw;">
-                          <div class="input-group input-group-sm">
+                        <div class="autocomplete-wrapper">
+                          <div class="input-group">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Barang..." oninput="handleCariBarang(this, 'toko')" autocomplete="off">
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi..." oninput="handleCariBarang(this, 'toko')" autocomplete="off">
                           </div>
                           <div id="saran-barang-toko" class="suggestion-list"></div>
                         </div>
 
                       </div>
 
-                      <div>
-                        <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
+                      <div class="action-group-right">
+                        <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
 
-                        <button type="button" id="btnBatalTokoTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('toko')">
+                        <button type="button" id="btnBatalTokoTrans" class="btn btn-secondary hidden" onclick="batalEditTransaksi('toko')">
                           <i class="fas fa-times me-1"></i> Batal
                         </button>
                         <button type="button" id="btnSimpanTokoTrans" class="btn btn-success" onclick="simpanTransaksi('toko')">
-                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                          <i class="fas fa-save me-1"></i> Simpan
                         </button>
                       </div>
                     </div>
@@ -1467,7 +1542,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Rincian Penerima Honor</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemGuru">
+                      <table class="table table-bordered align-middle text-nowrap table-input-scroll" id="tabelItemGuru">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="31%">Nama Guru</th>
@@ -1491,18 +1566,23 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3">
-                      <button type="button" class="btn btn-outline-primary" onclick="tambahBaris('guru')">
-                        <i class="fas fa-plus me-1"></i> Tambah Penerima
-                      </button>
-                      <div>
-                        <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
+                    <div class="action-container mt-3">
+                      
+                      <div class="action-group-left">
+                        <button type="button" class="btn btn-outline-primary text-nowrap w-100" onclick="tambahBaris('guru')">
+                          <i class="fas fa-plus me-1"></i> Tambah Penerima
+                        </button>
+                      </div>
+
+                      <div class="action-group-right">
+                        <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
 
-                        <button type="button" id="btnBatalGuruTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('guru')">
+                        <button type="button" id="btnBatalGuruTrans" class="btn btn-secondary hidden" onclick="batalEditTransaksi('guru')">
                           <i class="fas fa-times me-1"></i> Batal
                         </button>
+                        
                         <button type="button" id="btnSimpanGuruTrans" class="btn btn-success" onclick="simpanTransaksi('guru')">
                           <i class="fas fa-save me-1"></i> Simpan Transaksi
                         </button>
@@ -1584,7 +1664,7 @@
 
                     <h5 class="border-bottom pb-2 mb-3">Rincian Upah / Bahan</h5>
                     <div class="table-responsive">
-                      <table class="table table-bordered align-middle text-nowrap" id="tabelItemTukang">
+                      <table class="table table-bordered align-middle text-nowrap table-input-scroll" id="tabelItemTukang">
                         <thead class="table-light text-center">
                           <tr>
                             <th width="31%">Jenis Pekerjaan/Item</th>
@@ -1608,34 +1688,35 @@
                       </table>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-3 align-items-center">
+                    <div class="action-container mt-3">
                       
-                      <div class="d-flex align-items-center">
+                      <div class="action-group-left d-flex align-items-center gap-2">
                         
-                        <button type="button" class="btn btn-outline-primary text-nowrap me-2" onclick="tambahBaris('tukang')">
+                        <button type="button" class="btn btn-outline-primary text-nowrap" onclick="tambahBaris('tukang')">
                           <i class="fas fa-plus me-1"></i> Tambah Baris
                         </button>
                         
-                        <div class="autocomplete-wrapper" style="width: 300px; max-width: 50vw;">
-                          <div class="input-group input-group-sm">
+                        <div class="autocomplete-wrapper">
+                          <div class="input-group">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi Material/Upah..." oninput="handleCariBarang(this, 'tukang')" autocomplete="off">
+                            <input type="text" class="form-control border-start-0 ps-0" placeholder="Cari Referensi..." oninput="handleCariBarang(this, 'tukang')" autocomplete="off">
                           </div>
                           <div id="saran-barang-tukang" class="suggestion-list"></div>
                         </div>
 
                       </div>
 
-                      <div>
-                        <button type="button" class="btn btn-info text-white me-2" onclick="bukaModalSatuan()">
+                      <div class="action-group-right">
+                        <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
 
-                        <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary me-2 hidden" onclick="batalEditTransaksi('tukang')">
+                        <button type="button" id="btnBatalTukangTrans" class="btn btn-secondary hidden" onclick="batalEditTransaksi('tukang')">
                           <i class="fas fa-times me-1"></i> Batal
                         </button>
+                        
                         <button type="button" id="btnSimpanTukangTrans" class="btn btn-success" onclick="simpanTransaksi('tukang')">
-                          <i class="fas fa-save me-1"></i> Simpan Transaksi
+                          <i class="fas fa-save me-1"></i> Simpan
                         </button>
                       </div>
                     </div>
@@ -1684,7 +1765,7 @@
           <div id="panel-cetak-pdf" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-print text-primary"></i> Cetak Laporan PDF</h2>
 
-            <ul class="nav nav-tabs mb-4">
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
               <li class="nav-item">
                 <button class="nav-link active fw-bold" id="tab-cetak-toko" onclick="bukaTabCetak('toko')">
                   <i class="fas fa-store me-2"></i> LPJ Toko
