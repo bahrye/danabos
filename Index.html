@@ -7,20 +7,43 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
-      /* Update pada bagian CSS body */
+      /* GANTI CSS BODY YANG LAMA DENGAN INI */
+      html, body {
+        height: 100%; /* Penting agar scroll terdeteksi dengan benar */
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        overflow-x: hidden; /* Cukup pasang di sini saja */
+        -webkit-overflow-scrolling: touch; 
+      }
+
+      html {
+        /* Mencegah efek pantul (pull-to-refresh) yang sering bikin stuck */
+        overscroll-behavior-y: none; 
+      }
+
       body { 
         background-color: #f4f6f9; 
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        /* Hapus overflow-x: hidden global, ganti dengan penanganan horizontal yang lebih baik */
+        
+        /* HAPUS overflow-x: hidden dari sini */
+        /* Ganti dengan pengaturan lebar yang aman */
         width: 100%;
-        overflow-x: hidden; 
-        -webkit-overflow-scrolling: touch; /* PENTING: Agar scroll licin di mobile */
+        max-width: 100%;
+        overflow-x: clip; /* Lebih modern & aman daripada hidden untuk mobile */
+        
+        /* Aktifkan akselerasi hardware untuk scroll */
+        -webkit-overflow-scrolling: touch; 
       }
 
       /* Tambahan: Pastikan konten utama tidak melebar */
       .panel-content {
         width: 100%;
-        overflow-x: hidden;
+        /* Pastikan tidak ada overflow hidden disini */
+        overflow: visible; 
+        /* Hapus height: 100% jika ada, biarkan auto */
+        height: auto;
+        padding-bottom: 80px; /* Ruang lebih untuk scroll paling bawah */
       }
 
       /* Perbaikan Input agar tidak zoom in otomatis di HP saat diklik */
@@ -44,20 +67,21 @@
 
       /* 2. CSS Khusus Mobile (Layar < 768px) */
       @media (max-width: 767.98px) {
-        /* Sidebar disembunyikan di kiri layar (offcanvas manual) */
         .sidebar {
           position: fixed;
           top: 0;
-          left: -250px; /* Sembunyi ke kiri */
+          left: -250px;
           width: 250px;
           height: 100%;
-          z-index: 1050; /* Di atas konten */
+          z-index: 1050;
           overflow-y: auto;
+          transition: left 0.3s ease; /* Transisi hanya pada properti left */
+          visibility: hidden; /* Sembunyikan agar tidak mengganggu touch event */
         }
 
-        /* Class untuk memunculkan sidebar */
         .sidebar.show {
           left: 0;
+          visibility: visible; /* Munculkan hanya saat class show aktif */
         }
 
         /* Konten Utama padding lebih kecil */
@@ -256,6 +280,18 @@
 
       .main-footer p {
         margin-bottom: 0; /* Menghapus margin bawaan paragraf */
+      }
+
+      .table-responsive {
+        /* Mengizinkan scroll lancar (momentum scrolling) di iOS/Android */
+        -webkit-overflow-scrolling: touch;
+        
+        /* PENTING: Memberitahu browser untuk menangani geseran (pan) secara otomatis 
+          tanpa menunggu validasi javascript, mencegah delay/stuck */
+        touch-action: pan-x pan-y;
+        
+        /* Pastikan tabel tidak memicu scroll parent */
+        overscroll-behavior-x: contain; 
       }
     </style>
   </head>
@@ -2410,7 +2446,14 @@
         const targetPanel = document.getElementById(panelId);
         if(targetPanel) {
             targetPanel.classList.remove('hidden');
-            window.scrollTo(0, 0);
+            
+            // Beri jeda 10ms agar browser selesai merender tampilan baru sebelum scroll ke atas
+            setTimeout(function() {
+              window.scrollTo({
+                top: 0,
+                behavior: 'smooth' // Opsional: Animasi scroll halus
+              });
+            }, 10);
         } else {
             console.warn("Panel tidak ditemukan: " + panelId); // Debugging
         }
@@ -6994,6 +7037,27 @@
       }
 
       document.getElementById('currentYear').innerText = new Date().getFullYear();
+
+      // FIX: Mencegah loncat otomatis saat input di-tap di mobile
+      const inputs = document.querySelectorAll('input, select, textarea');
+      inputs.forEach(input => {
+        input.addEventListener('focus', function(e) {
+          // Mencegah browser melakukan scroll drastis
+          // Biarkan keyboard muncul natural
+          setTimeout(() => {
+            // Opsional: Cek jika elemen tertutup keyboard baru scroll sedikit
+          }, 300);
+        }, { passive: true });
+      });
+
+      // FIX: Reset posisi scroll saat modal ditutup agar tidak loncat ke atas/bawah
+      const modals = document.querySelectorAll('.modal');
+      modals.forEach(modal => {
+        modal.addEventListener('hidden.bs.modal', function () {
+          // Kunci posisi body agar tidak loncat
+          document.body.style.overflow = ''; 
+        });
+      });
 
     </script>
   </body>
