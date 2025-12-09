@@ -2644,7 +2644,11 @@
         cekPeriodeBos();
         
         document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
-        document.getElementById('dsTahun').value = d.tahunAnggaran;
+        // --- MODIFIKASI: Default Tahun Berjalan ---
+        // Jika d.tahunAnggaran ada isinya (user lama), gunakan itu.
+        // Jika kosong (user baru), gunakan tahun dari sistem komputer (Date).
+        const tahunSekarang = new Date().getFullYear();
+        document.getElementById('dsTahun').value = d.tahunAnggaran || tahunSekarang;
       }
 
       // --- SIMPAN DATA SEKOLAH (INVALIDATE CACHE) ---
