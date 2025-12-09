@@ -5399,15 +5399,16 @@
       function loadDashboardStats() {
         const token = localStorage.getItem('userToken');
         
+        // Update hanya elemen yang masih ada (Anggaran)
+        // HAPUS baris: document.getElementById('displayRecCode').innerText = '...';
         document.getElementById('dashAnggaran').innerText = '...';
-        document.getElementById('displayRecCode').innerText = '...';
         
         google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
           if (res.status === 'success') {
             const d = res.data;
             const p = d.profile || {}; // Data Profil Sekolah
 
-            // 1. Render Statistik (Sama seperti sebelumnya)
+            // 1. Render Statistik
             const anggaran = parseFloat(d.anggaran) || 0;
             const pengeluaran = parseFloat(d.pengeluaran) || 0;
             const jmlTrans = d.jumlahTransaksi || 0;
@@ -5418,13 +5419,14 @@
             document.getElementById('dashSisa').innerText = formatRupiahJS(sisa);
             document.getElementById('dashJmlTrans').innerText = jmlTrans + " Item";
 
-            // Pewarnaan Kartu Sisa (Logika Kontras)
+            // Pewarnaan Kartu Sisa
             const cardSisa = document.getElementById('cardSisaAnggaran');
             const titleSisa = cardSisa.querySelector('h6');
             const iconSisa = cardSisa.querySelector('i');
             const angkaSisa = cardSisa.querySelector('h3');
             const ketSisa = cardSisa.querySelector('small');
             
+            // Reset class dasar
             cardSisa.className = 'card p-3 shadow-sm h-100'; 
 
             if (sisa > 0) {
@@ -5447,155 +5449,31 @@
               if(ketSisa)   ketSisa.className = 'text-white-50';
             }
 
-            // 2. Render Profil Sekolah (UPDATE LENGKAP & AMAN)
+            // 2. Render Profil Sekolah
             document.getElementById('dashNamaSekolah').innerText = p.nama || '-';
             document.getElementById('dashNpsn').innerText = p.npsn || '-';
             document.getElementById('dashNsm').innerText = p.nsm || '-';
             document.getElementById('dashAlamat').innerText = p.alamat || '-';
             
-            // Update Wilayah (Pakai || '-' agar tidak undefined)
             document.getElementById('dashKelurahan').innerText = p.kelurahan || '-';
             document.getElementById('dashKecamatan').innerText = p.kecamatan || '-';
             
-            // Format Kabupaten & Provinsi
             let kabProv = p.kabupaten || '-';
             if(p.provinsi) kabProv += ' - ' + p.provinsi;
             document.getElementById('dashKabupaten').innerText = kabProv;
 
-            // Update Kontak
             document.getElementById('dashTelp').innerText = p.noTelp || '-';
             document.getElementById('dashEmail').innerText = p.email || '-';
             
-            // Pejabat Sekolah
             document.getElementById('dashKepala').innerText = p.kepala || '-';
             document.getElementById('dashNipKepala').innerText = p.nipKepala || '-';
             document.getElementById('dashBendahara').innerText = p.bendahara || '-';
             document.getElementById('dashNipBendahara').innerText = p.nipBendahara || '-';
 
-            // --- BAGIAN UPDATE: LOGIKA DINAMIS KODE PEMULIHAN ---
-            const code = d.recoveryCode; // Bisa string kode, bisa "-" atau kosong
-            const displayEl = document.getElementById('displayRecCode');
-            const hiddenEl = document.getElementById('realRecCode');
-            const iconEl = document.getElementById('iconToggleRec');
-
-            // Reset Class Icon dulu
-            iconEl.className = ""; 
-            
-            // LOGIKA PENENTUAN STATUS
-            if (!code || code === '-' || code === '') {
-              // KASUS 1: BELUM PUNYA KODE (Akun Lama)
-              displayEl.innerText = "Belum Ada";
-              displayEl.classList.add('text-muted', 'fst-italic');
-              displayEl.classList.remove('font-monospace', 'fw-bold', 'text-dark');
-              
-              hiddenEl.value = "";
-              
-              // Ubah Icon jadi "Generate/Sync"
-              iconEl.className = "fas fa-sync-alt text-warning cursor-pointer";
-              iconEl.setAttribute('title', 'Klik untuk Buat Kode Pemulihan');
-              iconEl.onclick = function() { aksiGenerateKode(); }; // Fungsi baru
-              
-            } else {
-              // KASUS 2: SUDAH PUNYA KODE
-              displayEl.innerText = "******";
-              displayEl.classList.add('fw-bold', 'font-monospace', 'text-dark');
-              displayEl.classList.remove('text-muted', 'fst-italic', 'text-danger');
-              
-              hiddenEl.value = code;
-              
-              // Ubah Icon jadi "Mata/Lihat"
-              iconEl.className = "fas fa-eye text-primary cursor-pointer";
-              iconEl.setAttribute('title', 'Lihat/Sembunyikan Kode');
-              iconEl.onclick = function() { toggleRecoveryCode(); }; // Fungsi lama
-            }
-            // -----------------------------------------------------
-
+            // --- BAGIAN LOGIKA KODE PEMULIHAN TELAH DIHAPUS ---
+            // (Karena Anda sudah tidak menggunakannya)
           }
         }).getDashboardStats(token);
-      }
-
-      // 2. Tambahkan Fungsi Toggle (Klik Mata)
-      function toggleRecoveryCode() {
-        const displayEl = document.getElementById('displayRecCode');
-        const realVal = document.getElementById('realRecCode').value;
-        const icon = document.getElementById('iconToggleRec');
-        
-        // Cek kondisi saat ini
-        if (displayEl.innerText === "******") {
-          // KONDISI: Sedang tertutup -> BUKA
-          displayEl.innerText = realVal;
-          displayEl.classList.add('text-danger'); // Ubah warna jadi merah biar diperhatikan
-          displayEl.classList.remove('text-dark');
-          
-          // Ganti Icon jadi mata dicoret
-          icon.className = "fas fa-eye-slash text-danger cursor-pointer";
-          
-        } else {
-          // KONDISI: Sedang terbuka -> TUTUP
-          displayEl.innerText = "******";
-          displayEl.classList.add('text-dark');
-          displayEl.classList.remove('text-danger');
-          
-          // Ganti Icon jadi mata biasa
-          icon.className = "fas fa-eye text-primary cursor-pointer";
-        }
-      }
-
-      // 3. Fungsi Generate Kode Baru (Untuk Akun Lama)
-      function aksiGenerateKode() {
-        Swal.fire({
-          title: 'Buat Kode Pemulihan?',
-          text: "Akun Anda belum memiliki kode keamanan. Sistem akan membuatkan kode unik untuk reset password.",
-          icon: 'info',
-          showCancelButton: true,
-          confirmButtonColor: '#ffc107',
-          confirmButtonText: 'Ya, Buat Sekarang',
-          cancelButtonText: 'Nanti Saja'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            
-            // Tampilkan Loading di Icon
-            const iconEl = document.getElementById('iconToggleRec');
-            const displayEl = document.getElementById('displayRecCode');
-            
-            iconEl.className = "fas fa-spinner fa-spin text-secondary";
-            displayEl.innerText = "Memproses...";
-            
-            const token = localStorage.getItem('userToken');
-
-            google.script.run
-              .withFailureHandler(handleServerError)
-              .withSuccessHandler(function(res) {
-                if (res.status === 'success') {
-                  
-                  // Update UI Langsung (Tampilkan Kodenya agar user sadar)
-                  const newCode = res.newCode;
-                  
-                  document.getElementById('realRecCode').value = newCode;
-                  displayEl.innerText = newCode; // Tampilkan langsung dulu
-                  displayEl.classList.remove('text-muted', 'fst-italic');
-                  displayEl.classList.add('fw-bold', 'font-monospace', 'text-success'); // Hijau tanda sukses
-                  
-                  // Ubah Icon jadi Mata (Mode Terbuka)
-                  iconEl.className = "fas fa-eye-slash text-success cursor-pointer";
-                  iconEl.onclick = function() { toggleRecoveryCode(); };
-                  iconEl.setAttribute('title', 'Sembunyikan Kode');
-
-                  Swal.fire({
-                    title: 'Berhasil Dibuat!',
-                    html: `Kode Pemulihan Anda: <br><strong class="fs-3 font-monospace">${newCode}</strong><br><br>Harap catat kode ini baik-baik.`,
-                    icon: 'success'
-                  });
-
-                } else {
-                  Swal.fire('Gagal', res.message, 'error');
-                  // Kembalikan ke state awal jika gagal
-                  loadDashboardStats(); 
-                }
-              })
-              .generateRecoveryCodeOnly(token);
-          }
-        });
       }
 
       /* --- LOGIKA MENU CETAK PDF --- */
