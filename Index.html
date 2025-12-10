@@ -2802,6 +2802,8 @@
       /* --- LOGIKA APLIKASI --- */
 
       window.onload = function() {
+        loadCacheFromLocal();
+
         const token = localStorage.getItem('userToken');
         if(token) {
           switchView('view-admin');
@@ -3062,6 +3064,8 @@
 
             // --- PEMBERSIHAN TOTAL CLIENT SIDE ---
             localStorage.clear(); // Hapus Storage
+
+            clearLocalCache();
             
             // Reset Cache Variable
             DATA_CACHE = {
@@ -7133,6 +7137,7 @@
         google.script.run.withSuccessHandler(function(res) {
           if (res.status === 'success') {
             cacheDataSatuanLengkap = res.data;
+            saveCacheToLocal();
             renderTabelSatuan(cacheDataSatuanLengkap);
           } else {
             tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Gagal: ${res.message}</td></tr>`;
@@ -7697,6 +7702,7 @@
       let currentPageBarang = 1;       // Halaman saat ini
       const ITEMS_PER_PAGE = 30;       // Batas baris per halaman
 
+      // Cari fungsi ini di Index.html
       function bukaModalBarang() {
         const modal = new bootstrap.Modal(document.getElementById('modalInfoBarang'));
         modal.show();
@@ -7706,8 +7712,20 @@
         // Reset Paginasi
         currentPageBarang = 1;
         
-        // Load Data
-        loadInfoBarangFromServer();
+        // --- PERBAIKAN DISINI ---
+        // Cek apakah cacheDataBarangLengkap sudah terisi (dari LocalStorage saat login)?
+        if (cacheDataBarangLengkap.length === 0) {
+          // Jika kosong, baru ambil dari server
+          loadInfoBarangFromServer();
+        } else {
+          // Jika sudah ada, gunakan data cache tanpa loading
+          console.log("Menggunakan data Barang dari Cache.");
+          
+          // Penting: Reset filtered list ke data penuh sebelum render
+          filteredBarangList = [...cacheDataBarangLengkap];
+          
+          renderTabelBarang();
+        }
       }
 
       function loadInfoBarangFromServer() {
@@ -7726,6 +7744,8 @@
             
             // 2. Set Data Filtered (Awalnya sama dengan semua data)
             filteredBarangList = [...cacheDataBarangLengkap];
+
+            saveCacheToLocal();
             
             // 3. Render Halaman Pertama
             renderTabelBarang();
@@ -7888,18 +7908,21 @@
 
         google.script.run.withSuccessHandler(function(res) {
           if (res.status === 'success') {
-            // 1. Update di Cache Master (agar pencarian selanjutnya harganya sudah baru)
+            // 1. Update di Cache Master (Memory)
             const itemMaster = cacheDataBarangLengkap.find(x => x.nama === namaBarang);
             if(itemMaster) itemMaster.harga = hargaBaru;
 
-            // 2. Update di Filtered List (yang sedang ditampilkan)
+            // 2. Update di Filtered List
             const itemFiltered = filteredBarangList.find(x => x.nama === namaBarang);
             if(itemFiltered) itemFiltered.harga = hargaBaru;
 
-            // 3. Render Ulang Halaman Ini Saja (Agar tampilan refresh)
-            // Kita tidak reload dari server agar posisi halaman tidak hilang
+            // --- TAMBAHAN BARU: Update Cache LocalStorage ---
+            // Karena cacheDataBarangLengkap di memory sudah diupdate di langkah 1,
+            // kita tinggal panggil saveCacheToLocal() untuk menimpa data lama di storage.
+            saveCacheToLocal();
+            // ------------------------------------------------
+
             renderTabelBarang();
-            
             Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Harga disimpan', showConfirmButton: false, timer: 1500 });
           } else {
             Swal.fire('Gagal', res.message, 'error');
@@ -7988,6 +8011,61 @@
           targetRow.classList.add('table-warning');
           setTimeout(() => targetRow.classList.remove('table-warning'), 500);
         }
+      }
+
+      /* --- MANAJEMEN CACHE LOKAL (PERSISTENT) --- */
+      const CACHE_STORAGE_KEY = 'APP_LPJ_CACHE_V1';
+
+      // 1. Simpan Memory ke LocalStorage
+      function saveCacheToLocal() {
+        // Sinkronkan variabel terpisah ke dalam objek DATA_CACHE utama agar tersimpan semua
+        DATA_CACHE.ref_barang = cacheDataBarangLengkap;
+        DATA_CACHE.ref_satuan = cacheDataSatuanLengkap;
+        DATA_CACHE.ref_uraian = cacheRefLengkap; // Referensi Master Uraian
+        DATA_CACHE.ref_guru   = cacheDataGuru;
+        
+        // Simpan ke penyimpanan browser
+        localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(DATA_CACHE));
+      }
+
+      // 2. Ambil dari LocalStorage ke Memory (Saat Refresh)
+      function loadCacheFromLocal() {
+        const saved = localStorage.getItem(CACHE_STORAGE_KEY);
+        if (saved) {
+          try {
+            // Restore ke DATA_CACHE
+            DATA_CACHE = JSON.parse(saved);
+
+            // Restore kembali ke variabel global terpisah agar aplikasi berjalan normal
+            if(DATA_CACHE.ref_barang) cacheDataBarangLengkap = DATA_CACHE.ref_barang;
+            if(DATA_CACHE.ref_satuan) cacheDataSatuanLengkap = DATA_CACHE.ref_satuan;
+            if(DATA_CACHE.ref_uraian) {
+                cacheRefLengkap = DATA_CACHE.ref_uraian;
+                cacheRefUraian = DATA_CACHE.ref_uraian; // Sinkronkan juga ke cacheRefUraian
+            }
+            if(DATA_CACHE.ref_guru) cacheDataGuru = DATA_CACHE.ref_guru;
+            
+            console.log("Cache Lokal berhasil dimuat.");
+          } catch (e) {
+            console.error("Gagal memuat cache lokal:", e);
+            localStorage.removeItem(CACHE_STORAGE_KEY); // Hapus jika korup
+          }
+        }
+      }
+
+      // 3. Hapus Cache (Saat Logout)
+      function clearLocalCache() {
+        localStorage.removeItem(CACHE_STORAGE_KEY);
+        // Reset variabel global
+        DATA_CACHE = {
+              toko: null, tukang: null, guru: null, uraian: null, satuan: null,
+              transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null,
+              sekolah: null, template_settings: null, dashboard: null
+        };
+        cacheDataBarangLengkap = [];
+        cacheDataSatuanLengkap = [];
+        cacheRefLengkap = [];
+        cacheDataGuru = [];
       }
 
     </script>
