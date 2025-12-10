@@ -1306,7 +1306,7 @@ function editUraianItem(token, form) {
   }
 }
 
-/* --- UPDATE: AMBIL KODE & URAIAN (MENGGUNAKAN getDisplayValues) --- */
+/* --- UPDATE: AMBIL REF URAIAN LENGKAP (KOLOM A s.d D) --- */
 function getReferensiUraianMaster(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -1318,14 +1318,18 @@ function getReferensiUraianMaster(token) {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'success', data: [] };
 
-    // PERBAIKAN UTAMA: Gunakan .getDisplayValues()
-    // Ini memaksa script mengambil "Teks yang terlihat" di cell, bukan format tanggalnya.
-    const data = sheet.getRange(2, 1, lastRow - 1, 2).getDisplayValues();
+    // PERBAIKAN: Ambil 4 Kolom (A, B, C, D)
+    // Kolom A = Uraian
+    // Kolom B = Kode Kegiatan
+    // Kolom C = Standar Nasional Pendidikan
+    // Kolom D = Nama Kegiatan
+    const data = sheet.getRange(2, 1, lastRow - 1, 4).getDisplayValues();
     
-    // Asumsi: Kolom A = Uraian, Kolom B = Kode Kegiatan
     const cleanData = data.map(r => ({
-      uraian: String(r[0]).trim(),  // Kolom A
-      kode: String(r[1]).trim()     // Kolom B
+      uraian: String(r[0]).trim(),  // Col A
+      kode: String(r[1]).trim(),    // Col B
+      standar: String(r[2]).trim(), // Col C
+      kegiatan: String(r[3]).trim() // Col D
     })).filter(obj => obj.uraian !== ""); 
 
     return { status: 'success', data: cleanData };
