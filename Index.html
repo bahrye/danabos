@@ -6500,59 +6500,80 @@
         }).getReferensiUraianMaster(token);
       }
 
+      /* --- UPDATE: TAMPILAN KODE KEGIATAN & PENCARIAN GABUNGAN --- */
       function handleInputUraian(el) {
         const keyword = el.value.toLowerCase();
         const listEl = document.getElementById('listSaranUraian');
         
-        // 1. Validasi: Minimal 2 huruf (biar lebih responsif)
+        // 1. Validasi: Minimal 2 huruf baru mencari
         if (keyword.length < 2) {
           listEl.style.display = 'none';
           return;
         }
 
-        // 2. GABUNGKAN DATA
-        const rawCombined = [...cacheRefUraian, ...cacheUserUraian];
-        const uniqueSource = [...new Set(rawCombined)]; 
+        // 2. PERSIAPAN DATA
+        // Data Riwayat Inputan User (biasanya belum punya kode, kita kasih string kosong)
+        const userHistoryObjs = cacheUserUraian.map(u => ({ uraian: u, kode: '' }));
+        
+        // Gabungkan Data Master (ada kode) + Riwayat (tanpa kode)
+        const rawCombined = [...cacheRefUraian, ...userHistoryObjs];
 
-        // 3. FILTER Data
-        let matches = uniqueSource.filter(item => 
-          String(item).toLowerCase().includes(keyword)
-        );
-
-        // --- TAMBAHAN BARU: SORTING CLIENT SIDE ---
-        matches.sort((a, b) => {
-          const valA = String(a).toLowerCase();
-          const valB = String(b).toLowerCase();
-
-          // Prioritas 1: Sama persis
-          if (valA === keyword && valB !== keyword) return -1;
-          if (valB === keyword && valA !== keyword) return 1;
-
-          // Prioritas 2: Diawali keyword
-          const startA = valA.startsWith(keyword);
-          const startB = valB.startsWith(keyword);
-          if (startA && !startB) return -1;
-          if (!startA && startB) return 1;
-
-          // Prioritas 3: Panjang String (Lebih pendek lebih dulu)
-          return valA.length - valB.length;
+        // Hapus Duplikat (Agar tidak muncul ganda)
+        const uniqueMap = new Map();
+        rawCombined.forEach(item => {
+          if(!uniqueMap.has(item.uraian)){
+            uniqueMap.set(item.uraian, item);
+          }
         });
-        // ------------------------------------------
+        const uniqueSource = Array.from(uniqueMap.values());
 
-        // 4. RENDER HASIL
+        // 3. FILTER (Cari berdasarkan Uraian ATAU Kode)
+        let matches = uniqueSource.filter(item => {
+          const u = String(item.uraian).toLowerCase();
+          const k = String(item.kode).toLowerCase();
+          // Cek apakah keyword ada di Uraian ATAU di Kode
+          return u.includes(keyword) || k.includes(keyword);
+        });
+
+        // 4. SORTING CERDAS
+        matches.sort((a, b) => {
+          // Prioritas: Jika KODE persis sama dengan yang diketik, taruh paling atas
+          if (String(a.kode).toLowerCase() === keyword) return -1;
+          if (String(b.kode).toLowerCase() === keyword) return 1;
+          
+          // Sisanya urutkan berdasarkan panjang teks (yang lebih pendek biasanya lebih relevan)
+          return a.uraian.length - b.uraian.length;
+        });
+
+        // 5. RENDER TAMPILAN
         if (matches.length > 0) {
           let html = '';
-          // NAIKKAN BATAS TAMPILAN client side juga (misal jadi 20)
           const limit = matches.length > 20 ? 20 : matches.length;
           
           for(let i=0; i<limit; i++) {
-            const valSafe = matches[i].replace(/'/g, "\\'"); 
+            const item = matches[i];
+            const valSafe = escapeJsAttribute(item.uraian); 
             
+            // LOGIKA TAMPILAN:
+            // Jika ada Kode, buat Badge Biru. Jika tidak (data riwayat), pakai ikon jam history.
+            let badgeHtml = '';
+            if(item.kode && item.kode !== "") {
+              // INI PENGGANTI TANDA CEKLIST (Tampil sebagai Kotak Biru Kode)
+              badgeHtml = `<span class="badge bg-primary me-2 font-monospace" style="min-width:60px;">${item.kode}</span>`;
+            } else {
+              badgeHtml = `<i class="fas fa-history text-secondary me-3 opacity-50"></i>`;
+            }
+            
+            // Saat diklik (onclick), hanya 'valSafe' (Uraian) yang dikirim ke input
             html += `
-              <div class="suggestion-item border-bottom" onclick="pilihSaranUraian('${valSafe}')">
+              <div class="suggestion-item border-bottom py-2 px-2" style="cursor:pointer;" onclick="pilihSaranUraian('${valSafe}')">
                 <div class="d-flex align-items-center">
-                  <i class="fas fa-check-circle text-success me-2" style="font-size:0.8rem"></i>
-                  <span>${matches[i]}</span>
+                  <div class="flex-shrink-0">
+                    ${badgeHtml}
+                  </div>
+                  <div class="flex-grow-1 text-wrap" style="line-height: 1.3; font-size:0.9rem;">
+                    ${item.uraian}
+                  </div>
                 </div>
               </div>`;
           }
@@ -6561,7 +6582,9 @@
           listEl.style.display = 'block';
           
         } else {
-          listEl.style.display = 'none';
+          // Tampilkan pesan jika tidak ditemukan
+          listEl.innerHTML = '<div class="p-2 text-muted fst-italic small">Data tidak ditemukan.</div>';
+          listEl.style.display = 'block';
         }
       }
 
