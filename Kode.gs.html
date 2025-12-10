@@ -2537,7 +2537,7 @@ function beautifyError(judul, errorObj, saran) {
          '</div>';
 }
 
-/* --- FUNGSI PENCARIAN REFERENSI BARANG (DIPERBARUI: SORTING & LIMIT) --- */
+/* --- FUNGSI PENCARIAN REFERENSI BARANG (DIPERBARUI: UNIQUE & SORTING) --- */
 function cariBarangReferensi(token, keyword) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -2554,15 +2554,28 @@ function cariBarangReferensi(token, keyword) {
     const lowerKey = keyword.toLowerCase();
     
     // 1. Filter data yang mengandung keyword
-    let results = data
+    let rawResults = data
       .filter(row => row[0] && String(row[0]).toLowerCase().includes(lowerKey))
       .map(row => ({
-        nama: row[0],
+        nama: String(row[0]).trim(), // Trim spasi agar lebih rapi
         satuan: row[1] || ''
       }));
 
-    // 2. SORTING CERDAS (Logika Baru)
-    results.sort((a, b) => {
+    // 2. LOGIKA HAPUS DUPLIKAT (Hanya ambil nama yang unik)
+    // Jika ada 7 "Buku Bahasa Indonesia", hanya 1 yang disimpan.
+    const uniqueResults = [];
+    const seenNames = new Set();
+
+    rawResults.forEach(item => {
+      // Kita gunakan nama sebagai kunci keunikan
+      if (!seenNames.has(item.nama)) {
+        seenNames.add(item.nama);
+        uniqueResults.push(item);
+      }
+    });
+
+    // 3. SORTING CERDAS (Logika Baru pada data yang sudah unik)
+    uniqueResults.sort((a, b) => {
       const nameA = String(a.nama).toLowerCase();
       const nameB = String(b.nama).toLowerCase();
       
@@ -2581,8 +2594,8 @@ function cariBarangReferensi(token, keyword) {
       return nameA.length - nameB.length;
     });
 
-    // 3. Batasi hasil maksimal 50 (sebelumnya cuma 15) agar scroll lebih panjang
-    return { status: 'success', data: results.slice(0, 50) };
+    // 4. Batasi hasil maksimal 50 agar performa tetap cepat
+    return { status: 'success', data: uniqueResults.slice(0, 50) };
 
   } catch (e) {
     return { status: 'error', message: e.toString() };
