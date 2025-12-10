@@ -4748,23 +4748,48 @@
             valBawah = data.pihakKetiga; 
         }
 
-        // 1. Header Info Dasar
+        // 1. Header Info Dasar (UPDATE: Rata Kiri, Vertikal, Satu Baris, Scrollable)
         let htmlContent = `
-          <div class="text-start mb-3" style="font-size: 0.9rem;">
-            <table class="table table-borderless table-sm mb-0">
-              <tr>
-                <td width="20%" class="fw-bold">Uraian Belanja</td>
-                <td>: ${data.uraian}</td>
-              </tr>
-              <tr>
-                <td class="fw-bold">${labelPihak}</td>
-                <td>: ${valPihak} <span class="badge bg-light text-secondary border ms-1">${data.tipe}</span></td>
-              </tr>
-              <tr>
-                <td class="fw-bold">${labelBawah}</td>
-                <td>: ${valBawah}</td>
-              </tr>
-            </table>
+          <div class="mb-3">
+             <div class="table-responsive border rounded">
+                <table class="table table-bordered table-sm mb-0 align-middle text-nowrap" style="font-size: 0.9rem;">
+                  <tbody>
+                    
+                    <tr>
+                      <td class="bg-light fw-bold text-secondary text-start" style="width: 30%; min-width: 140px;">
+                        <i class="fas fa-clipboard-list text-primary me-2"></i>Uraian
+                      </td>
+                      <td class="fw-bold text-dark text-start">
+                        ${data.uraian}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td class="bg-light fw-bold text-secondary text-start">
+                        <i class="fas fa-store text-success me-2"></i>${labelPihak}
+                      </td>
+                      <td class="text-start">
+                        ${valPihak} 
+                        <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.7rem;">${data.tipe}</span>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td class="bg-light fw-bold text-secondary text-start">
+                        <i class="fas fa-user-tie text-info me-2"></i>${labelBawah}
+                      </td>
+                      <td class="text-start">
+                        ${valBawah}
+                      </td>
+                    </tr>
+
+                  </tbody>
+                </table>
+             </div>
+             
+             <div class="text-center text-muted fst-italic mt-1" style="font-size: 0.75rem;">
+               <small><i class="fas fa-arrows-alt-h me-1"></i> Geser tabel ke samping jika teks terpotong</small>
+             </div>
           </div>
         `;
 
