@@ -296,14 +296,18 @@ function confirmResetOtp(form) {
 }
 
 /* --- KONFIGURASI SESI --- */
-const SESSION_TIMEOUT_SEC = 30; // 30 Detik (Toleransi waktu idle browser client)
-const MAX_IDLE_TIME_MINUTES = 30; // 30 Menit (Batas waktu sesi tanpa aktifitas akan dihapus)
+// Batas waktu toleransi untuk menganggap user "Sedang Online"
+// Jika browser mengirim sinyal dalam 60 detik terakhir, dianggap masih aktif.
+const ACTIVE_THRESHOLD_SEC = 60; 
+
+// Batas waktu sesi di database (30 menit)
+const MAX_IDLE_TIME_MINUTES = 30; 
 
 /* HELPER: CACHE SERVICE */
 function setSessionCache(email, data) {
   const cache = CacheService.getScriptCache();
-  // Simpan key menggunakan email lowercase agar konsisten
-  cache.put('SESI_' + email.toLowerCase(), JSON.stringify(data), 21600); // 6 Jam
+  // Simpan data sesi selama 6 jam di memori server
+  cache.put('SESI_' + email.toLowerCase(), JSON.stringify(data), 21600); 
 }
 
 function getSessionCache(email) {
@@ -317,31 +321,28 @@ function clearSessionCache(email) {
   cache.remove('SESI_' + email.toLowerCase());
 }
 
-/* --- 1. LOGIN USER (UPDATE: DENGAN LOCK SERVICE) --- */
+/* --- 1. LOGIN USER (LOGIKA ANTI-DOUBLE LOGIN) --- */
 function loginUser(form) {
-  // A. MEMULAI PENGUNCIAN (LOCK)
   const lock = LockService.getScriptLock();
   try {
-    // Tunggu antrean maksimal 30 detik. Jika lebih, lempar error.
     lock.waitLock(30000); 
   } catch (e) {
-    return { status: 'error', message: 'Server sedang sibuk menangani banyak login. Silakan coba lagi dalam beberapa detik.' };
+    return { status: 'error', message: 'Antrean login padat. Coba lagi.' };
   }
 
   try {
-    // --- KODE ASLI MULAI DARI SINI ---
     const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
     
-    // 1. Cari User
+    // 1. Cari User di Database
     const finder = ssMaster.getRange("C:C").createTextFinder(form.email).matchEntireCell(true);
     const found = finder.findNext();
 
     if (!found) {
-      return { status: 'error', message: 'Email atau Password salah!' };
+      return { status: 'error', message: 'Email tidak ditemukan.' };
     }
 
     const rowIdx = found.getRow();
-    // Ambil data user [0:Time, 1:Nama, 2:Email, 3:PassHash, 4:DbID, 5:SessionID, 6:RecCode, 7:SALT]
+    // Ambil data user: [Time, Nama, Email, PassHash, DbID, SessionID, RecCode, SALT]
     const userData = ssMaster.getRange(rowIdx, 1, 1, 8).getValues()[0];
 
     const storedHash = String(userData[3]); 
@@ -351,46 +352,42 @@ function loginUser(form) {
     const inputHash = hashPassword(form.password, storedSalt);
 
     if (inputHash === storedHash) {
-      
-      const email = form.email;
-      const cachedSession = getSessionCache(email);
+      const email = form.email.trim().toLowerCase();
       const now = new Date().getTime();
       
-      let isDeviceActive = false;
-
-      // 3. CEK STATUS CACHE SESI LAMA
+      // --- PENGECEKAN LOGIN GANDA DIMULAI DISINI ---
+      const cachedSession = getSessionCache(email);
+      
       if (cachedSession) {
         const lastPing = cachedSession.lastPing || 0;
-        const diffSec = (now - lastPing) / 1000;
-        const diffMin = diffSec / 60;
+        const diffSec = (now - lastPing) / 1000; // Selisih waktu dalam detik
 
-        if (diffSec < 15) { 
-          isDeviceActive = true; 
+        // LOGIKA ANDA:
+        // Jika selisih waktu < 60 detik, berarti ada perangkat lain yang BARU SAJA aktif.
+        // Maka kita TOLAK login baru ini.
+        if (diffSec < ACTIVE_THRESHOLD_SEC) { 
+           return { 
+            status: 'error', 
+            message: '<b>Login Ganda Terdeteksi!</b><br>Akun ini sedang aktif digunakan di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu 1 menit.' 
+          };
         }
         
-        if (diffMin >= MAX_IDLE_TIME_MINUTES) {
-          isDeviceActive = false; 
-        }
+        // JIKA LEBIH DARI 60 DETIK:
+        // Berarti sesi lama sudah "bangkai" (orangnya tutup tab/idle lama).
+        // Kita BIARKAN login ini masuk, dan sesi lama otomatis tertimpa (terhapus).
       }
+      // ---------------------------------------------
 
-      // KASUS 1: Perangkat A sedang aktif Realtime -> TOLAK
-      if (isDeviceActive) {
-        return { 
-          status: 'error', 
-          message: '<b>Akun Sedang Online!</b><br>Akun ini sedang digunakan di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu beberapa saat.' 
-        };
-      }
-
-      // KASUS 2: BUAT SESI BARU (TIMPA)
+      // 3. BUAT SESI BARU (Menimpa sesi lama jika ada)
       const newSessionId = Utilities.getUuid();
       
-      // Simpan ke Cache
+      // Simpan ke Cache Server (Agar fungsi heartbeat/updateUserActivity bisa jalan)
       setSessionCache(email, {
         token: newSessionId,
         lastPing: now
       });
 
-      // Simpan ke Spreadsheet (PENULISAN KE DB INI SEKARANG AMAN KARENA DI-LOCK)
+      // Simpan Token ke Database Spreadsheet (Agar persist)
       ssMaster.getRange(rowIdx, 6).setValue(newSessionId);
 
       return { 
@@ -401,46 +398,44 @@ function loginUser(form) {
       };
     }
     
-    return { status: 'error', message: 'Email atau Password salah!' };
-    // --- KODE ASLI BERAKHIR DI SINI ---
+    return { status: 'error', message: 'Password salah!' };
 
   } catch (e) {
-    return { status: 'error', message: 'Terjadi kesalahan sistem: ' + e.toString() };
+    return { status: 'error', message: 'Error: ' + e.toString() };
   } finally {
-    // B. LEPASKAN KUNCI (WAJIB)
-    // Apapun yang terjadi (sukses/error), kunci harus dilepas agar antrean berikutnya bisa masuk
     lock.releaseLock();
   }
 }
 
-/* --- 2. HEARTBEAT (PING REALTIME - DENGAN AUTO LOGOUT 30 MENIT) --- */
+/* --- 2. HEARTBEAT (Update Waktu Aktif) --- */
 function updateUserActivity(email, clientToken) {
   const cachedSession = getSessionCache(email);
   const now = new Date().getTime();
   
-  // 1. Jika sesi tidak ada di cache (sudah dihapus atau expired server)
+  // 1. Jika di server tidak ada sesi (mungkin server restart/cache hilang)
   if (!cachedSession) {
     return { valid: false }; 
   }
 
-  // 2. VALIDASI TOKEN
+  // 2. VALIDASI TOKEN (Kunci Anti-Ganda)
+  // Jika Token yang dikirim browser BEDA dengan yang ada di Cache Server,
+  // Berarti akun ini sudah diambil alih oleh login baru.
   if (cachedSession.token !== clientToken) {
-    // Token berbeda (berarti sudah ada yang login di perangkat lain)
-    return { valid: false };
+    return { valid: false }; // Kirim sinyal logout ke client
   }
 
-  // 3. LOGIKA BARU: AUTO LOGOUT JIKA IDLE > 30 MENIT
-  // Jika ping terakhir sudah lebih lama dari 30 menit yang lalu
+  // 3. Auto Logout jika idle > 30 menit
   const lastPing = cachedSession.lastPing || 0;
   const diffMin = (now - lastPing) / 1000 / 60;
 
   if (diffMin > MAX_IDLE_TIME_MINUTES) {
-    // Hapus sesi karena sudah terlalu lama idle
     clearSessionCache(email);
-    return { valid: false }; // Kirim sinyal ke client untuk logout
+    return { valid: false }; 
   }
 
-  // 4. Jika Valid & Aktif, Update Waktu Ping
+  // 4. Update Waktu Ping Terakhir
+  // Inilah penanda "Login 1" atau "Login 2" yang Anda maksud.
+  // Selama fungsi ini dipanggil terus, timestamp akan selalu baru (Aktif).
   cachedSession.lastPing = now;
   setSessionCache(email, cachedSession);
   
