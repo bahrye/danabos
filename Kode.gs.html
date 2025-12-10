@@ -1272,28 +1272,32 @@ function hapusUraianItem(token, idToDelete) {
   }
 }
 
-/* --- TAMBAHAN DI FUNGSI DATA URAIAN --- */
-
-// 4. Edit / Update Uraian
+// 4. Edit / Update Uraian (UPDATE SINKRONISASI)
 function editUraianItem(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataUraian');
     const data = sheet.getDataRange().getValues();
     
-    // Loop cari ID yang cocok
     for (let i = 0; i < data.length; i++) {
-      if (data[i][0] == form.id) { // Kolom 0 adalah ID
+      if (data[i][0] == form.id) { 
         
-        // Update Baris Tersebut (Ingat +1 karena index array mulai 0, sheet mulai 1)
-        // Kita update Kolom 2 (No Bukti) dan Kolom 3 (Uraian)
-        
-        const noBuktiText = "'" + form.noBukti; // Jaga format text
+        // --- LOGIKA BARU: Simpan Uraian Lama (Kolom ke-3 / Index 2) ---
+        const oldUraian = String(data[i][2]);
+        // --------------------------------------------------------------
+
+        const noBuktiText = "'" + form.noBukti; 
         
         sheet.getRange(i + 1, 2).setValue(noBuktiText);
         sheet.getRange(i + 1, 3).setValue(form.uraian);
         
-        return { status: 'success', message: 'Data berhasil diperbarui!' };
+        // --- LOGIKA BARU: Sinkronisasi ---
+        if (oldUraian !== form.uraian) {
+          sinkronisasiDataTransaksi(token, 'URAIAN', oldUraian, form.uraian);
+        }
+        // ---------------------------------
+
+        return { status: 'success', message: 'Uraian diperbarui & Riwayat disinkronkan!' };
       }
     }
     return { status: 'error', message: 'ID Data tidak ditemukan.' };
@@ -1389,7 +1393,7 @@ function simpanTokoBaru(token, form) {
   }
 }
 
-// 3. Edit Data Toko
+// 3. Edit Data Toko (UPDATE SINKRONISASI)
 function editTokoItem(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -1399,11 +1403,14 @@ function editTokoItem(token, form) {
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] == form.id) {
         
+        // --- LOGIKA BARU: Simpan Nama Lama ---
+        const oldName = String(data[i][1]); // Kolom Nama ada di index 1
+        // -------------------------------------
+
         // Update Baris (Index + 1)
         const rowIdx = i + 1;
         const telpText = "'" + form.telp;
 
-        // Update sel satu per satu sesuai kolom
         sheet.getRange(rowIdx, 2).setValue(form.nama);
         sheet.getRange(rowIdx, 3).setValue(form.jenis);
         sheet.getRange(rowIdx, 4).setValue(form.alamat);
@@ -1411,7 +1418,13 @@ function editTokoItem(token, form) {
         sheet.getRange(rowIdx, 6).setValue(form.pemilik);
         sheet.getRange(rowIdx, 7).setValue(form.tempat);
         
-        return { status: 'success', message: 'Data Toko berhasil diperbarui!' };
+        // --- LOGIKA BARU: Jalankan Sinkronisasi ---
+        if (oldName !== form.nama) {
+          sinkronisasiDataTransaksi(token, 'TOKO', oldName, form.nama);
+        }
+        // ------------------------------------------
+
+        return { status: 'success', message: 'Data Toko diperbarui & Riwayat disinkronkan!' };
       }
     }
     return { status: 'error', message: 'ID Toko tidak ditemukan.' };
@@ -1491,7 +1504,7 @@ function simpanTukangBaru(token, form) {
   }
 }
 
-// 3. Edit Data Tukang
+// 3. Edit Data Tukang (UPDATE SINKRONISASI)
 function editTukangItem(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -1501,12 +1514,22 @@ function editTukangItem(token, form) {
     // Loop cari ID
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] == form.id) {
+        
+        // --- LOGIKA BARU: Simpan Nama Lama ---
+        const oldName = String(data[i][1]); 
+        // -------------------------------------
+
         const rowIdx = i + 1;
-        // Update kolom 2 (Nama) dan 3 (Alamat)
         sheet.getRange(rowIdx, 2).setValue(form.nama);
         sheet.getRange(rowIdx, 3).setValue(form.alamat);
         
-        return { status: 'success', message: 'Data Tukang berhasil diperbarui!' };
+        // --- LOGIKA BARU: Sinkronisasi ---
+        if (oldName !== form.nama) {
+          sinkronisasiDataTransaksi(token, 'TUKANG', oldName, form.nama);
+        }
+        // ---------------------------------
+
+        return { status: 'success', message: 'Data Tukang diperbarui & Riwayat disinkronkan!' };
       }
     }
     return { status: 'error', message: 'ID Tukang tidak ditemukan.' };
@@ -1589,7 +1612,7 @@ function simpanGuruBaru(token, form) {
   }
 }
 
-// 3. Edit Data Guru
+// 3. Edit Data Guru (UPDATE SINKRONISASI)
 function editGuruItem(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -1598,14 +1621,24 @@ function editGuruItem(token, form) {
     
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] == form.id) {
+        
+        // --- LOGIKA BARU: Simpan Nama Lama ---
+        const oldName = String(data[i][1]); 
+        // -------------------------------------
+
         const rowIdx = i + 1;
         const nipText = form.nip ? "'" + form.nip : "";
 
-        // Update kolom 2 (Nama) dan 3 (NIP)
         sheet.getRange(rowIdx, 2).setValue(form.nama);
         sheet.getRange(rowIdx, 3).setValue(nipText);
         
-        return { status: 'success', message: 'Data Guru berhasil diperbarui!' };
+        // --- LOGIKA BARU: Sinkronisasi ---
+        if (oldName !== form.nama) {
+          sinkronisasiDataTransaksi(token, 'GURU', oldName, form.nama);
+        }
+        // ---------------------------------
+        
+        return { status: 'success', message: 'Data Guru diperbarui & Riwayat disinkronkan!' };
       }
     }
     return { status: 'error', message: 'ID Guru tidak ditemukan.' };
@@ -1973,6 +2006,83 @@ function editTransaksiItem(token, data) {
     return { status: 'error', message: 'ID Transaksi tidak ditemukan.' };
   } catch (e) {
     return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI BARU: SINKRONISASI PERUBAHAN MASTER KE TRANSAKSI --- */
+function sinkronisasiDataTransaksi(token, jenisPerubahan, nilaiLama, nilaiBaru) {
+  if (nilaiLama === nilaiBaru) return; // Tidak perlu update jika nama sama
+
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi');
+    if (!sheet) return;
+
+    // Peta Header untuk mengetahui posisi kolom
+    const h = getHeaderMap(sheet);
+    
+    // Pastikan kolom-kolom penting ada
+    if (h['Uraian'] === undefined || h['Pihak_Ketiga'] === undefined || h['Pemesan'] === undefined) return;
+
+    const data = sheet.getDataRange().getValues();
+    
+    // Loop semua baris transaksi (Mulai index 1 untuk skip header)
+    for (let i = 1; i < data.length; i++) {
+      let isUpdated = false;
+      const row = data[i];
+      const rowIdx = i + 1;
+
+      // 1. UPDATE URAIAN (Jika yang diedit adalah Uraian Pekerjaan)
+      if (jenisPerubahan === 'URAIAN') {
+        if (String(row[h['Uraian']]).trim() === String(nilaiLama).trim()) {
+          sheet.getRange(rowIdx, h['Uraian'] + 1).setValue(nilaiBaru);
+        }
+      }
+
+      // 2. UPDATE PIHAK KETIGA (Toko atau Tukang)
+      if (jenisPerubahan === 'TOKO' || jenisPerubahan === 'TUKANG') {
+        // Cek Kolom Pihak Ketiga
+        if (String(row[h['Pihak_Ketiga']]).trim() === String(nilaiLama).trim()) {
+          sheet.getRange(rowIdx, h['Pihak_Ketiga'] + 1).setValue(nilaiBaru);
+        }
+      }
+
+      // 3. UPDATE PEMESAN / GURU
+      if (jenisPerubahan === 'GURU') {
+        // A. Cek Kolom Pemesan (Untuk Transaksi Toko/Tukang yang dipesan guru ini)
+        if (String(row[h['Pemesan']]).trim() === String(nilaiLama).trim()) {
+          sheet.getRange(rowIdx, h['Pemesan'] + 1).setValue(nilaiBaru);
+        }
+
+        // B. Cek Kolom Pihak Ketiga (Khusus Transaksi Honor Guru)
+        if (row[h['Tipe']] === 'GURU' && String(row[h['Pihak_Ketiga']]).trim() === String(nilaiLama).trim()) {
+           sheet.getRange(rowIdx, h['Pihak_Ketiga'] + 1).setValue(nilaiBaru);
+        }
+
+        // C. Cek Detail Items JSON (Karena nama guru juga disimpan di dalam JSON item honor)
+        if (row[h['Tipe']] === 'GURU') {
+          let items = [];
+          try { items = JSON.parse(row[h['Items_JSON']]); } catch (e) {}
+          
+          let jsonChanged = false;
+          items.forEach(item => {
+            if (String(item.nama).trim() === String(nilaiLama).trim()) {
+              item.nama = nilaiBaru; // Update nama di dalam JSON
+              jsonChanged = true;
+            }
+          });
+
+          if (jsonChanged) {
+             sheet.getRange(rowIdx, h['Items_JSON'] + 1).setValue(JSON.stringify(items));
+          }
+        }
+      }
+    }
+    
+    console.log("Sinkronisasi Selesai: " + nilaiLama + " -> " + nilaiBaru);
+
+  } catch (e) {
+    console.error("Gagal Sinkronisasi: " + e.toString());
   }
 }
 
