@@ -436,6 +436,22 @@
       .modal-body .table-responsive thead.sticky-top {
         z-index: 5; /* Sedikit diatas konten tabel */
       }
+
+      /* --- CSS UNTUK KOLOM SCROLLABLE --- */
+      .cell-scroll {
+        overflow-x: auto;       /* Izinkan scroll horizontal */
+        white-space: nowrap;    /* Teks satu baris, tidak turun ke bawah */
+        padding-bottom: 2px;    /* Sedikit jarak bawah */
+        
+        /* Sembunyikan scrollbar agar bersih (opsional) */
+        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;  /* IE and Edge */
+      }
+
+      /* Sembunyikan scrollbar untuk Chrome/Safari/Opera */
+      .cell-scroll::-webkit-scrollbar {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -1409,6 +1425,76 @@
             </div>
           </div>
 
+          <div class="modal fade" id="modalInfoBarang" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl"> 
+              <div class="modal-content border-0 shadow-lg">
+                
+                <div class="modal-header bg-warning text-dark bg-gradient">
+                  <h5 class="modal-title"><i class="fas fa-boxes me-2"></i> Referensi Barang & Harga</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                
+                <div class="input-group mb-3 shadow-sm">
+                  <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                  <input type="text" class="form-control border-start-0 ps-0" id="cariBarangInput" placeholder="Cari nama barang..." onkeyup="filterInfoBarang()">
+                </div>
+
+                <div class="table-responsive" style="max-height: 55vh; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px;">
+                  
+                  <table class="table table-hover align-middle table-bordered mb-0" style="table-layout: fixed; min-width: 1000px;"> 
+                    
+                    <thead class="text-center sticky-top" style="z-index: 10; top: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                      <tr>
+                        <th style="width: 22%; background-color: #f8f9fa;">Kategori</th> 
+                        <th style="width: 15%; background-color: #f8f9fa;">Nama Kategori</th>
+                        <th style="width: 32%; background-color: #f8f9fa;">Nama Barang/Jasa</th>
+                        <th style="width: 8%;  background-color: #f8f9fa;">Satuan</th>
+                        <th style="width: 15%; background-color: #f8f9fa;">Harga Referensi</th>
+                        <th style="width: 8%; background-color: #f8f9fa;">Aksi</th>
+                      </tr>
+                    </thead>
+                    
+                    <tbody id="bodyInfoBarang">
+                      <tr><td colspan="6" class="text-center text-muted">Memuat data...</td></tr>
+                    </tbody>
+                  </table>
+
+                </div>
+
+                <div id="paginationContainer" class="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3 pt-3 border-top hidden gap-2">
+                    
+                    <div class="text-center text-sm-start">
+                      <small class="text-muted" style="font-size: 0.85rem;">
+                        Menampilkan <span id="lblStart">0</span> - <span id="lblEnd">0</span> dari <span id="lblTotal">0</span> data
+                      </small>
+                    </div>
+
+                    <div class="btn-group btn-group-sm shadow-sm">
+                      
+                      <button class="btn btn-outline-secondary px-3" id="btnPrevPage" onclick="gantiHalaman(-1)">
+                        <i class="fas fa-chevron-left"></i> 
+                        <span class="d-none d-sm-inline ms-1">Sebelumnya</span>
+                      </button>
+                      
+                      <button class="btn btn-outline-secondary disabled px-3 fw-bold text-dark" id="lblPageIndicator" style="background-color: #f8f9fa; border-color: #6c757d;">
+                        1 / 1
+                      </button>
+                      
+                      <button class="btn btn-outline-secondary px-3" id="btnNextPage" onclick="gantiHalaman(1)">
+                        <span class="d-none d-sm-inline me-1">Selanjutnya</span> 
+                        <i class="fas fa-chevron-right"></i>
+                      </button>
+
+                    </div>
+
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="modal fade" id="modalInfoSatuan" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content border-0 shadow-lg">
                 
@@ -1586,6 +1672,10 @@
                       </div>
 
                       <div class="action-group-right">
+                        <button type="button" class="btn btn-warning text-dark me-1" onclick="bukaModalBarang()">
+                          <i class="fas fa-boxes me-1"></i> Info Barang
+                        </button>
+
                         <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
@@ -1697,6 +1787,10 @@
                       </div>
 
                       <div class="action-group-right">
+                        <button type="button" class="btn btn-warning text-dark me-1" onclick="bukaModalBarang()">
+                          <i class="fas fa-boxes me-1"></i> Info Barang
+                        </button>
+
                         <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
@@ -1829,6 +1923,10 @@
                       </div>
 
                       <div class="action-group-right">
+                        <button type="button" class="btn btn-warning text-dark me-1" onclick="bukaModalBarang()">
+                          <i class="fas fa-boxes me-1"></i> Info Barang
+                        </button>
+
                         <button type="button" class="btn btn-info text-white" onclick="bukaModalSatuan()">
                           <i class="fas fa-eye me-1"></i> Info Satuan
                         </button>
@@ -6903,12 +7001,17 @@
                 res.data.forEach(item => {
                   const namaSafe = escapeJsAttribute(item.nama);
                   const satSafe  = escapeJsAttribute(item.satuan);
+                  const harga    = item.harga || 0; // Pastikan harga terambil
                   
+                  // UPDATE onclick: Tambahkan parameter harga
                   html += `
                     <div class="suggestion-item d-flex justify-content-between align-items-center" 
-                         onclick="pilihReferensiBarang('${namaSafe}', '${satSafe}', '${tipe}', this)">
-                       <span>${item.nama}</span>
-                       <span class="badge bg-light text-secondary border">${item.satuan}</span>
+                        onclick="pilihReferensiBarang('${namaSafe}', '${satSafe}', ${harga}, '${tipe}', this)">
+                      <span>${item.nama}</span>
+                      <div class="text-end">
+                          <small class="d-block text-muted" style="font-size:0.7rem">${formatRupiahJS(harga)}</small>
+                          <span class="badge bg-light text-secondary border">${item.satuan}</span>
+                      </div>
                     </div>
                   `;
                 });
@@ -6924,53 +7027,71 @@
         }, 400); // Delay 400ms agar tidak terlalu sensitif
       }
 
-      function pilihReferensiBarang(nama, satuan, tipe, itemEl) {
+      // --- UPDATE FUNGSI PILIH DARI PENCARIAN REFERENSI (AUTOCOMPLETE) ---
+      function pilihReferensiBarang(nama, satuan, harga, tipe, itemEl) {
+        
         // 1. Tentukan Tabel Target
         const tableId = (tipe === 'toko') ? 'tabelItemToko' : 'tabelItemTukang';
         const tbody = document.getElementById(tableId).querySelector('tbody');
-        const rows = tbody.querySelectorAll('tr');
-
-        // 2. Cari baris kosong terakhir
-        let targetRow = null;
         
+        // Ambil daftar baris saat ini
+        let rows = tbody.querySelectorAll('tr');
+        let targetRow = null;
+
+        // 2. LOGIKA CEK BARIS (Mencegah Overwrite Data)
         if (rows.length > 0) {
           const lastRow = rows[rows.length - 1];
           const inputNama = lastRow.querySelector('.item-nama');
           
-          // Jika baris terakhir nama barangnya masih kosong, pakai baris itu
+          // Cek apakah baris terakhir namanya MASIH KOSONG?
+          // Jika kosong, kita pakai baris ini.
           if (inputNama && inputNama.value.trim() === '') {
             targetRow = lastRow;
           }
         }
 
-        // 3. Jika tidak ada baris kosong, buat baris baru
+        // 3. Jika tidak ada baris yang bisa dipakai (Tabel kosong ATAU Baris terakhir sudah penuh)
+        // Maka Buat Baris Baru
         if (!targetRow) {
-          tambahBaris(tipe);
-          // Ambil baris yang baru saja dibuat
-          const newRows = tbody.querySelectorAll('tr');
-          targetRow = newRows[newRows.length - 1];
+          tambahBaris(tipe); 
+          // Update daftar rows dan ambil yang baru saja dibuat
+          rows = tbody.querySelectorAll('tr');
+          targetRow = rows[rows.length - 1];
         }
 
         // 4. Isi Data ke Input
         if (targetRow) {
           const inputNama = targetRow.querySelector('.item-nama');
           const inputSat = targetRow.querySelector('.item-sat');
+          const inputHarga = targetRow.querySelector('.item-harga');
 
-          if (inputNama) inputNama.value = unescapeHtml(nama); // Decode entitas HTML jika ada
+          if (inputNama) inputNama.value = unescapeHtml(nama);
           if (inputSat) inputSat.value = unescapeHtml(satuan);
           
-          // Efek visual (kedip kuning) agar user tahu baris mana yang terisi
+          // Isi Harga & Hitung Otomatis
+          if (inputHarga) {
+            inputHarga.value = formatRibuanInput(harga); 
+            hitungBaris(inputHarga, tipe); 
+          }
+          
+          // Efek visual (Highlight Kuning sesaat)
           targetRow.classList.add('table-warning');
           setTimeout(() => targetRow.classList.remove('table-warning'), 500);
         }
 
-        // 5. Bersihkan Pencarian
+        // 5. Bersihkan Tampilan Pencarian & Reset Fokus
         const wrapper = itemEl.closest('.autocomplete-wrapper');
-        const inputCari = wrapper.querySelector('input');
-        
-        wrapper.querySelector('.suggestion-list').style.display = 'none';
-        inputCari.value = ''; // Kosongkan input pencarian agar siap cari lagi
-        inputCari.focus();    // Kembalikan fokus ke input cari
+        if (wrapper) {
+          const list = wrapper.querySelector('.suggestion-list');
+          const inputCari = wrapper.querySelector('input');
+          
+          if(list) list.style.display = 'none'; // Tutup saran
+          
+          if(inputCari) {
+              inputCari.value = ''; // Kosongkan kotak pencarian
+              inputCari.focus();    // Kembalikan kursor ke kotak pencarian agar bisa cari lagi
+          }
+        }
       }
 
       // Helper untuk decode string (jika diperlukan saat insert value)
@@ -7566,6 +7687,307 @@
             title: 'Data disalin ke form', showConfirmButton: false, timer: 1500
           });
         }, 300);
+      }
+
+      /* --- LOGIKA INFO BARANG DENGAN PAGINASI --- */
+
+      // Variabel Global untuk Paginasi Barang
+      let cacheDataBarangLengkap = []; // Menyimpan SEMUA data dari server
+      let filteredBarangList = [];     // Menyimpan data hasil pencarian
+      let currentPageBarang = 1;       // Halaman saat ini
+      const ITEMS_PER_PAGE = 30;       // Batas baris per halaman
+
+      function bukaModalBarang() {
+        const modal = new bootstrap.Modal(document.getElementById('modalInfoBarang'));
+        modal.show();
+
+        document.getElementById('cariBarangInput').value = '';
+        
+        // Reset Paginasi
+        currentPageBarang = 1;
+        
+        // Load Data
+        loadInfoBarangFromServer();
+      }
+
+      function loadInfoBarangFromServer() {
+        const token = localStorage.getItem('userToken');
+        const tbody = document.getElementById('bodyInfoBarang');
+        const paginasiEl = document.getElementById('paginationContainer');
+        
+        // Sembunyikan navigasi saat loading
+        paginasiEl.classList.add('hidden');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-warning" role="status"></div><br>Mengambil data barang...</td></tr>';
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            // 1. Simpan Data Mentah ke Cache
+            cacheDataBarangLengkap = res.data;
+            
+            // 2. Set Data Filtered (Awalnya sama dengan semua data)
+            filteredBarangList = [...cacheDataBarangLengkap];
+            
+            // 3. Render Halaman Pertama
+            renderTabelBarang();
+            
+          } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Gagal: ${res.message}</td></tr>`;
+          }
+        }).getReferensiBarangLengkap(token);
+      }
+
+      // --- UPDATE FUNGSI RENDER TABEL BARANG ---
+      function renderTabelBarang() {
+        const tbody = document.getElementById('bodyInfoBarang');
+        const paginasiEl = document.getElementById('paginationContainer');
+        
+        tbody.innerHTML = '';
+
+        if (filteredBarangList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Data tidak ditemukan.</td></tr>';
+          paginasiEl.classList.add('hidden');
+          return;
+        }
+
+        // Logika Paginasi
+        const totalItems = filteredBarangList.length;
+        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+        
+        if (currentPageBarang > totalPages) currentPageBarang = 1;
+        if (currentPageBarang < 1) currentPageBarang = 1;
+
+        const startIndex = (currentPageBarang - 1) * ITEMS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+        const pageData = filteredBarangList.slice(startIndex, endIndex);
+
+        // Render Baris
+        pageData.forEach((item, index) => {
+          // Generate ID Unik untuk DOM
+          // Kita gunakan kombinasi timestamp + index loop agar benar-benar unik
+          const uniqueKey = Date.now() + "_" + index; 
+          const domId = `row-brg-${uniqueKey}`;
+
+          const safeNama = escapeJsAttribute(item.nama);
+          const safeSat = escapeJsAttribute(item.satuan);
+          const hargaTampil = formatRupiahJS(item.harga);
+          
+          // 1. HARGA VIEW (Tampilan Biasa)
+          const viewHarga = `
+            <div id="view-harga-${domId}" class="d-flex justify-content-between align-items-center">
+              <span class="fw-bold text-success text-truncate">${hargaTampil}</span>
+              <i class="fas fa-pencil-alt text-muted cursor-pointer ms-2" onclick="enableEditHarga('${domId}', '${safeNama}', ${item.harga})" title="Edit Harga"></i>
+            </div>
+          `;
+
+          // 2. HARGA EDIT (Input Form)
+          // Input dibuat width 100% agar memenuhi kolom yang sudah diperlebar
+          const editHarga = `
+            <div id="edit-harga-${domId}" class="input-group input-group-sm hidden" style="width: 100%;">
+              <input type="text" class="form-control form-control-sm px-1" value="${formatRibuanInput(item.harga)}" id="input-harga-${domId}" style="min-width: 80px;">
+              <button class="btn btn-success px-2" onclick="saveEditHarga('${domId}', '${safeNama}')"><i class="fas fa-check"></i></button>
+              <button class="btn btn-secondary px-2" onclick="cancelEditHarga('${domId}')"><i class="fas fa-times"></i></button>
+            </div>
+          `;
+
+          const btnTambah = `
+            <button class="btn btn-sm btn-primary w-100" onclick="pilihDariInfoBarang('${safeNama}', '${safeSat}', ${item.harga})">
+              <i class="fas fa-plus"></i>
+            </button>
+          `;
+
+          // --- STRUKTUR KOLOM DENGAN SCROLL ---
+          const row = `
+            <tr>
+              <td class="text-start">
+                <div class="cell-scroll" style="width: 100%;">
+                  <span class="badge bg-light text-dark border">${item.katKode}</span>
+                </div>
+              </td>
+
+              <td class="small">${item.katNama}</td>
+
+              <td>
+                <div class="cell-scroll fw-bold" style="width: 100%;">
+                  ${item.nama}
+                </div>
+              </td>
+
+              <td class="text-center small">${item.satuan}</td>
+
+              <td>${viewHarga} ${editHarga}</td>
+
+              <td class="text-center">${btnTambah}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+
+        // Update Info Paginasi
+        paginasiEl.classList.remove('hidden');
+        document.getElementById('lblStart').innerText = startIndex + 1;
+        document.getElementById('lblEnd').innerText = endIndex;
+        document.getElementById('lblTotal').innerText = totalItems;
+        document.getElementById('lblPageIndicator').innerText = `Hal ${currentPageBarang} / ${totalPages}`;
+
+        document.getElementById('btnPrevPage').disabled = (currentPageBarang === 1);
+        document.getElementById('btnNextPage').disabled = (currentPageBarang === totalPages);
+      }
+
+      // Fungsi Ganti Halaman
+      function gantiHalaman(direction) {
+        currentPageBarang += direction;
+        renderTabelBarang(); // Render ulang dengan page baru
+        
+        // Scroll tabel ke atas sedikit agar nyaman
+        document.querySelector('.table-responsive').scrollTop = 0;
+      }
+
+      // Fungsi Pencarian (Reset ke Halaman 1)
+      function filterInfoBarang() {
+        const keyword = document.getElementById('cariBarangInput').value.toLowerCase();
+        
+        // Filter dari Cache Master
+        filteredBarangList = cacheDataBarangLengkap.filter(item => {
+            return String(item.nama).toLowerCase().includes(keyword) ||
+                  String(item.katNama).toLowerCase().includes(keyword) ||
+                  String(item.katKode).toLowerCase().includes(keyword) ||
+                  String(item.harga).includes(keyword);
+        });
+
+        // Reset ke halaman 1 setiap kali mencari
+        currentPageBarang = 1;
+        
+        renderTabelBarang();
+      }
+
+      // --- LOGIKA EDIT HARGA (Disesuaikan dengan DOM ID baru) ---
+      function enableEditHarga(domId, nama, hargaAsli) {
+        document.getElementById(`view-harga-${domId}`).classList.add('hidden');
+        document.getElementById(`edit-harga-${domId}`).classList.remove('hidden');
+        
+        const input = document.getElementById(`input-harga-${domId}`);
+        input.focus();
+        input.oninput = function() { this.value = formatRibuanInput(this.value); };
+      }
+
+      function cancelEditHarga(domId) {
+        document.getElementById(`view-harga-${domId}`).classList.remove('hidden');
+        document.getElementById(`edit-harga-${domId}`).classList.add('hidden');
+      }
+
+      function saveEditHarga(domId, namaBarang) {
+        const token = localStorage.getItem('userToken');
+        const inputVal = document.getElementById(`input-harga-${domId}`).value;
+        const hargaBaru = cleanRibuan(inputVal);
+
+        // Loading button
+        const btn = document.querySelector(`#edit-harga-${domId} .btn-success`);
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            // 1. Update di Cache Master (agar pencarian selanjutnya harganya sudah baru)
+            const itemMaster = cacheDataBarangLengkap.find(x => x.nama === namaBarang);
+            if(itemMaster) itemMaster.harga = hargaBaru;
+
+            // 2. Update di Filtered List (yang sedang ditampilkan)
+            const itemFiltered = filteredBarangList.find(x => x.nama === namaBarang);
+            if(itemFiltered) itemFiltered.harga = hargaBaru;
+
+            // 3. Render Ulang Halaman Ini Saja (Agar tampilan refresh)
+            // Kita tidak reload dari server agar posisi halaman tidak hilang
+            renderTabelBarang();
+            
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Harga disimpan', showConfirmButton: false, timer: 1500 });
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+            // Kembalikan tombol jika gagal
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+          }
+        }).updateHargaReferensi(token, namaBarang, hargaBaru);
+      }
+
+      // --- FUNGSI KLIK TOMBOL 'TAMBAH' DARI POPUP INFO BARANG ---
+      function pilihDariInfoBarang(nama, satuan, harga) {
+        // 1. Deteksi Tab mana yang sedang aktif (Toko atau Tukang)
+        // Default ke toko
+        let activeTab = 'toko'; 
+        
+        // Cek jika tombol tab tukang punya class 'active'
+        const tabTukang = document.getElementById('tab-btn-tukang');
+        if (tabTukang && tabTukang.classList.contains('active')) {
+          activeTab = 'tukang';
+        }
+
+        // 2. Panggil fungsi helper untuk memasukkan data
+        insertBarangToForm(activeTab, nama, satuan, harga);
+
+        // 3. Tutup Modal
+        const modalEl = document.getElementById('modalInfoBarang');
+        if (modalEl) {
+          const modalInstance = bootstrap.Modal.getInstance(modalEl);
+          if(modalInstance) modalInstance.hide();
+        }
+        
+        // 4. Notifikasi
+        Swal.fire({ 
+          toast: true, 
+          position: 'top-end', 
+          icon: 'success', 
+          title: 'Item ditambahkan', 
+          showConfirmButton: false, 
+          timer: 1500 
+        });
+      }
+
+      // --- FUNGSI HELPER: MASUKKAN DATA KE BARIS KOSONG ---
+      function insertBarangToForm(tipe, nama, satuan, harga) {
+        // Tentukan tabel target
+        const tableId = (tipe === 'toko') ? 'tabelItemToko' : 'tabelItemTukang';
+        const tbody = document.getElementById(tableId).querySelector('tbody');
+        const rows = tbody.querySelectorAll('tr');
+
+        let targetRow = null;
+        
+        // 1. Cari baris paling bawah. Jika Nama Barangnya kosong, pakai baris itu.
+        if (rows.length > 0) {
+          const lastRow = rows[rows.length - 1];
+          const inputNama = lastRow.querySelector('.item-nama');
+          if (inputNama && inputNama.value.trim() === '') {
+            targetRow = lastRow;
+          }
+        }
+
+        // 2. Jika tidak ada baris kosong, buat baris baru
+        if (!targetRow) {
+          tambahBaris(tipe); // Memanggil fungsi tambahBaris bawaan yang sudah ada
+          const newRows = tbody.querySelectorAll('tr');
+          targetRow = newRows[newRows.length - 1];
+        }
+
+        // 3. Isi Data ke Input
+        if (targetRow) {
+          const inputNama = targetRow.querySelector('.item-nama');
+          const inputSat = targetRow.querySelector('.item-sat');
+          const inputHarga = targetRow.querySelector('.item-harga');
+
+          // Decode karakter aneh jika ada (unescape)
+          if (inputNama) inputNama.value = unescapeHtml(nama);
+          if (inputSat) inputSat.value = unescapeHtml(satuan);
+          
+          // PENTING: Isi Harga dan Hitung
+          if (inputHarga) {
+            inputHarga.value = formatRibuanInput(harga); // Format jadi 10.000
+            hitungBaris(inputHarga, tipe); // Trigger hitung total otomatis
+          }
+
+          // Efek kedip kuning
+          targetRow.classList.add('table-warning');
+          setTimeout(() => targetRow.classList.remove('table-warning'), 500);
+        }
       }
 
     </script>
