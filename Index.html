@@ -79,6 +79,7 @@
           overflow-y: auto;
           transition: left 0.3s ease; /* Transisi hanya pada properti left */
           visibility: hidden; /* Sembunyikan agar tidak mengganggu touch event */
+          box-shadow: 5px 0 15px rgba(0,0,0,0.2);
         }
 
         .sidebar.show {
@@ -226,7 +227,7 @@
         top: 100%; /* Tepat di bawah input */
         left: 0;
         right: 0;
-        z-index: 9999; /* Pastikan di atas segalanya */
+        z-index: 1030; /* Pastikan di atas segalanya */
         
         background: white;
         border: 1px solid rgba(0,0,0,0.15); /* Border halus */
@@ -387,7 +388,7 @@
   </head>
   <body>
 
-    <div id="global-satuan-list" class="suggestion-list" style="display:none; position: absolute; z-index: 9999;"></div>
+    <div id="global-satuan-list" class="suggestion-list" style="display:none; position: absolute; z-index: 1030;"></div>
 
     <div id="loading" class="loading-overlay hidden">
       <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
@@ -637,7 +638,7 @@
             <button class="btn btn-primary" onclick="toggleSidebar()">
               <i class="fas fa-bars me-1"></i> Menu
             </button>
-            <span class="fw-bold text-secondary">LPJ BOS App</span>
+            <span class="fw-bold text-secondary">Aplikasi LPJ BOS</span>
           </div>
 
           <div id="panel-dashboard" class="panel-content">
