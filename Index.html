@@ -6935,100 +6935,139 @@
         // Sembunyikan list global
         document.getElementById('global-satuan-list').style.display = 'none';
       }
-
-      // 2. Fungsi saat Saran dipilih
-      /*function pilihSatuan(itemElement, text) {
-        // itemElement adalah div.suggestion-item
-        // Parent-nya adalah div.suggestion-list
-        const listEl = itemElement.parentElement;
-        
-        // Karena listEl secara HTML masih anak dari .autocomplete-wrapper
-        // Kita bisa mencari input saudaranya.
-        const wrapper = listEl.parentElement; 
-        const input = wrapper.querySelector('input.item-sat');
-        
-        if(input) {
-            input.value = text;
-            // Trigger event input agar hitungan (jika ada logika lain) berjalan, meski untuk satuan biasanya tidak
-            input.dispatchEvent(new Event('input')); 
-        }
-        
-        // Sembunyikan list
-        listEl.style.display = 'none';
-      }
-      */
-
-      /* --- LOGIKA PENCARIAN REFERENSI BARANG (BARU) --- */
       
-      // Variabel timeout global (pastikan ini ada di luar fungsi)
+      /* --- LOGIKA PENCARIAN REFERENSI BARANG (UPDATED: RICH UI & SMART SORTING) --- */
+      
       let timeoutCariBarang = null;
 
       function handleCariBarang(inputEl, tipe) {
-        const keyword = inputEl.value;
+        const keyword = inputEl.value.toLowerCase();
         const listId = (tipe === 'toko') ? 'saran-barang-toko' : 'saran-barang-tukang';
         const listEl = document.getElementById(listId);
 
-        // 1. RESET: Selalu sembunyikan list/kontainer saat user sedang mengetik
+        // 1. Reset Tampilan
         listEl.style.display = 'none';
         listEl.innerHTML = '';
 
-        // 2. VALIDASI: Minimal 3 huruf baru diproses
+        // 2. Validasi Minimal Karakter
         if (keyword.length < 3) return;
 
-        // 3. DEBOUNCE: Reset timer jika user masih mengetik
         clearTimeout(timeoutCariBarang);
-        
+
+        // --- SKENARIO A: DATA SUDAH ADA DI CACHE (INSTANT SEARCH) ---
+        if (cacheDataBarangLengkap && cacheDataBarangLengkap.length > 0) {
+            
+            timeoutCariBarang = setTimeout(() => {
+                // A. Filter Data
+                let matches = cacheDataBarangLengkap.filter(item => {
+                    const nama = item.nama ? item.nama.toLowerCase() : '';
+                    const kat = item.katNama ? item.katNama.toLowerCase() : '';
+                    const kode = item.katKode ? item.katKode.toLowerCase() : '';
+                    
+                    return nama.includes(keyword) || kat.includes(keyword) || kode.includes(keyword);
+                });
+
+                // B. Sorting Cerdas (Agar urutan sama dengan Server/Logic Manusia)
+                matches.sort((a, b) => {
+                    const nameA = String(a.nama).toLowerCase();
+                    const nameB = String(b.nama).toLowerCase();
+                    
+                    // Prioritas 1: Persis Sama
+                    if (nameA === keyword && nameB !== keyword) return -1;
+                    if (nameB === keyword && nameA !== keyword) return 1;
+                    
+                    // Prioritas 2: Diawali dengan Keyword (Starts With)
+                    const startA = nameA.startsWith(keyword);
+                    const startB = nameB.startsWith(keyword);
+                    if (startA && !startB) return -1;
+                    if (!startA && startB) return 1;
+                    
+                    // Prioritas 3: Abjad
+                    return nameA.length - nameB.length; 
+                });
+
+                // Tampilkan Hasil (Limit 30 item)
+                renderHasilPencarianBarang(matches.slice(0, 30), tipe, listEl);
+            }, 200);
+
+            return; 
+        }
+
+        // --- SKENARIO B: CACHE KOSONG -> CARI KE SERVER (FALLBACK) ---
         timeoutCariBarang = setTimeout(() => {
-           // [PERBAIKAN] Jangan tampilkan listEl.style.display = 'block' di sini.
-           // Gantinya: Ubah ikon Search menjadi Spinner Loading pada input group
-           
            const wrapper = inputEl.closest('.input-group');
            const icon = wrapper ? wrapper.querySelector('i') : null;
-           
-           // Simpan class asli ikon (biasanya fa-search)
            const originalIconClass = 'fas fa-search'; 
 
-           if(icon) {
-             icon.className = 'fas fa-spinner fa-spin text-primary'; // Ubah jadi loading
-           }
+           if(icon) icon.className = 'fas fa-spinner fa-spin text-primary';
 
            const token = localStorage.getItem('userToken');
            
            google.script.run.withSuccessHandler(function(res) {
-             // [PERBAIKAN] Kembalikan ikon jadi Search setelah selesai
-             if(icon) {
-               icon.className = originalIconClass;
-             }
+             if(icon) icon.className = originalIconClass;
 
-             if (res.status === 'success' && res.data.length > 0) {
-                let html = '';
-                res.data.forEach(item => {
-                  const namaSafe = escapeJsAttribute(item.nama);
-                  const satSafe  = escapeJsAttribute(item.satuan);
-                  const harga    = item.harga || 0; // Pastikan harga terambil
-                  
-                  // UPDATE onclick: Tambahkan parameter harga
-                  html += `
-                    <div class="suggestion-item d-flex justify-content-between align-items-center" 
-                        onclick="pilihReferensiBarang('${namaSafe}', '${satSafe}', ${harga}, '${tipe}', this)">
-                      <span>${item.nama}</span>
-                      <div class="text-end">
-                          <small class="d-block text-muted" style="font-size:0.7rem">${formatRupiahJS(harga)}</small>
-                          <span class="badge bg-light text-secondary border">${item.satuan}</span>
-                      </div>
-                    </div>
-                  `;
-                });
-                listEl.innerHTML = html;
-                listEl.style.display = 'block'; // Tampilkan kontainer HANYA jika ada data
+             if (res.status === 'success') {
+                renderHasilPencarianBarang(res.data, tipe, listEl);
              } else {
-                // Opsional: Tampilkan pesan kecil jika tidak ada data
-                listEl.innerHTML = '<div class="suggestion-item text-muted fst-italic py-2" style="font-size:0.85rem">Data tidak ditemukan.</div>';
-                listEl.style.display = 'block';
+                renderHasilPencarianBarang([], tipe, listEl);
              }
            }).cariBarangReferensi(token, keyword);
 
-        }, 400); // Delay 400ms agar tidak terlalu sensitif
+        }, 400); 
+      }
+
+      // --- HELPER BARU: RENDER HASIL PENCARIAN (TAMPILAN INFORMATIF / RICH UI) ---
+      function renderHasilPencarianBarang(data, tipe, listEl) {
+         if (data && data.length > 0) {
+            let html = '';
+            
+            data.forEach(item => {
+              const namaSafe = escapeJsAttribute(item.nama);
+              const satSafe  = escapeJsAttribute(item.satuan);
+              const harga    = item.harga || 0;
+              
+              // --- LOGIKA UI BADGE & KATEGORI ---
+              // Menyiapkan tampilan Kategori (ikon tag) dan Satuan (badge)
+              const katHtml = item.katNama 
+                ? `<div class="text-muted small mt-1" style="font-size: 0.75rem;"><i class="fas fa-tag me-1 text-secondary opacity-50"></i>${item.katNama}</div>` 
+                : '';
+                
+              html += `
+                <div class="suggestion-item border-bottom py-2 px-3" 
+                    style="cursor:pointer; transition: all 0.2s;"
+                    onclick="pilihReferensiBarang('${namaSafe}', '${satSafe}', ${harga}, '${tipe}', this)">
+                  
+                  <div class="d-flex justify-content-between align-items-start">
+                    
+                    <div style="overflow:hidden; padding-right: 10px;">
+                        <div class="fw-normal text-dark text-wrap" style="line-height: 1.2;">
+                          ${item.nama}
+                        </div>
+                        ${katHtml}
+                    </div>
+
+                    <div class="text-end flex-shrink-0">
+                        <div class="fw-bold text-success" style="font-size: 0.9rem;">
+                          ${formatRupiahJS(harga)}
+                        </div>
+                        <div class="mt-1">
+                          <span class="badge bg-light text-secondary border rounded-pill fw-normal" style="font-size: 0.7rem;">
+                            ${item.satuan || '-'}
+                          </span>
+                        </div>
+                    </div>
+
+                  </div>
+                </div>
+              `;
+            });
+            
+            listEl.innerHTML = html;
+            listEl.style.display = 'block';
+         } else {
+            listEl.innerHTML = '<div class="p-3 text-muted fst-italic text-center small"><i class="fas fa-search me-1"></i> Data tidak ditemukan.</div>';
+            listEl.style.display = 'block';
+         }
       }
 
       // --- UPDATE FUNGSI PILIH DARI PENCARIAN REFERENSI (AUTOCOMPLETE) ---
@@ -7137,7 +7176,11 @@
         google.script.run.withSuccessHandler(function(res) {
           if (res.status === 'success') {
             cacheDataSatuanLengkap = res.data;
-            saveCacheToLocal();
+
+            // --- PASTIKAN BARIS INI ADA ---
+            saveCacheToLocal(); 
+            // ------------------------------
+
             renderTabelSatuan(cacheDataSatuanLengkap);
           } else {
             tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Gagal: ${res.message}</td></tr>`;
@@ -7582,6 +7625,10 @@
             // Update juga cacheRefUraian global agar autocomplete di form input tetap jalan
             cacheRefUraian = res.data; 
 
+            // --- TAMBAHAN PENTING: SIMPAN KE STORAGE ---
+            saveCacheToLocal(); 
+            // -------------------------------------------
+
             populasiFilterStandar(cacheRefLengkap);
             renderTabelRef(cacheRefLengkap);
           } else {
@@ -7742,12 +7789,13 @@
             // 1. Simpan Data Mentah ke Cache
             cacheDataBarangLengkap = res.data;
             
-            // 2. Set Data Filtered (Awalnya sama dengan semua data)
+            // 2. Set Data Filtered
             filteredBarangList = [...cacheDataBarangLengkap];
 
-            saveCacheToLocal();
+            // --- PASTIKAN BARIS INI ADA ---
+            saveCacheToLocal(); 
+            // ------------------------------
             
-            // 3. Render Halaman Pertama
             renderTabelBarang();
             
           } else {
@@ -8031,24 +8079,40 @@
       // 2. Ambil dari LocalStorage ke Memory (Saat Refresh)
       function loadCacheFromLocal() {
         const saved = localStorage.getItem(CACHE_STORAGE_KEY);
+        
         if (saved) {
           try {
-            // Restore ke DATA_CACHE
+            // 1. Restore objek utama DATA_CACHE
             DATA_CACHE = JSON.parse(saved);
 
-            // Restore kembali ke variabel global terpisah agar aplikasi berjalan normal
-            if(DATA_CACHE.ref_barang) cacheDataBarangLengkap = DATA_CACHE.ref_barang;
-            if(DATA_CACHE.ref_satuan) cacheDataSatuanLengkap = DATA_CACHE.ref_satuan;
-            if(DATA_CACHE.ref_uraian) {
-                cacheRefLengkap = DATA_CACHE.ref_uraian;
-                cacheRefUraian = DATA_CACHE.ref_uraian; // Sinkronkan juga ke cacheRefUraian
-            }
-            if(DATA_CACHE.ref_guru) cacheDataGuru = DATA_CACHE.ref_guru;
+            // 2. Restore variabel global terpisah agar fitur pencarian/modal berfungsi normal
             
-            console.log("Cache Lokal berhasil dimuat.");
+            // Restore Info Barang (Modal Barang)
+            if (DATA_CACHE.ref_barang && Array.isArray(DATA_CACHE.ref_barang)) {
+                cacheDataBarangLengkap = DATA_CACHE.ref_barang;
+            }
+
+            // Restore Info Satuan (Modal Satuan)
+            if (DATA_CACHE.ref_satuan && Array.isArray(DATA_CACHE.ref_satuan)) {
+                cacheDataSatuanLengkap = DATA_CACHE.ref_satuan;
+            }
+
+            // Restore Info Referensi Uraian (Modal Referensi)
+            if (DATA_CACHE.ref_uraian && Array.isArray(DATA_CACHE.ref_uraian)) {
+                cacheRefLengkap = DATA_CACHE.ref_uraian;
+                cacheRefUraian = DATA_CACHE.ref_uraian; // Sinkronkan kedua variabel ini
+            }
+
+            // Restore Data Guru (Untuk Dropdown Input Transaksi)
+            if (DATA_CACHE.ref_guru && Array.isArray(DATA_CACHE.ref_guru)) {
+                cacheDataGuru = DATA_CACHE.ref_guru;
+            }
+            
+            console.log("Cache Lokal berhasil dimuat dari LocalStorage.");
+            
           } catch (e) {
             console.error("Gagal memuat cache lokal:", e);
-            localStorage.removeItem(CACHE_STORAGE_KEY); // Hapus jika korup
+            localStorage.removeItem(CACHE_STORAGE_KEY); // Hapus cache jika korup/error
           }
         }
       }
