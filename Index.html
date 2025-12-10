@@ -3248,7 +3248,7 @@
       }
 
       // 4. Update Logic Submit (Bisa Tambah Baru atau Edit)
-      // --- SUBMIT URAIAN (INVALIDATE CACHE) ---
+      /* --- UPDATE: submitUraian (Agar Riwayat Transaksi Ikut Refresh) --- */
       function submitUraian(e) {
         e.preventDefault();
         
@@ -3266,17 +3266,22 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...';
         btn.disabled = true;
 
-        // Handler hasil submit
         const handler = function(res) {
           btn.innerHTML = originalText;
           btn.disabled = false;
 
           if (res.status === 'success') {
-            batalEdit(); // Reset form
+            batalEdit(); 
             
-            // RESET CACHE & RELOAD
+            // RESET CACHE URAIAN
             DATA_CACHE.uraian = null; 
             loadUraianData(true); 
+            
+            // [TAMBAHAN BARU] HAPUS SEMUA CACHE TRANSAKSI
+            // Karena uraian dipakai di Toko, Tukang, dan Guru
+            DATA_CACHE.transaksi_toko = null;
+            DATA_CACHE.transaksi_tukang = null;
+            DATA_CACHE.transaksi_guru = null;
             
             const Toast = Swal.mixin({
               toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
@@ -3409,7 +3414,7 @@
       }
 
       // 2. Submit (Tambah & Edit)
-      // --- SUBMIT TOKO (INVALIDATE CACHE) ---
+      /* --- UPDATE: submitToko (Agar Riwayat Transaksi Ikut Refresh) --- */
       function submitToko(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -3436,9 +3441,13 @@
           if (res.status === 'success') {
             batalEditToko(); 
             
-            // RESET CACHE & RELOAD
+            // RESET CACHE DATA TOKO
             DATA_CACHE.toko = null; 
             loadTokoData(true);
+            
+            // [TAMBAHAN BARU] HAPUS CACHE TRANSAKSI TOKO
+            // Agar saat buka menu transaksi, nama toko yang baru muncul
+            DATA_CACHE.transaksi_toko = null; 
             
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
@@ -3599,7 +3608,7 @@
       }
 
       // 2. Submit (Tambah & Edit)
-      // --- SUBMIT TUKANG (INVALIDATE CACHE) ---
+      /* --- UPDATE: submitTukang (Agar Riwayat Transaksi Ikut Refresh) --- */
       function submitTukang(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -3622,10 +3631,13 @@
           if (res.status === 'success') {
             batalEditTukang(); 
             
-            // RESET CACHE & RELOAD
+            // RESET CACHE DATA TUKANG
             DATA_CACHE.tukang = null;
             loadTukangData(true);
             
+            // [TAMBAHAN BARU] HAPUS CACHE TRANSAKSI TUKANG
+            DATA_CACHE.transaksi_tukang = null;
+
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
               title: res.message, showConfirmButton: false, timer: 3000
@@ -3757,7 +3769,7 @@
       }
 
       // 2. Submit (Tambah & Edit)
-      // --- SUBMIT GURU (INVALIDATE CACHE) ---
+      /* --- UPDATE: submitGuru (Agar Riwayat Transaksi Ikut Refresh) --- */
       function submitGuru(e) {
         e.preventDefault();
         const token = localStorage.getItem('userToken');
@@ -3780,9 +3792,15 @@
           if (res.status === 'success') {
             batalEditGuru(); 
             
-            // RESET CACHE
+            // RESET CACHE DATA GURU
             DATA_CACHE.guru = null;
             loadGuruData(true);
+            
+            // [TAMBAHAN BARU] HAPUS SEMUA CACHE TRANSAKSI
+            // Karena Nama Guru bisa muncul di Transaksi Guru, Toko (Pemesan), dan Tukang (Pemesan)
+            DATA_CACHE.transaksi_guru = null;
+            DATA_CACHE.transaksi_toko = null;
+            DATA_CACHE.transaksi_tukang = null;
             
             Swal.fire({
               toast: true, position: 'top-end', icon: 'success', 
