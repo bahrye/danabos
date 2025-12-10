@@ -334,8 +334,11 @@
         /* Momentum scroll wajib untuk area scroll kecil */
         -webkit-overflow-scrolling: touch;
         
-        /* Mencegah scroll chaining (agar saat tabel mentok, halaman induk tidak ikut geser) */
-        overscroll-behavior: contain; 
+        /* PERBAIKAN: Ubah menjadi auto agar scroll halaman (naik-turun) tetap jalan */
+        overscroll-behavior: auto !important; 
+        
+        /* Tambahan: Pastikan kursor default agar tidak dianggap text-selection */
+        cursor: default;
       }
 
       /* --- CSS KHUSUS TAB SCROLLABLE (MOBILE) --- */
@@ -411,6 +414,27 @@
         .action-group-right button {
           width: 100%; 
         }
+      }
+
+      /* --- PERBAIKAN BUG SCROLL MODAL (INFO REFERENSI) --- */
+      
+      /* 1. Paksa scroll vertikal aktif & mulus pada modal body */
+      .modal-dialog-scrollable .modal-body {
+        -webkit-overflow-scrolling: touch !important; /* Momentum scroll iOS */
+        overflow-y: auto !important;
+        touch-action: pan-y !important; /* Pastikan gesture vertikal diizinkan */
+      }
+
+      /* 2. PENTING: Matikan 'contain' khusus untuk tabel di dalam modal 
+         agar saat tabel disentuh, scroll tetap bisa naik-turun (bubbling ke modal) */
+      .modal-body .table-responsive {
+        overscroll-behavior: auto !important; 
+        touch-action: pan-x pan-y !important;
+      }
+      
+      /* 3. Pastikan Sticky Header tetap jalan tapi tidak menghalangi scroll */
+      .modal-body .table-responsive thead.sticky-top {
+        z-index: 5; /* Sedikit diatas konten tabel */
       }
     </style>
   </head>
@@ -1265,6 +1289,59 @@
                       <tr><td colspan="5" class="text-center">Memuat data...</td></tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalReferensiUraian" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable"> 
+              <div class="modal-content border-0 shadow-lg">
+                
+                <div class="modal-header bg-info text-white bg-gradient">
+                  <h5 class="modal-title"><i class="fas fa-book-reader me-2"></i> Referensi Standar & Kegiatan</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                  
+                  <div class="row g-2 mb-4">
+                    <div class="col-md-4">
+                      <label class="form-label fw-bold small text-muted">Filter Standar Pendidikan</label>
+                      <select class="form-select form-select-sm" id="refFilterStandar" onchange="filterTabelReferensi()">
+                        <option value="">-- Semua Standar --</option>
+                      </select>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label fw-bold small text-muted">Pencarian Kata Kunci</label>
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="refSearchInput" placeholder="Cari Uraian, Kode, atau Kegiatan..." onkeyup="filterTabelReferensi()">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle" style="font-size: 0.85rem;">
+                      <thead class="table-light text-center sticky-top" style="top: 0; z-index: 2;">
+                        <tr>
+                          <th width="20%">Standar Pendidikan (SNP)</th>
+                          <th width="25%">Nama Kegiatan</th>
+                          <th width="10%">Kode</th>
+                          <th>Nama Uraian</th>
+                          <th width="8%">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="bodyTabelReferensi">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Memuat data...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div class="mt-2 text-end text-muted fst-italic" style="font-size: 0.8rem;">
+                    <small>Total Data: <span id="refTotalData">0</span> Baris</small>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -2234,7 +2311,12 @@
               <div class="col-md-8">
                 <div class="card shadow-sm border-0">
                   <div class="card-body">
-                    <h5 class="card-title mb-3">Daftar Uraian Tersimpan</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <h5 class="card-title mb-0">Daftar Uraian Tersimpan</h5>
+                      <button class="btn btn-sm btn-info text-white" onclick="bukaModalReferensi()">
+                        <i class="fas fa-book-open me-1"></i> Info Referensi
+                      </button>
+                    </div>
                     <div class="table-responsive">
                       <table class="table table-hover align-middle table-striped text-nowrap">
                         <thead class="table-light">
@@ -2506,6 +2588,7 @@
       // Ganti baris: let cacheMasterUraian = []; dengan 2 variabel ini:
       let cacheUserUraian = []; // Data dari riwayat inputan user (DataUraian)
       let cacheRefUraian = [];  // Data dari Master Referensi (Sheet Uraian)
+      let cacheRefLengkap = []; // Menyimpan data lengkap (A,B,C,D)
 
       // --- GLOBAL CACHE STORAGE (UPDATED) ---
       let DATA_CACHE = {
@@ -7340,6 +7423,150 @@
           document.body.style.overflow = ''; 
         });
       });
+
+      /* --- LOGIKA INFO REFERENSI URAIAN LENGKAP --- */
+
+      function bukaModalReferensi() {
+        const modal = new bootstrap.Modal(document.getElementById('modalReferensiUraian'));
+        modal.show();
+
+        // Reset Filter
+        document.getElementById('refSearchInput').value = '';
+        
+        // Cek apakah data sudah ada di cacheRefUraian?
+        // Karena cacheRefUraian di update sebelumnya sudah kita ubah strukturnya di Kode.gs,
+        // kita perlu memuat ulang jika formatnya belum sesuai atau kosong.
+        if (cacheRefLengkap.length === 0) {
+          loadReferensiLengkapServer();
+        } else {
+          populasiFilterStandar(cacheRefLengkap);
+          renderTabelRef(cacheRefLengkap);
+        }
+      }
+
+      function loadReferensiLengkapServer() {
+        const token = localStorage.getItem('userToken');
+        const tbody = document.getElementById('bodyTabelReferensi');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-info"></div><br>Mengambil Data Referensi...</td></tr>';
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            cacheRefLengkap = res.data;
+            
+            // Update juga cacheRefUraian global agar autocomplete di form input tetap jalan
+            cacheRefUraian = res.data; 
+
+            populasiFilterStandar(cacheRefLengkap);
+            renderTabelRef(cacheRefLengkap);
+          } else {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Gagal: ${res.message}</td></tr>`;
+          }
+        }).getReferensiUraianMaster(token);
+      }
+
+      function populasiFilterStandar(data) {
+        const select = document.getElementById('refFilterStandar');
+        const currentVal = select.value;
+        
+        // Ambil Data Unik Standar (Kolom C)
+        // Gunakan Set untuk unique value
+        const uniqueStandar = [...new Set(data.map(item => item.standar))].filter(s => s !== "").sort();
+
+        let html = '<option value="">-- Semua Standar --</option>';
+        uniqueStandar.forEach(s => {
+          html += `<option value="${s}">${s}</option>`;
+        });
+        
+        select.innerHTML = html;
+        select.value = currentVal; // Restore value jika ada
+      }
+
+      function renderTabelRef(data) {
+        const tbody = document.getElementById('bodyTabelReferensi');
+        document.getElementById('refTotalData').innerText = data.length;
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Data tidak ditemukan.</td></tr>';
+          return;
+        }
+
+        // Batasi render maksimal 100 baris awal agar browser tidak berat (karena data referensi bisa ribuan)
+        // Data tetap bisa dicari via search box
+        const limit = data.length > 200 ? 200 : data.length;
+        let html = '';
+
+        for(let i=0; i<limit; i++) {
+          const item = data[i];
+          
+          // Escape quote untuk fungsi onclick
+          const uraianSafe = String(item.uraian).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+          const kodeSafe = String(item.kode).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+
+          html += `
+            <tr>
+              <td>${item.standar}</td>
+              <td>${item.kegiatan}</td>
+              <td class="text-center"><span class="badge bg-light text-dark border font-monospace">${item.kode}</span></td>
+              <td class="fw-bold text-primary">${item.uraian}</td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-success" onclick="pilihDariReferensi('${uraianSafe}', '${kodeSafe}')" title="Gunakan Data Ini">
+                  <i class="fas fa-plus"></i> Tambah
+                </button>
+              </td>
+            </tr>
+          `;
+        }
+
+        if (data.length > 200) {
+          html += `<tr><td colspan="5" class="text-center text-muted fst-italic bg-light">... Menampilkan 200 data pertama. Gunakan pencarian untuk hasil spesifik ...</td></tr>`;
+        }
+        
+        tbody.innerHTML = html;
+      }
+
+      function filterTabelReferensi() {
+        const filterStd = document.getElementById('refFilterStandar').value.toLowerCase();
+        const keyword = document.getElementById('refSearchInput').value.toLowerCase();
+        
+        const filtered = cacheRefLengkap.filter(item => {
+          const matchStd = (filterStd === "") || item.standar.toLowerCase() === filterStd;
+          
+          // Cari di semua kolom
+          const matchKey = (keyword === "") || 
+                          item.uraian.toLowerCase().includes(keyword) || 
+                          item.kode.toLowerCase().includes(keyword) || 
+                          item.kegiatan.toLowerCase().includes(keyword);
+
+          return matchStd && matchKey;
+        });
+
+        renderTabelRef(filtered);
+      }
+
+      function pilihDariReferensi(uraian, kode) {
+        // 1. Tutup Modal
+        const modalEl = document.getElementById('modalReferensiUraian');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if(modalInstance) modalInstance.hide();
+
+        // 2. Isi Form Tambah Uraian
+        document.getElementById('urNama').value = uraian;
+        // Jika Anda ingin mengisi No Bukti dengan Kode Kegiatan, uncomment baris ini:
+        // document.getElementById('urNoBukti').value = kode;
+
+        // 3. Scroll ke Form agar user sadar data sudah masuk
+        setTimeout(() => {
+          document.getElementById('formUraian').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Beri efek highlight/fokus
+          document.getElementById('urNama').focus();
+          Swal.fire({
+            toast: true, position: 'top-end', icon: 'success', 
+            title: 'Data disalin ke form', showConfirmButton: false, timer: 1500
+          });
+        }, 300);
+      }
 
     </script>
   </body>
