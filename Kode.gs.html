@@ -1306,23 +1306,27 @@ function editUraianItem(token, form) {
   }
 }
 
-/* --- TAMBAHAN: FUNGSI AMBIL REFERENSI MASTER (AUTOCOMPLETE) --- */
+/* --- UPDATE: AMBIL KODE & URAIAN (MENGGUNAKAN getDisplayValues) --- */
 function getReferensiUraianMaster(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('Uraian');
     
-    // Jika sheet tidak ada (file lama sebelum update), kembalikan array kosong
+    // Jika sheet tidak ada, kembalikan array kosong
     if (!sheet) return { status: 'success', data: [] };
 
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { status: 'success', data: [] }; // Hanya header atau kosong
+    if (lastRow < 2) return { status: 'success', data: [] };
 
-    // Ambil Kolom A dari baris 2 sampai akhir
-    const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    // PERBAIKAN UTAMA: Gunakan .getDisplayValues()
+    // Ini memaksa script mengambil "Teks yang terlihat" di cell, bukan format tanggalnya.
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getDisplayValues();
     
-    // Flatten array 2D [[val], [val]] menjadi 1D [val, val] dan filter yang kosong
-    const cleanData = data.map(r => r[0]).filter(val => val !== "");
+    // Asumsi: Kolom A = Uraian, Kolom B = Kode Kegiatan
+    const cleanData = data.map(r => ({
+      uraian: String(r[0]).trim(),  // Kolom A
+      kode: String(r[1]).trim()     // Kolom B
+    })).filter(obj => obj.uraian !== ""); 
 
     return { status: 'success', data: cleanData };
 
