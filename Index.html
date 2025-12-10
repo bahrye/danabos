@@ -2207,7 +2207,7 @@
                         <label class="form-label">Uraian Pekerjaan / Belanja</label>
                         <div class="autocomplete-wrapper">
                           <textarea class="form-control" id="urNama" rows="3" 
-                            placeholder="Ketik minimal 3 huruf untuk cari referensi..." 
+                            placeholder="Ketik minimal 3 huruf atau kode untuk cari referensi..." 
                             required 
                             oninput="handleInputUraian(this)" 
                             autocomplete="off"></textarea>
@@ -6500,12 +6500,12 @@
         }).getReferensiUraianMaster(token);
       }
 
-      /* --- UPDATE: TAMPILAN KODE KEGIATAN & PENCARIAN GABUNGAN --- */
+      /* --- UPDATE: LOGIKA PENCARIAN URAIAN BERDASARKAN KODE (SORTED) --- */
       function handleInputUraian(el) {
         const keyword = el.value.toLowerCase();
         const listEl = document.getElementById('listSaranUraian');
         
-        // 1. Validasi: Minimal 2 huruf baru mencari
+        // 1. Validasi: Minimal 2 karakter (termasuk titik) baru mencari
         if (keyword.length < 2) {
           listEl.style.display = 'none';
           return;
@@ -6518,53 +6518,83 @@
         // Gabungkan Data Master (ada kode) + Riwayat (tanpa kode)
         const rawCombined = [...cacheRefUraian, ...userHistoryObjs];
 
-        // Hapus Duplikat (Agar tidak muncul ganda)
+        // Hapus Duplikat
         const uniqueMap = new Map();
         rawCombined.forEach(item => {
-          if(!uniqueMap.has(item.uraian)){
-            uniqueMap.set(item.uraian, item);
+          // Gunakan kombinasi uraian+kode sebagai key unik agar lebih presisi
+          const key = item.uraian + "_" + item.kode;
+          if(!uniqueMap.has(key)){
+            uniqueMap.set(key, item);
           }
         });
         const uniqueSource = Array.from(uniqueMap.values());
 
-        // 3. FILTER (Cari berdasarkan Uraian ATAU Kode)
+        // Deteksi apakah user sedang mengetik pola Kode (diawali angka)
+        const isCodeSearch = /^[0-9]/.test(keyword);
+
+        // 3. FILTER
         let matches = uniqueSource.filter(item => {
           const u = String(item.uraian).toLowerCase();
           const k = String(item.kode).toLowerCase();
-          // Cek apakah keyword ada di Uraian ATAU di Kode
-          return u.includes(keyword) || k.includes(keyword);
+
+          if (isCodeSearch) {
+            // JIKA KODE: Prioritaskan yang kodenya DIAWALI keyword user
+            // Contoh: ketik "2." -> ambil "2.1", "2.2", tapi abaikan "1.2.1"
+            if (k.startsWith(keyword)) return true;
+            
+            // Tetap ambil jika uraian mengandung angka tersebut (opsional)
+            return u.includes(keyword) || k.includes(keyword);
+          } else {
+            // JIKA TEKS BIASA: Cari di uraian atau kode
+            return u.includes(keyword) || k.includes(keyword);
+          }
         });
 
-        // 4. SORTING CERDAS
+        // 4. SORTING CERDAS (LOGIKA UTAMA DISINI)
         matches.sort((a, b) => {
-          // Prioritas: Jika KODE persis sama dengan yang diketik, taruh paling atas
-          if (String(a.kode).toLowerCase() === keyword) return -1;
-          if (String(b.kode).toLowerCase() === keyword) return 1;
+          const codeA = String(a.kode).toLowerCase();
+          const codeB = String(b.kode).toLowerCase();
           
-          // Sisanya urutkan berdasarkan panjang teks (yang lebih pendek biasanya lebih relevan)
+          // Prioritas A: Persis Sama
+          if (codeA === keyword && codeB !== keyword) return -1;
+          if (codeB === keyword && codeA !== keyword) return 1;
+
+          // Prioritas B: Diawali dengan Kode (Hierarchy)
+          const startA = codeA.startsWith(keyword);
+          const startB = codeB.startsWith(keyword);
+
+          // Jika A diawali keyword (misal 2.1) dan B tidak (misal uraiannya ada angka 2.1 tapi kodenya beda)
+          if (startA && !startB) return -1;
+          if (!startA && startB) return 1;
+
+          // Prioritas C: Jika keduanya kode, Urutkan Secara Natural (Numeric Sort)
+          // Ini agar urutannya: 2.1, 2.2 ... 2.9, 2.10 (bukan 2.1, 2.10, 2.2)
+          if (startA && startB) {
+            return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+          }
+
+          // Fallback: Urutkan berdasarkan panjang teks uraian (yang pendek lebih relevan)
           return a.uraian.length - b.uraian.length;
         });
 
         // 5. RENDER TAMPILAN
         if (matches.length > 0) {
           let html = '';
-          const limit = matches.length > 20 ? 20 : matches.length;
+          // Limit hasil agar tidak terlalu panjang
+          const limit = matches.length > 30 ? 30 : matches.length;
           
           for(let i=0; i<limit; i++) {
             const item = matches[i];
             const valSafe = escapeJsAttribute(item.uraian); 
             
-            // LOGIKA TAMPILAN:
-            // Jika ada Kode, buat Badge Biru. Jika tidak (data riwayat), pakai ikon jam history.
             let badgeHtml = '';
             if(item.kode && item.kode !== "") {
-              // INI PENGGANTI TANDA CEKLIST (Tampil sebagai Kotak Biru Kode)
+              // Tampilkan Kode dengan font monospace agar rapi
               badgeHtml = `<span class="badge bg-primary me-2 font-monospace" style="min-width:60px;">${item.kode}</span>`;
             } else {
               badgeHtml = `<i class="fas fa-history text-secondary me-3 opacity-50"></i>`;
             }
             
-            // Saat diklik (onclick), hanya 'valSafe' (Uraian) yang dikirim ke input
             html += `
               <div class="suggestion-item border-bottom py-2 px-2" style="cursor:pointer;" onclick="pilihSaranUraian('${valSafe}')">
                 <div class="d-flex align-items-center">
@@ -6582,7 +6612,6 @@
           listEl.style.display = 'block';
           
         } else {
-          // Tampilkan pesan jika tidak ditemukan
           listEl.innerHTML = '<div class="p-2 text-muted fst-italic small">Data tidak ditemukan.</div>';
           listEl.style.display = 'block';
         }
