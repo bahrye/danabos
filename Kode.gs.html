@@ -2388,7 +2388,7 @@ const DB_SCHEMA = {
     "Nama Satuan", "Kategori", "Contoh Penggunaan"
   ],
   'Data Barang': [
-    "Nama Barang", "Satuan", "Harga Referensi" 
+    "Nama Barang", "Satuan", "Harga Referensi", "Kategori", "Nama Kategori"
   ],
   'Uraian': [
     "Daftar Referensi Uraian" // Header tunggal untuk master uraian
@@ -2541,7 +2541,7 @@ function beautifyError(judul, errorObj, saran) {
          '</div>';
 }
 
-/* --- FUNGSI PENCARIAN REFERENSI BARANG (DIPERBARUI: UNIQUE & SORTING) --- */
+/* --- UPDATE: SERTAKAN HARGA REFERENSI --- */
 function cariBarangReferensi(token, keyword) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -2552,55 +2552,106 @@ function cariBarangReferensi(token, keyword) {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'success', data: [] };
 
-    // Ambil Data
-    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); 
+    // Ambil Data Kolom A (Nama), B (Satuan), C (Harga)
+    // getRange(row, col, numRows, numCols) -> Col 1 s/d 3
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); 
     
     const lowerKey = keyword.toLowerCase();
     
-    // 1. Filter data yang mengandung keyword
+    // Filter & Map
     let rawResults = data
       .filter(row => row[0] && String(row[0]).toLowerCase().includes(lowerKey))
       .map(row => ({
-        nama: String(row[0]).trim(), // Trim spasi agar lebih rapi
-        satuan: row[1] || ''
+        nama: String(row[0]).trim(),
+        satuan: row[1] || '',
+        harga: row[2] || 0 // <--- AMBIL HARGA (Kolom C)
       }));
 
-    // 2. LOGIKA HAPUS DUPLIKAT (Hanya ambil nama yang unik)
-    // Jika ada 7 "Buku Bahasa Indonesia", hanya 1 yang disimpan.
+    // LOGIKA HAPUS DUPLIKAT (Priority Logic)
     const uniqueResults = [];
     const seenNames = new Set();
 
     rawResults.forEach(item => {
-      // Kita gunakan nama sebagai kunci keunikan
       if (!seenNames.has(item.nama)) {
         seenNames.add(item.nama);
         uniqueResults.push(item);
       }
     });
 
-    // 3. SORTING CERDAS (Logika Baru pada data yang sudah unik)
+    // SORTING (Sama seperti sebelumnya)
     uniqueResults.sort((a, b) => {
       const nameA = String(a.nama).toLowerCase();
       const nameB = String(b.nama).toLowerCase();
-      
-      // Prioritas 1: Kecocokan Persis (Exact Match)
       if (nameA === lowerKey && nameB !== lowerKey) return -1;
       if (nameB === lowerKey && nameA !== lowerKey) return 1;
-
-      // Prioritas 2: Diawali dengan Keyword (Starts With)
       const startA = nameA.startsWith(lowerKey);
       const startB = nameB.startsWith(lowerKey);
       if (startA && !startB) return -1;
       if (!startA && startB) return 1;
-
-      // Prioritas 3: Jumlah Huruf Paling Sedikit (Shortest Length)
-      // Ini agar "Map" (3 huruf) muncul sebelum "Mapel" (5 huruf)
       return nameA.length - nameB.length;
     });
 
-    // 4. Batasi hasil maksimal 50 agar performa tetap cepat
     return { status: 'success', data: uniqueResults.slice(0, 50) };
 
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI BARU: AMBIL DATA BARANG LENGKAP UNTUK MODAL --- */
+function getReferensiBarangLengkap(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('Data Barang');
+    if (!sheet) return { status: 'error', message: 'Sheet Data Barang tidak ditemukan.' };
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: 'success', data: [] };
+
+    // Ambil Kolom A s/d E (5 Kolom)
+    const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+    
+    // Mapping Data
+    const result = data.map(r => ({
+      nama: r[0],         // A
+      satuan: r[1],       // B
+      harga: r[2] || 0,   // C
+      katKode: r[3] || '',// D
+      katNama: r[4] || '' // E
+    }));
+
+    // Sort by Kategori lalu Nama Barang
+    result.sort((a, b) => {
+      if (a.katNama < b.katNama) return -1;
+      if (a.katNama > b.katNama) return 1;
+      return a.nama.localeCompare(b.nama);
+    });
+
+    return { status: 'success', data: result };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI BARU: UPDATE HARGA REFERENSI --- */
+function updateHargaReferensi(token, namaBarang, hargaBaru) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('Data Barang');
+    if (!sheet) return { status: 'error', message: 'Sheet tidak ditemukan' };
+    
+    const data = sheet.getDataRange().getValues();
+    const cleanNama = String(namaBarang).trim().toLowerCase();
+    
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim().toLowerCase() === cleanNama) {
+        // Update Kolom C (Index 3 -> getRange kolom ke-3)
+        sheet.getRange(i + 1, 3).setValue(hargaBaru);
+        return { status: 'success', message: 'Harga berhasil diperbarui.' };
+      }
+    }
+    return { status: 'error', message: 'Barang tidak ditemukan di database.' };
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
