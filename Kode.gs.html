@@ -2933,3 +2933,68 @@ function getCoverSettings(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI SURAT PENGANTAR (DATABASE) --- */
+
+// 1. Simpan Data Surat Pengantar ke DataPengaturan
+function simpanDataSuratPengantar(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    
+    // Helper untuk update/insert
+    const upsert = (key, val) => {
+      let found = false;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          sheet.getRange(i + 1, 2).setValue(val);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sheet.appendRow([key, val]);
+    };
+
+    // Kita simpan dengan KEY khusus berawalan SP_
+    upsert('SP_NOMOR', form.nomor);
+    upsert('SP_TEMPAT', form.tempat);
+    upsert('SP_TANGGAL', form.tanggal);
+
+    return { status: 'success', message: 'Data Surat Pengantar tersimpan di Database!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Ambil Data Surat Pengantar
+function getDataSuratPengantar(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let result = { nomor: '', tempat: '', tanggal: '' };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === 'SP_NOMOR') result.nomor = data[i][1];
+        if (data[i][0] === 'SP_TEMPAT') result.tempat = data[i][1];
+        if (data[i][0] === 'SP_TANGGAL') {
+           // Format tanggal agar aman dikirim ke frontend (YYYY-MM-DD)
+           const rawDate = data[i][1];
+           if (rawDate) {
+             try {
+               result.tanggal = Utilities.formatDate(new Date(rawDate), "GMT+7", "yyyy-MM-dd");
+             } catch(e) { result.tanggal = ''; }
+           }
+        }
+      }
+    }
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
