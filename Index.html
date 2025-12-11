@@ -452,6 +452,163 @@
       .cell-scroll::-webkit-scrollbar {
         display: none;
       }
+
+      /* --- CSS UNTUK CETAK PENDUKUNG (SAMPUL) - UPDATE FULL PAGE --- */
+
+      /* Konfigurasi Kontainer Preview */
+      .sheet-container {
+        background-color: #525659;
+        padding: 30px;
+        overflow-y: auto;
+        height: 650px; /* Sedikit dipertinggi */
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      /* Konfigurasi Kertas A4 */
+      .sheet {
+        background: white;
+        width: 210mm;
+        height: 297mm; /* Tinggi Fixed A4 */
+        position: relative;
+        box-shadow: 0 .5mm 2mm rgba(0,0,0,.3);
+        box-sizing: border-box;
+        color: #000;
+        font-family: "Times New Roman", Times, serif;
+        
+        /* Reset padding default container, kita atur per desain */
+        padding: 0; 
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* --- LOGIKA LAYOUT FULL PAGE --- */
+      /* Wrapper ini membungkus semua konten dan memaksanya setinggi kertas */
+      .cover-layout-wrapper {
+        width: 100%;
+        height: 100%; /* KUNCI: Memenuhi kertas 297mm */
+        padding: 20mm; /* Margin 2cm standar */
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between; /* Header di atas, Footer di bawah */
+      }
+
+      /* Bagian Atas (Header Instansi, Judul, Periode) */
+      .section-top {
+        text-align: center;
+        margin-top: 10mm; /* Sedikit jarak dari tepi atas */
+      }
+
+      /* Bagian Tengah (Logo) - Flex Grow agar mengisi ruang */
+      .section-middle {
+        flex-grow: 1; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 0;
+      }
+
+      /* Bagian Bawah (Sekolah, Tahun, Kota) */
+      .section-bottom {
+        text-align: center;
+        margin-bottom: 10mm; /* Jarak aman dari bawah */
+      }
+
+      /* Styling Text Dasar */
+      .txt-instansi { font-size: 12pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+      .txt-title { font-size: 26pt; font-weight: bold; text-transform: uppercase; line-height: 1.2; margin-bottom: 15px; }
+      .txt-period { font-size: 16pt; margin-bottom: 20px; }
+      .txt-school { font-size: 20pt; font-weight: bold; text-transform: uppercase; margin-top: 15px; }
+      .txt-year { font-size: 16pt; margin-top: 5px; }
+      .txt-city { font-size: 12pt; font-weight: bold; text-transform: uppercase; margin-top: 15px; }
+
+      .img-logo { 
+        max-height: 220px; /* Logo lebih besar */
+        max-width: 220px; 
+        object-fit: contain; 
+      }
+
+      /* --- VARIASI DESAIN YANG BERBEDA --- */
+
+      /* V1: Klasik (Bingkai Ganda - Mirip Gambar Anda) */
+      .design-v1 .cover-layout-wrapper {
+        border: 3px double #000; /* Garis ganda luar */
+        outline: 1px solid #000; /* Garis tipis tambahan */
+        outline-offset: -8px;    /* Jarak ke dalam */
+        padding: 25mm 20mm;      /* Padding konten di dalam border */
+        height: calc(100% - 40mm); /* Kurangi tinggi container agar border margin 2cm pas */
+        margin: 20mm;            /* Margin luar border */
+        width: auto;
+      }
+
+      /* V2: Modern (Blok Header & Footer Hijau) */
+      .design-v2 {
+        display: flex; flex-direction: column; justify-content: space-between; height: 100%;
+      }
+      .design-v2 .bar-header { background-color: #157347; height: 30px; width: 100%; margin-bottom: 20px; }
+      .design-v2 .bar-footer { background-color: #157347; height: 30px; width: 100%; margin-top: 20px; }
+      .design-v2 .cover-layout-wrapper { padding: 0 20mm; height: auto; flex-grow: 1; }
+      .design-v2 .txt-title { color: #157347; border-bottom: 3px solid #ccc; padding-bottom: 20px; }
+
+      /* V3: Minimalis (Garis Samping Tebal) */
+      .design-v3 .cover-layout-wrapper {
+        border-left: 15px solid #2c3e50;
+        padding-left: 15mm;
+        align-items: flex-start; /* Rata Kiri */
+        text-align: left;
+      }
+      .design-v3 .section-top, .design-v3 .section-bottom { text-align: left; width: 100%; }
+      .design-v3 .section-middle { justify-content: flex-start; width: 100%; }
+      .design-v3 .txt-title { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 30pt; }
+      .design-v3 .txt-instansi { color: #555; }
+
+      /* V4: Formal (Garis Horizontal Kop & Footer) */
+      .design-v4 .section-top { border-bottom: 4px double #000; padding-bottom: 30px; margin-bottom: 20px; width: 100%; }
+      .design-v4 .section-bottom { border-top: 2px solid #000; padding-top: 30px; margin-top: 20px; width: 100%; }
+      .design-v4 .txt-title { font-size: 22pt; margin: 0; }
+      /* Di V4, Instansi kita taruh di atas judul */
+
+      /* V5: Sertifikat (Bingkai Artistik) */
+      .design-v5 .cover-layout-wrapper {
+        border: 5px solid #0d6efd;
+        border-radius: 30px;
+        padding: 20mm;
+        height: calc(100% - 40mm);
+        margin: 20mm;
+        width: auto;
+        background-color: #f8faff; /* Sedikit warna biru sangat muda */
+      }
+      .design-v5 .txt-title { color: #0d6efd; font-family: 'Courier New', monospace; letter-spacing: -1px; }
+      .design-v5 .img-logo { filter: drop-shadow(0px 5px 5px rgba(0,0,0,0.2)); }
+
+
+      /* --- PRINT SETTING (FIXED POSISI HALAMAN 1) --- */
+      @media print {
+        @page { size: A4 portrait; margin: 0; }
+        body * { visibility: hidden; height: 0; overflow: hidden; }
+        
+        #print-area, #print-area * { 
+          visibility: visible; 
+          height: auto; 
+          overflow: visible; 
+        }
+
+        #print-area {
+          position: fixed;
+          top: 0; left: 0;
+          width: 210mm; height: 297mm;
+          margin: 0; padding: 0;
+          z-index: 9999;
+          background: white !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        /* Reset background V5 saat print jika printer setting BW */
+        .design-v5 .cover-layout-wrapper { background-color: white; }
+      }
     </style>
   </head>
   <body>
@@ -681,6 +838,12 @@
             <li class="nav-item">
               <a onclick="navigasiKe('panel-cetak-pdf', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-print me-2"></i> Cetak PDF
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a onclick="navigasiKe('panel-cetak-pendukung', this)" class="nav-link" style="cursor: pointer;">
+                <i class="fas fa-file-signature me-2"></i> Cetak Pendukung
               </a>
             </li>
             
@@ -2363,6 +2526,128 @@
             </div>
           </div>
 
+          <div id="panel-cetak-pendukung" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-file-signature text-primary"></i> Cetak Dokumen Pendukung</h2>
+
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-sub-sampul" onclick="bukaSubTab('sampul')">
+                  <i class="fas fa-book-cover me-2"></i> Cover / Sampul
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-sub-pengantar" onclick="bukaSubTab('pengantar')">
+                  <i class="fas fa-envelope-open-text me-2"></i> Surat Pengantar
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-sub-verifikasi" onclick="bukaSubTab('verifikasi')">
+                  <i class="fas fa-check-double me-2"></i> Lembar Verifikasi
+                </button>
+              </li>
+            </ul>
+
+            <div id="view-sub-sampul" class="sub-view-section">
+              <div class="row">
+                
+                <div class="col-lg-4 mb-4">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold py-3">Pengaturan Sampul</div>
+                    <div class="card-body">
+                      
+                      <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Pilih Desain:</label>
+                        <div class="d-grid gap-2">
+                          <input type="radio" class="btn-check" name="desainSampul" id="ds1" value="design-v1" autocomplete="off" checked onchange="updatePreviewSampul()">
+                          <label class="btn btn-outline-dark text-start btn-sm" for="ds1">1. Klasik (Border Ganda)</label>
+
+                          <input type="radio" class="btn-check" name="desainSampul" id="ds2" value="design-v2" autocomplete="off" onchange="updatePreviewSampul()">
+                          <label class="btn btn-outline-success text-start btn-sm" for="ds2">2. Modern (Blok Hijau)</label>
+
+                          <input type="radio" class="btn-check" name="desainSampul" id="ds3" value="design-v3" autocomplete="off" onchange="updatePreviewSampul()">
+                          <label class="btn btn-outline-secondary text-start btn-sm" for="ds3">3. Minimalis (Clean)</label>
+
+                          <input type="radio" class="btn-check" name="desainSampul" id="ds4" value="design-v4" autocomplete="off" onchange="updatePreviewSampul()">
+                          <label class="btn btn-outline-dark text-start btn-sm" for="ds4">4. Formal (Garis Tegas)</label>
+                          
+                          <input type="radio" class="btn-check" name="desainSampul" id="ds5" value="design-v5" autocomplete="off" onchange="updatePreviewSampul()">
+                          <label class="btn btn-outline-primary text-start btn-sm" for="ds5">5. Kreatif (Bingkai Biru)</label>
+                        </div>
+                      </div>
+
+                      <hr>
+
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Instansi / Kementerian</label>
+                        <input type="text" class="form-control form-control-sm" id="inpHeaderCover" value="KEMENTERIAN AGAMA" oninput="updatePreviewSampul()" placeholder="Contoh: YAYASAN PENDIDIKAN...">
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Judul Laporan</label>
+                        <input type="text" class="form-control form-control-sm" id="inpJudulCover" value="LAPORAN PENGGUNAAN DANA BOS" oninput="updatePreviewSampul()">
+                      </div>
+                      
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Periode / Keterangan</label>
+                        <input type="text" class="form-control form-control-sm" id="inpPeriodeCover" placeholder="Contoh: (Januari s/d Juni 2025)" oninput="updatePreviewSampul()">
+                      </div>
+                      
+                      <div class="mb-3 p-2 border rounded bg-light">
+                        <label class="form-label small fw-bold mb-2">Logo Sampul</label>
+                        <div class="d-flex align-items-center mb-2">
+                          <img id="logoPreviewForm" src="https://i.imgur.com/WqGSzFl.png" class="me-2 border bg-white rounded" width="50" height="50" style="object-fit: contain;">
+                          <div class="w-100">
+                              <input class="form-control form-control-sm mb-1" type="file" id="fileLogoSampul" accept="image/*" onchange="previewLogoLocal(this)">
+                              <small class="text-muted d-block" style="font-size: 0.7rem;">*Klik tombol Simpan di bawah untuk upload permanen.</small>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="d-grid gap-2 mt-4">
+                        <button id="btnSimpanCover" class="btn btn-success btn-sm" onclick="simpanKonfigurasiSampul()">
+                          <i class="fas fa-save me-1"></i> Simpan Teks & Logo
+                        </button>
+                        
+                        <button class="btn btn-primary" onclick="cetakHalamanIni()">
+                          <i class="fas fa-print me-2"></i> Cetak / Simpan PDF
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-8">
+                  <div class="card shadow-sm border-0 bg-light">
+                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Live Preview</span>
+                      <small class="text-muted">Kertas A4</small>
+                    </div>
+                    <div class="card-body p-0">
+                      
+                      <div class="sheet-container">
+                        <div id="print-area" class="sheet">
+                            <div id="cover-content" class="design-v1">
+                                </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div id="view-sub-pengantar" class="sub-view-section hidden">
+              <div class="alert alert-info">Fitur Cetak Surat Pengantar akan segera hadir.</div>
+            </div>
+            <div id="view-sub-verifikasi" class="sub-view-section hidden">
+              <div class="alert alert-info">Fitur Cetak Lembar Verifikasi akan segera hadir.</div>
+            </div>
+
+          </div>
+
           <div id="panel-uraian" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-list-ul text-primary"></i> Data Uraian Pekerjaan</h2>
             
@@ -2797,6 +3082,10 @@
         if(panelId === 'panel-nomor-surat') bukaTabSurat('toko');
         if(panelId === 'panel-tanggal-surat') bukaTabTanggal('toko');
         if(panelId === 'panel-cetak-pdf') bukaTabCetak('toko');
+
+        if(panelId === 'panel-cetak-pendukung') {
+          bukaSubTab('sampul'); // Default buka tab sampul
+        }
       }
 
       /* --- LOGIKA APLIKASI --- */
@@ -8130,6 +8419,234 @@
         cacheDataSatuanLengkap = [];
         cacheRefLengkap = [];
         cacheDataGuru = [];
+      }
+
+      /* --- LOGIC CETAK PENDUKUNG --- */
+
+      let currentCoverLogo = "https://i.imgur.com/WqGSzFl.png"; 
+
+      // 1. Tab Switching
+      function bukaSubTab(tabName) {
+        document.getElementById('tab-sub-sampul').classList.remove('active');
+        document.getElementById('tab-sub-pengantar').classList.remove('active');
+        document.getElementById('tab-sub-verifikasi').classList.remove('active');
+        
+        document.getElementById('view-sub-sampul').classList.add('hidden');
+        document.getElementById('view-sub-pengantar').classList.add('hidden');
+        document.getElementById('view-sub-verifikasi').classList.add('hidden');
+        
+        document.getElementById('tab-sub-' + tabName).classList.add('active');
+        document.getElementById('view-sub-' + tabName).classList.remove('hidden');
+        
+        if(tabName === 'sampul') initCoverData();
+      }
+
+      // 2. Inisialisasi Data (Load dari Server)
+      function initCoverData() {
+        const token = localStorage.getItem('userToken');
+        const d = DATA_CACHE.sekolah || {};
+        
+        // Placeholder Loading
+        document.getElementById('inpHeaderCover').placeholder = "Memuat...";
+        
+        google.script.run.withSuccessHandler(function(res) {
+          if(res.status === 'success') {
+            const s = res.data;
+            
+            // Load Teks Tersimpan
+            if(s.headerText) document.getElementById('inpHeaderCover').value = s.headerText;
+            if(s.titleText)  document.getElementById('inpJudulCover').value = s.titleText;
+            
+            // Load Periode (Jika kosong di DB, gunakan default rumus)
+            if(s.periodText && s.periodText !== "") {
+              document.getElementById('inpPeriodeCover').value = s.periodText;
+            } else {
+              const defaultPeriod = d.periodeAnggaran ? `(${d.periodeAnggaran} ${d.tahunAnggaran || ''})` : "(Januari s/d Juni 2025)";
+              document.getElementById('inpPeriodeCover').value = defaultPeriod;
+            }
+            
+            // Load Logo
+            if(s.logoId) {
+              currentCoverLogo = "https://drive.google.com/thumbnail?id=" + s.logoId + "&sz=w600"; // Pakai resolusi lebih tinggi (w600)
+            }
+            
+            document.getElementById('logoPreviewForm').src = currentCoverLogo;
+            updatePreviewSampul(); // Render ulang setelah data masuk
+          }
+        }).getCoverSettings(token);
+        
+        updatePreviewSampul(); // Render awal
+      }
+
+      // Preview Logo Lokal
+      function previewLogoLocal(input) {
+        if (input.files && input.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            currentCoverLogo = e.target.result;
+            document.getElementById('logoPreviewForm').src = currentCoverLogo;
+            updatePreviewSampul();
+          }
+          reader.readAsDataURL(input.files[0]);
+        }
+      }
+
+      // 3. RENDER HTML (UPDATED STRUCTURE)
+      function updatePreviewSampul() {
+        const sheet = document.getElementById('print-area');
+        const d = DATA_CACHE.sekolah || {};
+        
+        // Ambil Value Input
+        const headerText = document.getElementById('inpHeaderCover').value || "KEMENTERIAN AGAMA";
+        const judul = document.getElementById('inpJudulCover').value || "LAPORAN PENGGUNAAN DANA BOS";
+        const periode = document.getElementById('inpPeriodeCover').value;
+        const design = document.querySelector('input[name="desainSampul"]:checked').value;
+        
+        // Identitas Sekolah
+        const namaSekolah = d.namaSekolah || "NAMA SEKOLAH BELUM DISET";
+        const tahun = d.tahunAnggaran || new Date().getFullYear();
+        const kota = (d.kabupaten || "KOTA").toUpperCase().replace("KAB. ", "");
+        
+        // Set Class Desain pada Parent
+        sheet.className = "sheet " + design;
+        sheet.innerHTML = "";
+
+        // --- STRUKTUR KONTEN BERDASARKAN DESAIN ---
+
+        if (design === 'design-v2') {
+          // V2: Bar Hijau Atas Bawah
+          sheet.innerHTML = `
+              <div class="design-v2" style="height:100%; width:100%; display:flex; flex-direction:column;">
+                  <div class="bar-header"></div>
+                  <div class="cover-layout-wrapper">
+                      <div class="section-top">
+                          <div class="txt-instansi text-muted">${headerText}</div>
+                          <div class="txt-title">${judul}</div>
+                          <div class="txt-period text-muted">${periode}</div>
+                      </div>
+                      <div class="section-middle">
+                          <img src="${currentCoverLogo}" class="img-logo">
+                      </div>
+                      <div class="section-bottom">
+                          <div class="txt-school text-success">${namaSekolah}</div>
+                          <div class="txt-year text-muted">TAHUN ${tahun}</div>
+                          <div class="txt-city text-muted">${kota}</div>
+                      </div>
+                  </div>
+                  <div class="bar-footer"></div>
+              </div>
+          `;
+        } 
+        else if (design === 'design-v4') {
+          // V4: Formal (Garis Kop) - Instansi di Header
+          sheet.innerHTML = `
+              <div class="cover-layout-wrapper">
+                  <div class="section-top">
+                      <div class="txt-instansi text-dark" style="margin-bottom:5px;">${headerText}</div>
+                      <div class="txt-title">${judul}</div>
+                      <div class="txt-period" style="font-style:italic;">${periode}</div>
+                  </div>
+                  <div class="section-middle">
+                      <img src="${currentCoverLogo}" class="img-logo">
+                  </div>
+                  <div class="section-bottom">
+                      <div class="txt-school">${namaSekolah}</div>
+                      <div class="txt-year">TAHUN ${tahun}</div>
+                      <div class="txt-city">${kota}</div>
+                  </div>
+              </div>
+          `;
+        }
+        else {
+          // V1 (Klasik), V3 (Minimalis), V5 (Kreatif)
+          // Standar Layout: Instansi di Footer (seperti gambar user)
+          
+          // Cek apakah V3 (Instansi di footer terlihat aneh kalau rata kiri, pindah ke atas opsi)
+          let htmlInstansi = `<div class="txt-instansi">${headerText}</div>`;
+          let headerInstansi = "";
+          
+          if (design === 'design-v3') {
+              htmlInstansi = ""; // Hapus dari bawah
+              headerInstansi = `<div class="txt-instansi" style="color:#777; margin-bottom:15px;">${headerText}</div>`; // Pindah ke atas
+          }
+
+          sheet.innerHTML = `
+              <div class="cover-layout-wrapper">
+                  <div class="section-top">
+                      ${headerInstansi}
+                      <div class="txt-title">${judul}</div>
+                      <div class="txt-period">${periode}</div>
+                  </div>
+                  <div class="section-middle">
+                      <img src="${currentCoverLogo}" class="img-logo">
+                  </div>
+                  <div class="section-bottom">
+                      ${htmlInstansi}
+                      <div class="txt-school">${namaSekolah}</div>
+                      <div class="txt-year">TAHUN ${tahun}</div>
+                      <div class="txt-city">${kota}</div>
+                  </div>
+              </div>
+          `;
+        }
+      }
+
+      // 4. Simpan Konfigurasi ke Server (Header, Title, Period, Logo)
+      function simpanKonfigurasiSampul() {
+        const token = localStorage.getItem('userToken');
+        const btn = document.getElementById('btnSimpanCover');
+        const fileInput = document.getElementById('fileLogoSampul');
+        
+        // Ambil Data Teks
+        const configData = {
+          header: document.getElementById('inpHeaderCover').value,
+          title: document.getElementById('inpJudulCover').value,
+          period: document.getElementById('inpPeriodeCover').value
+        };
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        // Helper Simpan Teks
+        const saveDetails = () => {
+          google.script.run.withSuccessHandler(function() {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            Swal.fire({
+              toast: true, position: 'top-end', icon: 'success', 
+              title: 'Pengaturan Sampul Tersimpan', showConfirmButton: false, timer: 1500
+            });
+          }).simpanDetailSampul(token, configData);
+        };
+
+        // Cek Upload File
+        if (fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = function() {
+            const rawBase64 = reader.result.split(',')[1]; 
+            const payload = { base64: rawBase64, mimeType: file.type };
+            
+            google.script.run.withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                  currentCoverLogo = "https://drive.google.com/thumbnail?id=" + res.fileId + "&sz=w600";
+                  saveDetails(); // Lanjut simpan teks
+              } else {
+                  btn.innerHTML = originalText;
+                  btn.disabled = false;
+                  Swal.fire('Gagal Upload', res.message, 'error');
+              }
+            }).simpanLogoSampul(token, payload);
+          };
+        } else {
+          saveDetails(); // Hanya simpan teks
+        }
+      }
+
+      function cetakHalamanIni() {
+        window.print();
       }
 
     </script>
