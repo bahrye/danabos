@@ -564,6 +564,56 @@
         .txt-city { font-size: 14pt !important; }
         
         .img-logo { max-height: 220px !important; }
+
+        /* Tambahkan ini agar Surat Pengantar juga tercetak full page */
+        #print-area-sp {
+          position: fixed; top: 0; left: 0;
+          width: 210mm !important;
+          min-width: 210mm !important; 
+          height: 297mm !important;
+          margin: 0; padding: 10mm !important;
+          background: white !important;
+          z-index: 9999;
+          visibility: visible !important;
+        }
+        
+        #print-area-sp * {
+          visibility: visible !important;
+        }
+      }
+
+      /* --- CSS TAMBAHAN UNTUK SURAT PENGANTAR --- */
+      .surat-body {
+        padding: 10mm 15mm;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        color: #000;
+        line-height: 1.5;
+      }
+
+      .tbl-pengantar {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+
+      .tbl-pengantar th, .tbl-pengantar td {
+        border: 1px solid #000;
+        padding: 8px;
+        vertical-align: top;
+      }
+
+      .tbl-pengantar th {
+        text-align: center;
+        font-weight: bold;
+      }
+
+      .signature-box {
+        float: right;
+        width: 40%;
+        text-align: center;
+        margin-top: 30px;
       }
     </style>
   </head>
@@ -2488,7 +2538,7 @@
             <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
               <li class="nav-item">
                 <button class="nav-link active fw-bold" id="tab-sub-sampul" onclick="bukaSubTab('sampul')">
-                  <i class="fas fa-book-cover me-2"></i> Cover / Sampul
+                  <i class="fas fa-book me-2"></i> Cover / Sampul
                 </button>
               </li>
               <li class="nav-item">
@@ -2596,8 +2646,127 @@
             </div>
 
             <div id="view-sub-pengantar" class="sub-view-section hidden">
-              <div class="alert alert-info">Fitur Cetak Surat Pengantar akan segera hadir.</div>
+              <div class="row">
+                
+                <div class="col-lg-4 mb-4">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold py-3 text-primary">
+                      <i class="fas fa-edit me-2"></i> Data Surat Pengantar
+                    </div>
+                    <div class="card-body">
+                      
+                      <div class="alert alert-info py-2 mb-3" style="font-size: 0.8rem;">
+                        <i class="fas fa-magic me-1"></i>
+                        Isi surat dan tujuan akan dibuat otomatis berdasarkan data sekolah.
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Nomor Surat</label>
+                        <input type="text" class="form-control" id="spNomor" placeholder="Contoh: 001/MTs.../..." oninput="updatePreviewPengantar()">
+                      </div>
+
+                      <div class="row">
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label small fw-bold">Tempat TTD</label>
+                          <input type="text" class="form-control" id="spTempat" oninput="updatePreviewPengantar()">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label small fw-bold">Tanggal TTD</label>
+                          <input type="date" class="form-control" id="spTanggal" oninput="updatePreviewPengantar()">
+                        </div>
+                      </div>
+
+                      <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-success" onclick="simpanPengantarDatabase()">
+                          <i class="fas fa-cloud-upload-alt me-2"></i> Simpan Data
+                        </button>
+                        
+                        <button class="btn btn-primary" onclick="cetakHalamanIni()">
+                          <i class="fas fa-print me-2"></i> Cetak PDF
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-8">
+                  <div class="card shadow-sm border-0 bg-light">
+                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Preview Surat Pengantar</span>
+                      <small class="text-muted">Kertas A4</small>
+                    </div>
+                    <div class="card-body p-0">
+                      
+                      <div class="sheet-container">
+                        <div id="print-area-sp" class="sheet" style="padding: 0; display: flex; flex-direction: column;">
+                          
+                          <div id="header-kop-container" style="width: 100%; text-align: center;">
+                            <img id="spKopImage" src="" style="width: 100%; height: auto; object-fit: contain; display: none;">
+                            <div id="spKopText" class="p-4 text-muted bg-light border-bottom" style="display:none; font-style: italic;">
+                              <i class="fas fa-image me-1"></i> [Kop Surat Belum Diupload di Menu Pengaturan]
+                            </div>
+                          </div>
+
+                          <div class="surat-body" style="padding: 5mm 15mm 15mm 15mm; flex-grow: 1;">
+                            
+                            <div class="text-center mb-4 mt-2">
+                              <span class="fw-bold fs-5" style="text-decoration: underline;">SURAT PENGANTAR</span><br>
+                              <span>Nomor Surat : <span id="prevSpNomor">...</span></span>
+                            </div>
+
+                            <div class="mb-4">
+                              Kepada<br>
+                              Yth. Kepala Kantor Kementerian Agama<br>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Kabupaten <span class="dyn-kabupaten">...</span><br>
+                              c.q. Pejabat Pembuat Komitmen BOS<br>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Kementerian Agama Kabupaten <span class="dyn-kabupaten">...</span><br>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;di <span class="dyn-kabupaten">...</span>
+                            </div>
+
+                            <table class="tbl-pengantar">
+                              <thead>
+                                <tr>
+                                  <th width="5%">No.</th>
+                                  <th width="45%">Jenis Surat</th>
+                                  <th width="20%">Banyaknya</th>
+                                  <th width="30%">Keterangan</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td class="text-center">1</td>
+                                  
+                                  <td style="text-align: justify; vertical-align: top;">
+                                    Laporan Pertanggungjawaban (LPJ) penggunaan dana BOS reguler <span id="prevSpNamaSekolah" class="fw-bold">...</span>, <span id="prevSpKelurahan">...</span>, Kecamatan <span id="prevSpKecamatan">...</span>, Kabupaten <span class="dyn-kabupaten">...</span>.
+                                  </td>
+                                  
+                                  <td class="text-center" style="vertical-align: top;">1 (Satu) Bendel</td>
+                                  
+                                  <td style="vertical-align: top;">Dikirimkan dengan hormat kepada bapak/ibu untuk diketahui sebagaimana mestinya.</td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            <div class="signature-box">
+                              <div class="mb-1"><span id="prevSpTempat">...</span>, <span id="prevSpTanggal">...</span></div>
+                              <div class="fw-bold mb-5">Kepala Madrasah</div>
+                              <br><br>
+                              <div class="fw-bold text-decoration-underline mt-3 text-uppercase" id="prevSpKepala">...</div>
+                              <div>NIP. <span id="prevSpNip">...</span></div>
+                            </div>
+
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
+
             <div id="view-sub-verifikasi" class="sub-view-section hidden">
               <div class="alert alert-info">Fitur Cetak Lembar Verifikasi akan segera hadir.</div>
             </div>
@@ -8395,6 +8564,7 @@
         document.getElementById('view-sub-' + tabName).classList.remove('hidden');
         
         if(tabName === 'sampul') initCoverData();
+        if(tabName === 'pengantar') initPengantarData();
       }
 
       // 2. Inisialisasi Data (Load dari Server) - VERSI PERBAIKAN
@@ -8634,6 +8804,135 @@
 
       function cetakHalamanIni() {
         window.print();
+      }
+
+      /* --- LOGIKA SURAT PENGANTAR (DATABASE VERSION) --- */
+
+      function initPengantarData() {
+        const d = DATA_CACHE.sekolah || {};
+        const token = localStorage.getItem('userToken');
+        
+        // 1. Ambil Kop Surat (Tampilan)
+        const imgKop = document.getElementById('spKopImage');
+        const txtKop = document.getElementById('spKopText');
+        imgKop.style.display = 'none';
+        txtKop.style.display = 'block';
+
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success' && res.fileId) {
+            const imageUrl = "https://drive.google.com/thumbnail?id=" + res.fileId + "&sz=w1000";
+            imgKop.src = imageUrl;
+            imgKop.style.display = 'block';
+            txtKop.style.display = 'none';
+          }
+        }).getKopSurat(token);
+
+        // 2. LOAD DATA DARI DATABASE (SERVER)
+        // Kita beri placeholder loading dulu
+        document.getElementById('spNomor').placeholder = "Memuat dari database...";
+        
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            const db = res.data;
+            
+            // --- LOGIKA PRIORITAS: DATABASE > DEFAULT ---
+            
+            // A. NOMOR SURAT
+            if (db.nomor && db.nomor !== "") {
+               document.getElementById('spNomor').value = db.nomor;
+            } else {
+               document.getElementById('spNomor').value = ""; // Biarkan placeholder muncul
+               document.getElementById('spNomor').placeholder = "Contoh: 001/MTs.../...";
+            }
+
+            // B. TEMPAT TTD
+            if (db.tempat && db.tempat !== "") {
+               document.getElementById('spTempat').value = db.tempat;
+            } else {
+               // Default: Ambil dari Data Sekolah
+               let kota = (d.kabupaten || "Bulukumba").replace(/KAB\.\s*|KOTA\s*/gi, ""); 
+               kota = kota.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+               document.getElementById('spTempat').value = kota;
+            }
+
+            // C. TANGGAL TTD
+            if (db.tanggal && db.tanggal !== "") {
+               document.getElementById('spTanggal').value = db.tanggal;
+            } else {
+               // Default: Hari ini
+               document.getElementById('spTanggal').valueAsDate = new Date();
+            }
+
+            // Render Preview setelah data terisi
+            updatePreviewPengantar();
+          }
+        }).getDataSuratPengantar(token);
+      }
+
+      // Fungsi Baru: Simpan ke Database saat tombol diklik
+      function simpanPengantarDatabase() {
+        const token = localStorage.getItem('userToken');
+        
+        const form = {
+          nomor: document.getElementById('spNomor').value,
+          tempat: document.getElementById('spTempat').value,
+          tanggal: document.getElementById('spTanggal').value
+        };
+
+        // Ubah tombol jadi loading
+        const btn = document.querySelector('button[onclick="simpanPengantarDatabase()"]');
+        const textAsli = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Menyimpan...';
+        btn.disabled = true;
+
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+          btn.innerHTML = textAsli;
+          btn.disabled = false;
+
+          if (res.status === 'success') {
+            Swal.fire({
+              toast: true, position: 'top-end', icon: 'success', 
+              title: 'Tersimpan di Database', showConfirmButton: false, timer: 2000
+            });
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanDataSuratPengantar(token, form);
+      }
+
+      function updatePreviewPengantar() {
+        const d = DATA_CACHE.sekolah || {};
+
+        // --- BAGIAN DINAMIS (Data Sekolah) ---
+        let kabBersih = (d.kabupaten || "...").replace(/KAB\.\s*|KOTA\s*/gi, "");
+        kabBersih = kabBersih.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+
+        document.querySelectorAll('.dyn-kabupaten').forEach(el => {
+            el.innerText = kabBersih;
+        });
+
+        document.getElementById('prevSpNamaSekolah').innerText = d.namaSekolah || "...";
+        document.getElementById('prevSpKelurahan').innerText = d.kelurahan || "..."; 
+        document.getElementById('prevSpKecamatan').innerText = d.kecamatan || "...";
+        document.getElementById('prevSpKepala').innerText = d.namaKepala || "KEPALA MADRASAH";
+        document.getElementById('prevSpNip').innerText = d.nipKepala || "-";
+
+        // --- BAGIAN MANUAL (Input User) ---
+        const valNomor = document.getElementById('spNomor').value;
+        const valTempat = document.getElementById('spTempat').value;
+        const valTanggal = document.getElementById('spTanggal').value;
+
+        // 1. Update Preview
+        document.getElementById('prevSpNomor').innerText = valNomor || "xxxx.XXXX.XXX";
+        document.getElementById('prevSpTempat').innerText = valTempat;
+
+        let tglIndo = valTanggal;
+        if(valTanggal) {
+           const dateObj = new Date(valTanggal);
+           const bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+           tglIndo = dateObj.getDate() + " " + bln[dateObj.getMonth()] + " " + dateObj.getFullYear();
+        }
+        document.getElementById('prevSpTanggal').innerText = tglIndo;
       }
 
     </script>
