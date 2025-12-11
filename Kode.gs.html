@@ -2827,3 +2827,109 @@ function changeUserPassword(form) {
 
   return { status: 'success', message: 'Password berhasil diubah.' };
 }
+
+/* --- FUNGSI KHUSUS PENGATURAN SAMPUL (COVER) --- */
+
+// 1. Simpan Logo Sampul
+function simpanLogoSampul(token, fileData) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    let oldFileId = null; 
+    let rowIdx = -1;
+
+    // Cek apakah sudah ada ID Logo sebelumnya
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'COVER_LOGO_ID') {
+        oldFileId = data[i][1];
+        rowIdx = i + 1;
+        break;
+      }
+    }
+
+    // Hapus File Lama di Drive agar hemat storage
+    if (oldFileId) { try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {} }
+
+    // Upload File Baru
+    const blob = Utilities.newBlob(Utilities.base64Decode(fileData.base64), fileData.mimeType, "LogoSampul_" + Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss"));
+    const file = DriveApp.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Simpan ID ke Spreadsheet
+    if (rowIdx !== -1) {
+      sheet.getRange(rowIdx, 2).setValue(file.getId());
+    } else {
+      sheet.appendRow(['COVER_LOGO_ID', file.getId()]);
+    }
+
+    return { status: 'success', message: 'Logo Sampul berhasil diupload!', fileId: file.getId() };
+  } catch (e) {
+    return { status: 'error', message: 'Gagal Upload: ' + e.toString() };
+  }
+}
+
+// 2. Simpan Konfigurasi Sampul Lengkap (Header, Judul, Periode)
+function simpanDetailSampul(token, config) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    
+    // Helper untuk update/insert
+    const upsert = (key, val) => {
+      let found = false;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          sheet.getRange(i + 1, 2).setValue(val);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sheet.appendRow([key, val]);
+    };
+
+    upsert('COVER_HEADER_TEXT', config.header);
+    upsert('COVER_TITLE_TEXT', config.title);
+    upsert('COVER_PERIOD_TEXT', config.period);
+
+    return { status: 'success', message: 'Konfigurasi Sampul berhasil disimpan.' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. Ambil Pengaturan Sampul Lengkap
+function getCoverSettings(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let result = { 
+      headerText: 'KEMENTERIAN AGAMA', 
+      titleText: 'LAPORAN PENGGUNAAN DANA BOS',
+      periodText: '',
+      logoId: null 
+    };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        const key = data[i][0];
+        const val = data[i][1];
+        
+        if (key === 'COVER_HEADER_TEXT') result.headerText = val;
+        if (key === 'COVER_TITLE_TEXT') result.titleText = val;
+        if (key === 'COVER_PERIOD_TEXT') result.periodText = val;
+        if (key === 'COVER_LOGO_ID') result.logoId = val;
+      }
+    }
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
