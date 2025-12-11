@@ -453,157 +453,117 @@
         display: none;
       }
 
-      /* =========================================
-         UPDATE CSS CETAK SAMPUL (FIXED LAYOUT)
-         ========================================= */
-
-      /* Konfigurasi Kontainer Preview di Layar */
+      /* --- [1] SETTINGAN UMUM (TAMPILAN DILAYAR / LIVE PREVIEW) --- */
+      /* Ini akan membuat tampilan di layar laptop normal, tidak terlalu melebar */
+      
       .sheet-container {
         background-color: #525659;
         padding: 30px;
         overflow-y: auto;
-        height: 700px; /* Tinggi area preview */
+        height: 700px;
         display: flex;
         justify-content: center;
         align-items: flex-start;
       }
 
-      /* Konfigurasi Kertas A4 */
       .sheet {
         background: white;
-        width: 210mm;
-        height: 297mm; /* Tinggi Fixed A4 */
+        width: 210mm;        /* Standar A4 */
+        height: 297mm;       
         position: relative;
         box-shadow: 0 .5mm 2mm rgba(0,0,0,.3);
         box-sizing: border-box;
         color: #000;
         font-family: "Times New Roman", Times, serif;
-        
-        /* FIX: Gunakan Flexbox agar Kotak Bingkai Tepat di Tengah Kertas */
         display: flex;
-        justify-content: center; /* Tengah Horizontal */
-        align-items: center;     /* Tengah Vertikal */
-        padding: 15mm;           /* Margin Kertas (Jarak Putih Luar Bingkai) */
-      }
-
-      /* Wrapper Utama di dalam Bingkai */
-      .cover-layout-wrapper {
-        width: 100%;
-        height: 100%;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between; /* Header di atas, Footer di bawah */
-        position: relative;
-      }
-
-      /* Bagian Atas (Kementerian, Judul) */
-      .section-top {
-        text-align: center;
-        /* FIX: Geser teks ke bawah agar seimbang */
-        margin-top: 30mm; 
-        padding-bottom: 20px;
-      }
-
-      /* Bagian Tengah (Logo) */
-      .section-middle {
-        flex-grow: 1; 
-        display: flex;
-        align-items: center; /* Logo vertikal di tengah area kosong */
         justify-content: center;
-        padding: 10px 0;
+        align-items: center;
+        padding: 15mm;
+        /* HAPUS min-width DISINI agar preview di layar fleksibel/bisa dizoom */
       }
 
-      /* Bagian Bawah (Sekolah, Kota) */
-      .section-bottom {
-        text-align: center;
-        /* FIX: Beri jarak dari bawah agar tidak mepet garis */
-        margin-bottom: 25mm; 
-      }
-
-      /* Styling Text */
+      /* Ukuran Font Standar untuk PREVIEW (Agar enak dilihat di layar) */
       .txt-instansi { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
-      .txt-title { font-size: 24pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 15px; }
-      .txt-period { font-size: 14pt; margin-bottom: 10px; font-weight: normal; }
       
+      .txt-title { 
+        font-size: 24pt; /* Ukuran normal untuk preview */
+        font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 15px; 
+      }
+      
+      .txt-period { font-size: 14pt; margin-bottom: 10px; font-weight: normal; }
       .txt-school { font-size: 18pt; font-weight: bold; text-transform: uppercase; margin-top: 10px; }
       .txt-year { font-size: 14pt; margin-top: 5px; font-weight: bold; }
       .txt-city { font-size: 12pt; font-weight: bold; text-transform: uppercase; margin-top: 15px; }
+      
+      .img-logo { max-height: 200px; max-width: 200px; object-fit: contain; }
 
-      .img-logo { 
-        max-height: 200px; 
-        max-width: 200px; 
-        object-fit: contain; 
+      /* Layout Wrapper Standar */
+      .cover-layout-wrapper {
+        width: 100%; height: 100%; box-sizing: border-box;
+        display: flex; flex-direction: column; justify-content: space-between;
       }
+      .section-top { text-align: center; margin-top: 30mm; padding-bottom: 20px; }
+      .section-middle { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 10px 0; }
+      .section-bottom { text-align: center; margin-bottom: 25mm; }
 
-      /* --- VARIASI DESAIN 1 (KLASIK DOUBLE BORDER) --- */
-      /* Ini yang dipakai default */
+      /* Desain V1 Default */
       .design-v1 .cover-layout-wrapper {
-        border: 5px double #000; /* Garis Ganda Tebal */
-        outline: 1px solid #000; /* Garis Tipis Tambahan */
-        outline-offset: -10px;   /* Jarak Garis Tipis ke Dalam */
-        
-        /* Padding konten di dalam garis */
-        padding: 0 10mm;         
-        
-        /* Pastikan wrapper memenuhi area margin kertas */
-        width: 100%;
-        height: 100%;
+        border: 5px double #000; outline: 1px solid #000; outline-offset: -10px; padding: 0 10mm;
       }
-
-      /* --- VARIASI DESAIN LAIN (Opsional disesuaikan) --- */
+      /* Desain lain (V2-V5) tetap gunakan CSS lama... */
       .design-v2 .cover-layout-wrapper { padding: 0 10mm; }
       .design-v2 .bar-header, .design-v2 .bar-footer { height: 30px; background-color: #157347; width: 100%; }
-      
       .design-v3 .cover-layout-wrapper { border-left: 15px solid #2c3e50; padding-left: 10mm; align-items: flex-start; }
       .design-v3 .section-top, .design-v3 .section-bottom { text-align: left; margin-top: 20mm; margin-bottom: 20mm; }
-      
       .design-v4 .section-top { border-bottom: 4px double #000; padding-bottom: 20px; width: 100%; margin-top: 10mm; }
       .design-v4 .section-bottom { border-top: 2px solid #000; padding-top: 20px; width: 100%; margin-bottom: 10mm; }
+      .design-v5 .cover-layout-wrapper { border: 3px solid #0d6efd; border-radius: 20px; padding: 10mm; }
 
-      .design-v5 .cover-layout-wrapper {
-        border: 3px solid #0d6efd;
-        border-radius: 20px;
-        padding: 10mm;
-      }
 
-      /* --- PRINT SETTING (Agar Hasil Cetak PDF Sempurna) --- */
+      /* --- [2] SETTINGAN KHUSUS CETAK (ACTIVE SAAT KLIK PRINT/SIMPAN PDF) --- */
+      /* Disini kita 'menyuntikkan' CSS agar hasil cetak jadi BESAR & TEBAL */
+      
       @media print {
         @page { 
-          size: A4 portrait; 
-          margin: 0; /* Margin 0 agar kita bisa atur margin sendiri via CSS .sheet */
+          size: A4 portrait; margin: 0; 
         }
         
         body * { visibility: hidden; }
         
-        /* Pastikan area print muncul */
-        #print-area, #print-area * { 
-          visibility: visible; 
-        }
+        #print-area, #print-area * { visibility: visible; }
 
         #print-area {
-          position: fixed;
-          top: 0; 
-          left: 0;
-          width: 210mm; 
-          height: 297mm;
-          margin: 0; 
-          padding: 15mm !important; /* Paksa margin cetak sama dengan preview */
+          position: fixed; top: 0; left: 0;
           
-          display: flex;
-          justify-content: center;
-          align-items: center;
+          /* KUNCI 1: Paksa Lebar 210mm saat Print agar Font Besar muat */
+          width: 210mm !important;
+          min-width: 210mm !important; 
+          height: 297mm !important;
           
+          margin: 0; padding: 15mm !important;
+          display: flex; justify-content: center; align-items: center;
           background: white !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
           z-index: 9999;
         }
         
-        /* Khusus Desain V1 saat Print */
-        .design-v1 .cover-layout-wrapper {
-           height: 100%; /* Paksa tinggi penuh satu halaman */
+        .design-v1 .cover-layout-wrapper { height: 100%; }
+
+        /* KUNCI 2: PERBESAR FONT SECARA EKSTRIM KHUSUS UNTUK HASIL CETAK */
+        /* Gunakan !important agar menimpa settingan layar */
+        
+        .txt-title { 
+            font-size: 32pt !important; /* Besar agar wrap (turun baris) */
+            line-height: 1.1 !important;
+            padding: 0 10mm !important;
         }
+        
+        .txt-instansi { font-size: 16pt !important; }
+        .txt-school { font-size: 22pt !important; }
+        .txt-year { font-size: 16pt !important; }
+        .txt-period { font-size: 16pt !important; }
+        .txt-city { font-size: 14pt !important; }
+        
+        .img-logo { max-height: 220px !important; }
       }
     </style>
   </head>
@@ -8437,41 +8397,67 @@
         if(tabName === 'sampul') initCoverData();
       }
 
-      // 2. Inisialisasi Data (Load dari Server)
+      // 2. Inisialisasi Data (Load dari Server) - VERSI PERBAIKAN
       function initCoverData() {
         const token = localStorage.getItem('userToken');
-        const d = DATA_CACHE.sekolah || {};
         
-        // Placeholder Loading
-        document.getElementById('inpHeaderCover').placeholder = "Memuat...";
-        
-        google.script.run.withSuccessHandler(function(res) {
-          if(res.status === 'success') {
-            const s = res.data;
+        // Fungsi internal: Ambil settingan Header/Judul/Logo Cover setelah data sekolah siap
+        const fetchCoverSettings = () => {
+            const d = DATA_CACHE.sekolah || {}; // Data sekolah pasti sudah ada sekarang
             
-            // Load Teks Tersimpan
-            if(s.headerText) document.getElementById('inpHeaderCover').value = s.headerText;
-            if(s.titleText)  document.getElementById('inpJudulCover').value = s.titleText;
+            document.getElementById('inpHeaderCover').placeholder = "Memuat...";
             
-            // Load Periode (Jika kosong di DB, gunakan default rumus)
-            if(s.periodText && s.periodText !== "") {
-              document.getElementById('inpPeriodeCover').value = s.periodText;
-            } else {
-              const defaultPeriod = d.periodeAnggaran ? `(${d.periodeAnggaran} ${d.tahunAnggaran || ''})` : "(Januari s/d Juni 2025)";
-              document.getElementById('inpPeriodeCover').value = defaultPeriod;
-            }
+            google.script.run.withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                const s = res.data;
+                
+                // Load Teks Tersimpan
+                if(s.headerText) document.getElementById('inpHeaderCover').value = s.headerText;
+                if(s.titleText)  document.getElementById('inpJudulCover').value = s.titleText;
+                
+                // Load Periode (Logika Prioritas: DB > Rumus Default)
+                if(s.periodText && s.periodText !== "") {
+                  document.getElementById('inpPeriodeCover').value = s.periodText;
+                } else {
+                  // Fallback ke default jika belum pernah diset manual
+                  const defaultPeriod = d.periodeAnggaran ? `(${d.periodeAnggaran} ${d.tahunAnggaran || ''})` : "(Tahun Anggaran " + new Date().getFullYear() + ")";
+                  document.getElementById('inpPeriodeCover').value = defaultPeriod;
+                }
+                
+                // Load Logo
+                if(s.logoId) {
+                  currentCoverLogo = "https://drive.google.com/thumbnail?id=" + s.logoId + "&sz=w600"; 
+                }
+                
+                document.getElementById('logoPreviewForm').src = currentCoverLogo;
+                updatePreviewSampul(); // Render ulang tampilan akhir
+              }
+            }).getCoverSettings(token);
+        };
+
+        // --- LOGIKA UTAMA PERBAIKAN ---
+        // Cek apakah Data Sekolah sudah ada di Cache?
+        if (!DATA_CACHE.sekolah) {
+            // Jika KOSONG (User langsung masuk menu ini setelah login), ambil dulu dari server!
+            toggleLoading(true, "Menyiapkan Data...");
             
-            // Load Logo
-            if(s.logoId) {
-              currentCoverLogo = "https://drive.google.com/thumbnail?id=" + s.logoId + "&sz=w600"; // Pakai resolusi lebih tinggi (w600)
-            }
-            
-            document.getElementById('logoPreviewForm').src = currentCoverLogo;
-            updatePreviewSampul(); // Render ulang setelah data masuk
-          }
-        }).getCoverSettings(token);
-        
-        updatePreviewSampul(); // Render awal
+            google.script.run.withSuccessHandler(function(res) {
+                toggleLoading(false);
+                if (res.status === 'success') {
+                    DATA_CACHE.sekolah = res.data; // Simpan ke Global Cache
+                    
+                    // Render awal segera setelah data sekolah didapat
+                    updatePreviewSampul(); 
+                    
+                    // Lanjut ambil detail setting cover
+                    fetchCoverSettings();
+                }
+            }).getDataSekolah(token);
+        } else {
+            // Jika SUDAH ADA (User dari menu lain), langsung render & ambil setting
+            updatePreviewSampul(); 
+            fetchCoverSettings();
+        }
       }
 
       // Preview Logo Lokal
@@ -8490,18 +8476,26 @@
       // 3. RENDER HTML (UPDATED STRUCTURE)
       function updatePreviewSampul() {
         const sheet = document.getElementById('print-area');
-        const d = DATA_CACHE.sekolah || {};
+        // Ambil dari cache, atau objek kosong jika belum siap
+        const d = DATA_CACHE.sekolah || {}; 
         
         // Ambil Value Input
         const headerText = document.getElementById('inpHeaderCover').value || "KEMENTERIAN AGAMA";
         const judul = document.getElementById('inpJudulCover').value || "LAPORAN PENGGUNAAN DANA BOS";
-        const periode = document.getElementById('inpPeriodeCover').value;
-        const design = document.querySelector('input[name="desainSampul"]:checked').value;
+        const periode = document.getElementById('inpPeriodeCover').value; // Value ini akan diisi otomatis oleh initCoverData
         
-        // Identitas Sekolah
-        const namaSekolah = d.namaSekolah || "NAMA SEKOLAH BELUM DISET";
+        // Ambil elemen radio button yang terpilih
+        const selectedDesign = document.querySelector('input[name="desainSampul"]:checked');
+        const design = selectedDesign ? selectedDesign.value : 'design-v1';
+        
+        // Identitas Sekolah (Fallback ke teks default jika data belum loading)
+        const namaSekolah = d.namaSekolah || "NAMA SEKOLAH";
         const tahun = d.tahunAnggaran || new Date().getFullYear();
-        const kota = (d.kabupaten || "KOTA").toUpperCase().replace("KAB. ", "");
+        let kota = "KOTA/KABUPATEN";
+        
+        if (d.kabupaten) {
+            kota = d.kabupaten.toUpperCase().replace("KAB. ", "").replace("KOTA ", "");
+        }
         
         // Set Class Desain pada Parent
         sheet.className = "sheet " + design;
@@ -8534,7 +8528,7 @@
           `;
         } 
         else if (design === 'design-v4') {
-          // V4: Formal (Garis Kop) - Instansi di Header
+          // V4: Formal (Garis Kop)
           sheet.innerHTML = `
               <div class="cover-layout-wrapper">
                   <div class="section-top">
@@ -8555,15 +8549,12 @@
         }
         else {
           // V1 (Klasik), V3 (Minimalis), V5 (Kreatif)
-          // Standar Layout: Instansi di Footer (seperti gambar user)
-          
-          // Cek apakah V3 (Instansi di footer terlihat aneh kalau rata kiri, pindah ke atas opsi)
           let htmlInstansi = `<div class="txt-instansi">${headerText}</div>`;
           let headerInstansi = "";
           
           if (design === 'design-v3') {
-              htmlInstansi = ""; // Hapus dari bawah
-              headerInstansi = `<div class="txt-instansi" style="color:#777; margin-bottom:15px;">${headerText}</div>`; // Pindah ke atas
+              htmlInstansi = ""; 
+              headerInstansi = `<div class="txt-instansi" style="color:#777; margin-bottom:15px;">${headerText}</div>`; 
           }
 
           sheet.innerHTML = `
