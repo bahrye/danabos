@@ -455,16 +455,6 @@
 
       /* --- [1] SETTINGAN UMUM (TAMPILAN DILAYAR / LIVE PREVIEW) --- */
       /* Ini akan membuat tampilan di layar laptop normal, tidak terlalu melebar */
-      
-      .sheet-container {
-        background-color: #525659;
-        padding: 30px;
-        overflow-y: auto;
-        height: 700px;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-      }
 
       .sheet {
         background: white;
@@ -643,25 +633,38 @@
         margin-top: 30px;
       }
 
-      /* --- [CSS LEMBAR VERIFIKASI - LIVE PREVIEW] --- */
-
-      /* 1. Setting Kertas Preview (Fleksibel ke Bawah) */
+      /* --- [CSS LEMBAR VERIFIKASI - LIVE PREVIEW (DI LAYAR)] --- */
+      
+      /* Container Kertas Preview */
       #print-area-verif.sheet {
-        width: 215.9mm !important;  /* Lebar F4/Legal agar muat banyak kolom */
-        min-width: 215.9mm;
+        width: 215.9mm;        /* Lebar F4/Legal */
+        min-width: 215.9mm;    /* Cegah menyusut */
+        min-height: 330mm;     /* Tinggi minimal F4 */
+        height: auto !important; /* Biarkan tinggi tumbuh sesuai isi tabel */
         
-        /* PERBAIKAN TINGGI HALAMAN: */
-        height: auto !important;    /* Tinggi otomatis mengikuti konten */
-        min-height: 297mm;          /* Minimal setinggi A4 */
-        
-        padding: 15mm 15mm;         /* Margin Kertas */
+        padding: 15mm 20mm;    /* Margin dalam kertas */
         box-sizing: border-box;
-        margin-bottom: 20px;        /* Jarak luar bawah agar tidak mepet footer browser */
+        background: white;
+        box-shadow: 0 .5mm 2mm rgba(0,0,0,.3); /* Efek bayangan kertas di layar */
         
-        /* Flex column agar footer tanda tangan terdorong rapi */
+        /* Flex column agar rapi */
         display: flex;
         flex-direction: column;
-        justify-content: flex-start; 
+        
+        /* PENTING: Izinkan konten meluap di preview agar bisa discroll */
+        overflow: visible !important; 
+        margin-bottom: 50px; /* Jarak bawah agar tidak mepet footer */
+      }
+
+      /* Pastikan container pembungkusnya (sheet-container) bisa discroll */
+      .sheet-container {
+        background-color: #525659;
+        padding: 30px;
+        overflow: auto; /* Scrollbar otomatis muncul jika konten panjang */
+        height: 75vh;   /* Tinggi area preview di layar */
+        display: flex;
+        justify-content: center;
+        align-items: flex-start; /* Mulai dari atas */
       }
 
       /* 2. Container Utama Verifikasi */
@@ -3194,14 +3197,28 @@
 
                 <div class="col-lg-8">
                   <div class="card shadow-sm border-0 bg-light">
-                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Preview Lembar Verifikasi</span>
-                      <small class="text-muted">Kertas A4</small>
+                    
+                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center sticky-top" style="z-index: 10;">
+                      
+                      <div class="d-flex align-items-center">
+                        <span class="fw-bold small text-primary me-3"><i class="fas fa-eye me-1"></i> Preview Verifikasi</span>
+                        
+                        <div class="alert alert-warning py-1 px-2 mb-0 d-flex align-items-center" style="font-size: 0.75rem;">
+                          <i class="fas fa-info-circle me-1"></i>
+                          <span>Silakan ubah/hapus isi tabel langsung di bawah.</span>
+                        </div>
+                      </div>
+
+                      <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="simpanVerifikasi(event)">
+                        <i class="fas fa-save me-1"></i> Simpan Isi Tabel
+                      </button>
+
                     </div>
+
                     <div class="card-body p-0">
                       
                       <div class="sheet-container">
-                        <div id="print-area-verif" class="sheet" style="height: auto; min-height: 297mm;">
+                        <div id="print-area-verif" class="sheet">
                           <div class="verif-sheet">
                             
                             <div class="verif-title-top">
@@ -3210,44 +3227,31 @@
 
                             <table class="verif-header-table">
                               <tr>
-                                <td width="20%">Nama Madrasah</td>
-                                <td width="2%">:</td>
-                                <td class="fw-bold" id="vfSchoolName">...</td>
+                                <td width="20%">Nama Madrasah</td> <td width="2%">:</td> <td class="fw-bold" id="vfSchoolName">...</td>
                               </tr>
                               <tr>
-                                <td>NSM</td>
-                                <td>:</td>
-                                <td id="vfNsm">...</td>
+                                <td>NSM</td> <td>:</td> <td id="vfNsm">...</td>
                               </tr>
                               <tr>
-                                <td>Alamat Madrasah</td>
-                                <td>:</td>
-                                <td id="vfAddress">...</td>
+                                <td>Alamat Madrasah</td> <td>:</td> <td id="vfAddress">...</td>
                               </tr>
                               <tr>
-                                <td>Kecamatan</td>
-                                <td>:</td>
-                                <td id="vfKecamatan">...</td>
+                                <td>Kecamatan</td> <td>:</td> <td id="vfKecamatan">...</td>
                               </tr>
                               <tr>
-                                <td>Kabupaten/Kota</td>
-                                <td>:</td>
-                                <td id="vfKabupaten">...</td>
+                                <td>Kabupaten/Kota</td> <td>:</td> <td id="vfKabupaten">...</td>
                               </tr>
                               <tr>
-                                <td>Periode</td>
-                                <td>:</td>
-                                <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
+                                <td>Periode</td> <td>:</td> <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
                               </tr>
                             </table>
 
-                            <div class="verif-subtitle">
-                              BERKAS YANG HARUS DIVERIFIKASI :
-                            </div>
+                            <div class="verif-subtitle">BERKAS YANG HARUS DIVERIFIKASI :</div>
 
                             <table class="verif-main-table" id="tabelVerifikasi">
                               <colgroup>
-                                <col> <col> <col> <col> <col> <col class="btn-aksi-verif"> </colgroup>
+                                <col> <col> <col> <col> <col> <col class="btn-aksi-verif"> 
+                              </colgroup>
 
                               <thead>
                                 <tr>
@@ -3262,12 +3266,10 @@
                                   <th style="font-size: 8pt;">Tidak</th>
                                 </tr>
                               </thead>
-                              <tbody id="bodyTabelVerif">
-                                </tbody>
+                              <tbody id="bodyTabelVerif"></tbody>
                             </table>
 
                             <div class="verif-signature-grid">
-                              
                               <div class="sig-row">
                                 <div class="verif-sig-box">
                                   <div>Kepala Madrasah</div>
@@ -3276,7 +3278,6 @@
                                     <div class="verif-sig-nip" id="prevVfNipKepala">NIP.</div>
                                   </div>
                                 </div>
-
                                 <div class="verif-sig-box">
                                   <div>Pengawas Madrasah</div>
                                   <div class="sig-wrap">
@@ -3296,7 +3297,6 @@
                                     <div class="verif-sig-nip" id="prevVfNip1">NIP.</div>
                                   </div>
                                 </div>
-
                                 <div class="verif-sig-box">
                                   <div>Verifikator II</div>
                                   <div class="sig-wrap">
@@ -3305,14 +3305,10 @@
                                   </div>
                                 </div>
                               </div>
-
                             </div>
-
-                          </div>
+                            </div>
                         </div>
-                      </div>
-
-                    </div>
+                      </div> </div>
                   </div>
                 </div>
               </div>
