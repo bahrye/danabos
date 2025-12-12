@@ -642,7 +642,7 @@
         min-height: 330mm;     /* Tinggi minimal F4 */
         height: auto !important; /* Biarkan tinggi tumbuh sesuai isi tabel */
         
-        padding: 15mm 20mm;    /* Margin dalam kertas */
+        padding: 15mm 20mm;    /* Margin dalam kertas (Atas Kanan Bawah Kiri) */
         box-sizing: border-box;
         background: white;
         box-shadow: 0 .5mm 2mm rgba(0,0,0,.3); /* Efek bayangan kertas di layar */
@@ -650,10 +650,18 @@
         /* Flex column agar rapi */
         display: flex;
         flex-direction: column;
+        justify-content: flex-start; /* PENTING: Paksa konten mulai dari ATAS */
         
         /* PENTING: Izinkan konten meluap di preview agar bisa discroll */
         overflow: visible !important; 
         margin-bottom: 50px; /* Jarak bawah agar tidak mepet footer */
+        
+        /* KUNCI PERBAIKAN TEXT TERPOTONG: Reset posisi */
+        position: relative; 
+        left: auto;
+        top: auto;
+        margin-left: auto;
+        margin-right: auto;
       }
 
       /* Pastikan container pembungkusnya (sheet-container) bisa discroll */
@@ -662,9 +670,8 @@
         padding: 30px;
         overflow: auto; /* Scrollbar otomatis muncul jika konten panjang */
         height: 75vh;   /* Tinggi area preview di layar */
-        display: flex;
-        justify-content: center;
-        align-items: flex-start; /* Mulai dari atas */
+        display: block; /* UBAH KE BLOCK agar scrollbar bekerja normal */
+        text-align: center; /* Agar kertas ada di tengah horizontal */
       }
 
       /* 2. Container Utama Verifikasi */
@@ -690,18 +697,20 @@
         line-height: 1.1;
       }
 
-      /* 4. Tabel Info Sekolah (Header) */
+      /* --- PERBAIKAN TABEL HEADER (DETAIL SEKOLAH) --- */
       .verif-header-table {
-        width: 100%;
-        margin-bottom: 5px; 
-        border-collapse: collapse;
-        border: none;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border: none !important;
+        margin-bottom: 20px !important;
       }
+
       .verif-header-table td {
-        padding: 1px 2px;
-        vertical-align: top;
-        border: none;
-        font-size: 11pt; 
+        border: none !important;
+        vertical-align: top !important; /* Agar jika teks panjang, titik dua tetap di atas */
+        text-align: left !important;    /* KUNCI: Paksa Rata Kiri */
+        padding: 2px 0 !important;      /* Jarak antar baris sedikit renggang biar rapi */
+        font-size: 11pt !important;
       }
 
       /* 5. Sub-Judul (RATA TENGAH) */
@@ -3209,7 +3218,7 @@
                         </div>
                       </div>
 
-                      <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="simpanVerifikasi(event)">
+                      <button id="btnSimpanTabel" class="btn btn-sm btn-success fw-bold shadow-sm" onclick="simpanVerifikasi(event)">
                         <i class="fas fa-save me-1"></i> Simpan Isi Tabel
                       </button>
 
@@ -3226,23 +3235,38 @@
                             </div>
 
                             <table class="verif-header-table">
+                              <colgroup>
+                                <col style="width: 25%;"> <col style="width: 2%;">  <col style="width: 73%;"> </colgroup>
+
                               <tr>
-                                <td width="20%">Nama Madrasah</td> <td width="2%">:</td> <td class="fw-bold" id="vfSchoolName">...</td>
+                                <td>Nama Madrasah</td> 
+                                <td class="text-center">:</td> 
+                                <td class="fw-bold" id="vfSchoolName">...</td>
                               </tr>
                               <tr>
-                                <td>NSM</td> <td>:</td> <td id="vfNsm">...</td>
+                                <td>NSM</td> 
+                                <td class="text-center">:</td> 
+                                <td id="vfNsm">...</td>
                               </tr>
                               <tr>
-                                <td>Alamat Madrasah</td> <td>:</td> <td id="vfAddress">...</td>
+                                <td>Alamat Madrasah</td> 
+                                <td class="text-center">:</td> 
+                                <td id="vfAddress">...</td>
                               </tr>
                               <tr>
-                                <td>Kecamatan</td> <td>:</td> <td id="vfKecamatan">...</td>
+                                <td>Kecamatan</td> 
+                                <td class="text-center">:</td> 
+                                <td id="vfKecamatan">...</td>
                               </tr>
                               <tr>
-                                <td>Kabupaten/Kota</td> <td>:</td> <td id="vfKabupaten">...</td>
+                                <td>Kabupaten/Kota</td> 
+                                <td class="text-center">:</td> 
+                                <td id="vfKabupaten">...</td>
                               </tr>
                               <tr>
-                                <td>Periode</td> <td>:</td> <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
+                                <td>Periode</td> 
+                                <td class="text-center">:</td> 
+                                <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
                               </tr>
                             </table>
 
@@ -9658,46 +9682,94 @@
         }
       }
 
-      // 5. Simpan ke Server
+      // 5. Simpan ke Server (Perbaikan: Handle 2 Tombol & Mencegah Form Hilang)
       function simpanVerifikasi(e) {
         e.preventDefault();
         
+        // --- 1. IDENTIFIKASI TOMBOL ---
+        const btnKiri = document.getElementById('btnSimpanVerif'); // Tombol di Form Data Pejabat
+        const btnKanan = document.getElementById('btnSimpanTabel'); // Tombol di Preview Tabel
+        
+        let activeBtn = null;
+
+        // Cek siapa yang memicu event ini
+        // Jika dipicu oleh form submit (Form Kiri), maka tombol aktif adalah btnKiri
+        if (e.target.id === 'formVerifikasiInput') {
+            activeBtn = btnKiri;
+        } 
+        // Jika dipicu oleh klik tombol kanan
+        else if (e.currentTarget.id === 'btnSimpanTabel') {
+            activeBtn = btnKanan;
+        }
+        // Fallback: Jika tidak terdeteksi, default ke tombol kiri
+        else {
+            activeBtn = btnKiri;
+        }
+
+        // --- 2. MASUK MODE LOADING (LOCK KEDUANYA) ---
+        const originalHtml = activeBtn ? activeBtn.innerHTML : 'Simpan';
+        
+        // Ubah tampilan tombol yang sedang aktif saja
+        if (activeBtn) {
+            activeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Menyimpan...';
+        }
+
+        // Matikan (Disable) KEDUA tombol agar tidak bisa diklik bersamaan
+        if(btnKiri) btnKiri.disabled = true;
+        if(btnKanan) btnKanan.disabled = true;
+
         const token = localStorage.getItem('userToken');
-        const btn = document.getElementById('btnSimpanVerif');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
+
+        // Helper untuk ambil nilai input dengan aman
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.value : ""; 
+        };
 
         const payload = {
           verifikator1: {
-            nama: document.getElementById('vfNama1').value,
-            nip: document.getElementById('vfNip1').value
+            nama: getVal('vfNama1'),
+            nip: getVal('vfNip1')
           },
           verifikator2: {
-            nama: document.getElementById('vfNama2').value,
-            nip: document.getElementById('vfNip2').value
+            nama: getVal('vfNama2'),
+            nip: getVal('vfNip2')
           },
           pengawas: {
-            nama: document.getElementById('vfNamaPengawas').value,
-            nip: document.getElementById('vfNipPengawas').value
+            nama: getVal('vfNamaPengawas'),
+            nip: getVal('vfNipPengawas')
           },
           rows: currentVerifRows
         };
 
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-          
-          if(res.status === 'success') {
-            Swal.fire({
-              toast: true, position: 'top-end', icon: 'success', 
-              title: 'Data Verifikasi Tersimpan', showConfirmButton: false, timer: 1500
-            });
-          } else {
-            Swal.fire('Gagal', res.message, 'error');
-          }
-        }).simpanDataVerifikasi(token, payload);
+        google.script.run
+          .withFailureHandler(function(err) {
+             // KEMBALIKAN STATE JIKA GAGAL
+             if (activeBtn) activeBtn.innerHTML = originalHtml;
+             if(btnKiri) btnKiri.disabled = false;
+             if(btnKanan) btnKanan.disabled = false;
+             
+             console.error(err);
+             Swal.fire('Gagal', 'Terjadi kesalahan: ' + err.message, 'error');
+          })
+          .withSuccessHandler(function(res) {
+            // KEMBALIKAN STATE JIKA SUKSES
+            if (activeBtn) activeBtn.innerHTML = originalHtml;
+            if(btnKiri) btnKiri.disabled = false;
+            if(btnKanan) btnKanan.disabled = false;
+            
+            if(res.status === 'success') {
+              Swal.fire({
+                toast: true, position: 'top-end', icon: 'success', 
+                title: 'Data Berhasil Disimpan', showConfirmButton: false, timer: 1500
+              });
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .simpanDataVerifikasi(token, payload);
       }
+      
 
     </script>
   </body>
