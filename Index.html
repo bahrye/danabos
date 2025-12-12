@@ -702,36 +702,46 @@
         margin-bottom: 5px;
       }
 
-      /* 6. Tabel Utama (Daftar Berkas) - DIPERBAIKI */
+      /* --- GANTI BAGIAN CSS INI DI DALAM <style> --- */
+
+      /* 6. Tabel Utama (Daftar Berkas) - UPDATED */
       .verif-main-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 10pt;
         margin-bottom: 10px;
-        table-layout: fixed; /* KUNCI: Agar lebar kolom patuh pada persen */
+        table-layout: fixed; 
       }
-      
+
       .verif-main-table th {
         text-align: center;
         font-weight: bold;
         background-color: #f0f0f0;
         border: 1px solid #000;
-        padding: 3px; 
+        padding: 5px 2px;
+        vertical-align: middle; /* Agar teks header berada di tengah secara vertikal */
       }
 
       .verif-main-table td {
         border: 1px solid #000;
         padding: 2px 4px; 
         vertical-align: middle;
-        word-wrap: break-word; /* Agar teks panjang turun baris */
+        word-wrap: break-word; 
       }
 
-      /* PENGATURAN LEBAR KOLOM (Nama Berkas Lebih Lebar) */
-      .verif-main-table th:nth-child(1), .verif-main-table td:nth-child(1) { width: 5%; }  /* No */
-      .verif-main-table th:nth-child(2), .verif-main-table td:nth-child(2) { width: 55%; } /* Nama Berkas (LEBAR) */
-      .verif-main-table th:nth-child(3), .verif-main-table td:nth-child(3) { width: 10%; } /* Status */
-      .verif-main-table th:nth-child(4), .verif-main-table td:nth-child(4) { width: 25%; } /* Keterangan */
-      .verif-main-table th:nth-child(5), .verif-main-table td:nth-child(5) { width: 5%; }  /* Aksi */
+      /* PENGATURAN LEBAR KOLOM UNTUK LAYAR & CETAK */
+      /* Kolom 1: No */
+      .verif-main-table col:nth-child(1) { width: 5%; }
+      /* Kolom 2: Nama Berkas */
+      .verif-main-table col:nth-child(2) { width: 50%; }
+      /* Kolom 3: Ada */
+      .verif-main-table col:nth-child(3) { width: 8%; }
+      /* Kolom 4: Tidak */
+      .verif-main-table col:nth-child(4) { width: 8%; }
+      /* Kolom 5: Keterangan */
+      .verif-main-table col:nth-child(5) { width: 24%; }
+      /* Kolom 6: Aksi (Hidden saat print) */
+      .verif-main-table col:nth-child(6) { width: 5%; }
 
       /* Input dalam tabel (Agar terlihat rapi di preview) */
       .input-verif-cell {
@@ -867,7 +877,12 @@
         
         .verif-main-table th, .verif-main-table td {
           border: 1px solid #000 !important;
-          padding: 2px 5px !important; /* Padding diperkecil agar muat banyak baris */
+          padding: 2px 5px !important;
+        }
+
+        /* Sembunyikan kolom aksi saat print */
+        .verif-main-table .btn-aksi-verif {
+          display: none !important;
         }
 
         /* Kolom Nama Berkas diperlebar otomatis */
@@ -3209,13 +3224,19 @@
                             </div>
 
                             <table class="verif-main-table" id="tabelVerifikasi">
+                              <colgroup>
+                                <col> <col> <col> <col> <col> <col class="btn-aksi-verif"> </colgroup>
+
                               <thead>
                                 <tr>
-                                  <th width="5%">No.</th>
-                                  <th>Nama Berkas</th>
-                                  <th width="15%">Status<br><small>(Ada/Tidak)</small></th>
-                                  <th width="20%">Keterangan</th>
-                                  <th width="5%" class="btn-aksi-verif">Aksi</th>
+                                  <th rowspan="2">No</th>
+                                  <th rowspan="2">Nama Berkas</th>
+                                  <th colspan="2">Status</th> <th rowspan="2">Keterangan</th>
+                                  <th rowspan="2" class="btn-aksi-verif">Aksi</th>
+                                </tr>
+                                <tr>
+                                  <th>Ada</th>
+                                  <th>Tidak</th>
                                 </tr>
                               </thead>
                               <tbody id="bodyTabelVerif">
@@ -9551,7 +9572,6 @@
       }
 
       // 3. Render Tabel dengan Logika Tombol Aksi Spesifik
-      // Fungsi Render Tabel (Update UI)
       function renderTabelVerifikasi() {
         const tbody = document.getElementById('bodyTabelVerif');
         tbody.innerHTML = '';
@@ -9559,10 +9579,7 @@
         currentVerifRows.forEach((itemText, index) => {
           const isLastRow = (index === currentVerifRows.length - 1);
           
-          // Logika Tombol Sesuai Request:
-          // Baris Akhir = Tombol Tambah (+)
-          // Baris Lain = Tombol Hapus (-)
-          
+          // Logika Tombol Tambah/Hapus
           let btnHtml = '';
           if (isLastRow) {
             btnHtml = `<button type="button" class="btn btn-sm btn-success px-2 py-0" onclick="tambahBarisVerif()" title="Tambah Baris"><i class="fas fa-plus"></i></button>`;
@@ -9570,7 +9587,8 @@
             btnHtml = `<button type="button" class="btn btn-sm btn-danger px-2 py-0" onclick="hapusBarisVerif(${index})" title="Hapus Baris"><i class="fas fa-minus"></i></button>`;
           }
 
-          // Gunakan 'oninput' atau 'onchange' untuk menangkap editan teks
+          // UPDATE PADA BAGIAN HTML ROW DI BAWAH INI:
+          // Menambahkan kolom kosong ekstra <td></td> untuk memisahkan "Ada" dan "Tidak"
           const row = `
             <tr>
               <td class="text-center">${index + 1}</td>
@@ -9579,9 +9597,7 @@
                       oninput="updateRowText(${index}, this.value)" 
                       placeholder="Ketik nama berkas...">
               </td>
-              <td></td>
-              <td></td>
-              <td class="text-center btn-aksi-verif">${btnHtml}</td>
+              <td></td> <td></td> <td></td> <td class="text-center btn-aksi-verif">${btnHtml}</td>
             </tr>
           `;
           tbody.insertAdjacentHTML('beforeend', row);
