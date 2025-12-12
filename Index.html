@@ -763,74 +763,139 @@
         margin-top: 2px;
       }
 
-      /* --- [SETTINGAN KHUSUS CETAK - MODIFIKASI TOTAL] --- */
+      /* --- [SETTINGAN KHUSUS CETAK - FINAL FIXED LENGKAP] --- */
       @media print {
-        @page { 
-          /* Kertas LEGAL/FOLIO */
-          size: Legal portrait; 
-          /* Reset Margin Browser ke 0 agar kita yang atur */
-          margin: 0mm; 
-        }
-        
-        /* Reset Body agar tidak ada margin bawaan browser */
-        body, html { 
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100%;
-            height: 100%;
+        @page {
+          size: Legal portrait; /* Kertas F4/Legal */
+          margin: 0mm; /* Reset margin printer */
         }
 
-        /* Sembunyikan elemen lain */
-        body * { visibility: hidden; }
-
-        /* Tampilkan Area Verifikasi */
-        #print-area-verif, #print-area-verif * { 
-            visibility: visible !important; 
+        body, html {
+          width: 100%;
+          height: 100%;
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: white;
         }
 
-        /* Container Pembungkus Absolut */
+        /* 1. Sembunyikan semua elemen aplikasi selain area cetak */
+        body > * { display: none !important; }
+        #view-admin { display: block !important; } /* Container utama tetap aktif */
+        .sidebar, .main-footer, .modal, .loading-overlay { display: none !important; }
+
+        /* 2. Setting Area Cetak Verifikasi */
         #print-area-verif {
-          position: absolute;
+          display: block !important;
+          position: fixed; /* Paksa konten naik ke pojok kiri atas kertas */
           top: 0; 
           left: 0;
           width: 100% !important;
-          margin: 0 !important; 
-          padding: 0 !important;
+          height: 100% !important;
+          z-index: 99999;
           background: white !important;
-          z-index: 9999;
+          visibility: visible !important;
           
-          /* KUNCI PERBAIKAN: */
-          /* Pastikan display block, BUKAN flex. Flexbox sering membuat vertical centering otomatis */
-          display: block !important; 
-        }
-        
-        /* Sheet Kertas */
-        .verif-sheet {
-            width: 100% !important;
-            /* Pastikan height auto agar tidak memancing halaman kosong */
-            height: auto !important; 
-            
-            /* Margin dalam kertas (Padding) */
-            padding: 10mm 15mm !important; 
-            
-            /* Pastikan tidak ada margin luar */
-            margin: 0 !important;
-            
-            display: block !important;
+          /* Margin Kertas (Padding Dalam) */
+          padding: 10mm 15mm !important; 
+          box-sizing: border-box;
         }
 
-        /* Hapus elemen yang tidak perlu dicetak */
-        .btn-aksi-verif, 
-        .btn-aksi-verif * {
-          display: none !important;
-        }
-        
-        .input-verif-cell {
+        /* Pastikan konten di dalamnya terlihat */
+        #print-area-verif * { visibility: visible !important; }
+
+        /* 3. SEMBUNYIKAN KOLOM AKSI (TOMBOL + / -) */
+        th.btn-aksi-verif, 
+        td.btn-aksi-verif {
+          display: none !important; 
+          width: 0 !important;
+          padding: 0 !important;
           border: none !important;
         }
+
+        /* 4. PERBAIKAN TABEL AGAR MELEBAR RAPI */
+        .verif-main-table {
+          width: 100% !important;
+          font-size: 10pt !important;
+          border-collapse: collapse;
+          margin-bottom: 15px !important;
+        }
         
-        .verif-main-table th {
-            background-color: transparent !important;
+        .verif-main-table th, .verif-main-table td {
+          border: 1px solid #000 !important;
+          padding: 2px 5px !important; /* Padding diperkecil agar muat banyak baris */
+        }
+
+        /* Kolom Nama Berkas diperlebar otomatis */
+        .verif-main-table th:nth-child(2),
+        .verif-main-table td:nth-child(2) {
+          width: 70% !important; 
+        }
+
+        /* Inputan tampak seperti teks biasa */
+        .input-verif-cell {
+          border: none !important;
+          background: transparent !important;
+          width: 100%;
+          font-size: 10pt !important;
+        }
+
+        /* 5. LAYOUT TANDA TANGAN (POSISI & GARIS) */
+        
+        /* Container TTD Utama */
+        .verif-signature-grid {
+          display: block !important;
+          margin-top: 20px !important;
+          width: 100%;
+        }
+
+        /* Baris TTD (Kiri - Kanan) */
+        .sig-row {
+          display: flex !important;
+          justify-content: space-between !important; /* Jarak maksimal kiri-kanan */
+          width: 100%;
+          margin-bottom: 15px;
+        }
+
+        /* Box Jabatan (Agar teks jabatan tetap tengah) */
+        .verif-sig-box {
+          width: 45% !important;
+          text-align: center; 
+          font-size: 11pt !important;
+        }
+
+        /* Label Tengah (Tulisan 'Verifikator') */
+        .sig-label-center {
+          text-align: center;
+          width: 100%;
+          font-weight: bold;
+          margin: 10px 0;
+          font-size: 11pt;
+        }
+
+        /* WRAPPER NAMA & NIP (Agar Rata Kiri Sejajar) */
+        .sig-wrap {
+          display: inline-block; /* Bungkus konten agar bisa di-center oleh parent */
+          text-align: left;      /* Isi dalam (Nama & NIP) rata kiri */
+          margin-top: 60px;      /* Jarak Tanda Tangan */
+        }
+
+        /* GARIS BAWAH NAMA (Tipis & Panjang) */
+        .verif-sig-name {
+          display: block;
+          border-bottom: 1px solid #000 !important; /* Garis tipis 1px */
+          min-width: 220px;              /* Panjang garis minimal */
+          padding-bottom: 2px;
+          margin-bottom: 2px;
+          font-weight: bold;
+          text-transform: uppercase;
+          text-decoration: none !important; /* Hapus underline font bawaan */
+          line-height: 1.2;
+        }
+
+        /* NIP (Rata Kiri mengikuti Wrapper) */
+        .verif-sig-nip {
+          font-size: 10pt;
+          font-weight: normal;
         }
       }
     </style>
@@ -3113,27 +3178,45 @@
                             </table>
 
                             <div class="verif-signature-grid">
-                              <div class="verif-sig-box">
-                                <div>Kepala Madrasah</div>
-                                <div class="verif-sig-name" id="prevVfKepala">...</div>
-                                <div id="prevVfNipKepala">NIP. ...</div>
-                              </div>
-                              <div class="verif-sig-box">
-                                <div>Verifikator I</div>
-                                <div class="verif-sig-name" id="prevVfNama1">...</div>
-                                <div id="prevVfNip1">NIP. ...</div>
+                              
+                              <div class="sig-row">
+                                <div class="verif-sig-box">
+                                  <div>Kepala Madrasah</div>
+                                  <div class="sig-wrap">
+                                    <div class="verif-sig-name" id="prevVfKepala">&nbsp;</div>
+                                    <div class="verif-sig-nip" id="prevVfNipKepala">NIP.</div>
+                                  </div>
+                                </div>
+
+                                <div class="verif-sig-box">
+                                  <div>Pengawas Madrasah</div>
+                                  <div class="sig-wrap">
+                                    <div class="verif-sig-name" id="prevVfPengawas">&nbsp;</div>
+                                    <div class="verif-sig-nip" id="prevVfNipPengawas">NIP.</div>
+                                  </div>
+                                </div>
                               </div>
 
-                              <div class="verif-sig-box">
-                                <div>Pengawas Madrasah</div>
-                                <div class="verif-sig-name" id="prevVfPengawas">...</div>
-                                <div id="prevVfNipPengawas">NIP. ...</div>
+                              <div class="sig-label-center">Verifikator</div>
+
+                              <div class="sig-row">
+                                <div class="verif-sig-box">
+                                  <div>Verifikator I</div>
+                                  <div class="sig-wrap">
+                                    <div class="verif-sig-name" id="prevVfNama1">&nbsp;</div>
+                                    <div class="verif-sig-nip" id="prevVfNip1">NIP.</div>
+                                  </div>
+                                </div>
+
+                                <div class="verif-sig-box">
+                                  <div>Verifikator II</div>
+                                  <div class="sig-wrap">
+                                    <div class="verif-sig-name" id="prevVfNama2">&nbsp;</div>
+                                    <div class="verif-sig-nip" id="prevVfNip2">NIP.</div>
+                                  </div>
+                                </div>
                               </div>
-                              <div class="verif-sig-box">
-                                <div>Verifikator II</div>
-                                <div class="verif-sig-name" id="prevVfNama2">...</div>
-                                <div id="prevVfNip2">NIP. ...</div>
-                              </div>
+
                             </div>
 
                           </div>
@@ -9387,22 +9470,39 @@
         });
       }
 
-      // 2. Update Teks Tanda Tangan (Realtime)
+      // 2. Update Teks Tanda Tangan (Realtime) - FINAL
       function updateVerifPreview() {
+        // Helper Nama: Jika kosong, isi spasi (&nbsp;) agar garis border tetap muncul
+        const fmtNama = (val) => (val && val.trim() !== "") ? val : "&nbsp;";
+        
+        // Helper NIP: Jika kosong, tampilkan "NIP." saja
+        const fmtNip = (val) => (val && val.trim() !== "") ? "NIP. " + val : "NIP.";
+
+        // --- UPDATE ELEMEN HTML ---
+
+        // 1. Verifikator I
         const n1 = document.getElementById('vfNama1').value;
         const nip1 = document.getElementById('vfNip1').value;
-        document.getElementById('prevVfNama1').innerText = n1 || "...";
-        document.getElementById('prevVfNip1').innerText = nip1 ? "NIP. " + nip1 : "NIP. ...";
+        document.getElementById('prevVfNama1').innerHTML = fmtNama(n1); // Pakai innerHTML untuk &nbsp;
+        document.getElementById('prevVfNip1').innerText = fmtNip(nip1);
 
+        // 2. Verifikator II
         const n2 = document.getElementById('vfNama2').value;
         const nip2 = document.getElementById('vfNip2').value;
-        document.getElementById('prevVfNama2').innerText = n2 || "...";
-        document.getElementById('prevVfNip2').innerText = nip2 ? "NIP. " + nip2 : "NIP. ...";
+        document.getElementById('prevVfNama2').innerHTML = fmtNama(n2);
+        document.getElementById('prevVfNip2').innerText = fmtNip(nip2);
 
+        // 3. Pengawas Madrasah
         const np = document.getElementById('vfNamaPengawas').value;
         const nipp = document.getElementById('vfNipPengawas').value;
-        document.getElementById('prevVfPengawas').innerText = np || "...";
-        document.getElementById('prevVfNipPengawas').innerText = nipp ? "NIP. " + nipp : "NIP. ...";
+        document.getElementById('prevVfPengawas').innerHTML = fmtNama(np);
+        document.getElementById('prevVfNipPengawas').innerText = fmtNip(nipp);
+        
+        // 4. Kepala Madrasah (Data dari Cache Data Sekolah)
+        // Ambil data sekolah dari cache global (jika ada)
+        const d = (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.sekolah) ? DATA_CACHE.sekolah : {};
+        document.getElementById('prevVfKepala').innerHTML = fmtNama(d.namaKepala);
+        document.getElementById('prevVfNipKepala').innerText = fmtNip(d.nipKepala);
       }
 
       // 3. Render Tabel dengan Logika Tombol Aksi Spesifik
