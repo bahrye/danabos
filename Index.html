@@ -643,127 +643,195 @@
         margin-top: 30px;
       }
 
-      /* --- CSS FINAL LEMBAR VERIFIKASI (GABUNGAN & PERBAIKAN) --- */
+      /* --- CSS FINAL LEMBAR VERIFIKASI (FIXED: 1 HALAMAN, RAPAT ATAS, LEGAL) --- */
 
+      /* 1. Container Utama (Tampilan Layar & Cetak) */
       .verif-sheet {
-        padding: 15mm 15mm;
         font-family: 'Times New Roman', Times, serif;
         color: #000;
-        position: relative;
-        background: white; /* Pastikan background putih */
+        background: white;
+        box-sizing: border-box;
+        width: 100%;
+        /* Padding standar (bisa disesuaikan jika printer memotong) */
+        padding: 10mm 15mm; 
       }
 
-      /* 1. Judul Paling Atas */
+      /* 2. Judul Paling Atas */
       .verif-title-top {
         text-align: center;
         font-weight: bold;
         text-transform: uppercase;
         font-size: 14pt;
-        margin-bottom: 30px; /* Jarak ke tabel info sekolah */
+        margin-top: 0; 
+        margin-bottom: 15px; 
         text-decoration: underline;
-        line-height: 1.5;
+        line-height: 1.1;
       }
 
-      /* 2. Tabel Info Sekolah */
+      /* 3. Tabel Info Sekolah */
       .verif-header-table {
         width: 100%;
-        margin-bottom: 20px;
+        margin-bottom: 5px; 
+        border-collapse: collapse;
         border: none;
       }
       .verif-header-table td {
-        padding: 4px 2px; /* Sedikit renggang */
+        padding: 1px 2px; /* Jarak baris header sangat rapat */
         vertical-align: top;
         border: none;
-        font-size: 12pt;
+        font-size: 11pt; 
       }
 
-      /* 3. Sub-Judul di Atas Tabel */
+      /* 4. Sub-Judul (RATA TENGAH) */
       .verif-subtitle {
         font-weight: bold;
-        margin-bottom: 5px; /* Jarak dekat dengan tabel */
         font-size: 11pt;
         text-transform: uppercase;
-        margin-top: 20px;
+        text-align: center; /* Permintaan Anda: Rata Tengah */
+        text-decoration: underline;
+        margin-top: 10px;
+        margin-bottom: 5px;
       }
 
-      /* 4. Tabel Utama */
+      /* 5. Tabel Utama (Daftar Berkas) */
       .verif-main-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11pt;
-        margin-bottom: 20px;
+        font-size: 10pt; /* Ukuran font tabel sedikit diperkecil agar muat */
+        margin-bottom: 10px;
       }
-      .verif-main-table th, 
-      .verif-main-table td {
-        border: 1px solid #000;
-        padding: 5px 8px;
-        vertical-align: middle;
-      }
+      
       .verif-main-table th {
         text-align: center;
         font-weight: bold;
-        background-color: #f0f0f0; /* Abu muda di layar */
+        background-color: #f0f0f0;
+        border: 1px solid #000;
+        padding: 3px; 
       }
 
-      /* PELEBARAN KOLOM NAMA BERKAS */
+      .verif-main-table td {
+        border: 1px solid #000;
+        /* Padding sel diperkecil */
+        padding: 1px 4px; 
+        vertical-align: middle;
+        height: 18px; /* Paksa tinggi baris minimal */
+      }
+
+      /* Lebar Kolom */
       .verif-main-table th:nth-child(2),
       .verif-main-table td:nth-child(2) {
-        width: 50%;       /* Mengambil 50% lebar tabel */
-        min-width: 350px; /* Lebar minimum agar input panjang muat */
+        width: 50%;       
       }
 
-      /* Style Input di dalam Tabel */
+      /* Input */
       .input-verif-cell {
         width: 100%;
-        border: 1px dashed #ccc; /* Border putus-putus untuk panduan edit */
-        padding: 5px;
+        border: 1px dashed #ccc;
+        padding: 0;
         font-family: inherit;
         font-size: inherit;
         background-color: transparent;
         color: #000;
+        height: 100%;
       }
       .input-verif-cell:focus {
         outline: none;
         border-color: #0d6efd;
-        background-color: #f8f9fa;
       }
 
-      /* 5. Tanda Tangan */
+      /* 6. Tanda Tangan */
       .verif-signature-grid {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
-        margin-top: 30px;
-        gap: 20px;
+        margin-top: 15px; /* Jarak secukupnya dari tabel */
+        page-break-inside: avoid; /* Mencegah TTD terpotong */
       }
       .verif-sig-box {
-        width: 45%;
+        width: 40%;
         text-align: center;
-        margin-bottom: 40px;
+        margin-bottom: 5px;
+        font-size: 11pt;
       }
       .verif-sig-name {
         font-weight: bold;
         text-decoration: underline;
-        margin-top: 70px; /* Jarak untuk tanda tangan */
+        margin-top: 60px; /* Ruang Tanda Tangan */
+        margin-bottom: 0;
+      }
+      .verif-sig-box div:last-child {
+        margin-top: 2px;
       }
 
-      /* --- SETTING CETAK (PRINT) --- */
+      /* --- [SETTINGAN KHUSUS CETAK - MODIFIKASI TOTAL] --- */
       @media print {
-        /* Hilangkan background header tabel agar hemat tinta */
-        .verif-main-table th { background-color: transparent !important; }
-        
-        /* Sembunyikan tombol aksi (+/-) */
-        .btn-aksi-verif { display: none !important; }
-        
-        /* Hilangkan border input agar terlihat seperti teks biasa */
-        .input-verif-cell { 
-          border: none !important; 
-          padding: 0 !important; 
-          resize: none;
+        @page { 
+          /* Kertas LEGAL/FOLIO */
+          size: Legal portrait; 
+          /* Reset Margin Browser ke 0 agar kita yang atur */
+          margin: 0mm; 
         }
         
-        /* Pastikan layout cetak rapi */
-        .verif-sheet { padding: 0 !important; }
+        /* Reset Body agar tidak ada margin bawaan browser */
+        body, html { 
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sembunyikan elemen lain */
+        body * { visibility: hidden; }
+
+        /* Tampilkan Area Verifikasi */
+        #print-area-verif, #print-area-verif * { 
+            visibility: visible !important; 
+        }
+
+        /* Container Pembungkus Absolut */
+        #print-area-verif {
+          position: absolute;
+          top: 0; 
+          left: 0;
+          width: 100% !important;
+          margin: 0 !important; 
+          padding: 0 !important;
+          background: white !important;
+          z-index: 9999;
+          
+          /* KUNCI PERBAIKAN: */
+          /* Pastikan display block, BUKAN flex. Flexbox sering membuat vertical centering otomatis */
+          display: block !important; 
+        }
+        
+        /* Sheet Kertas */
+        .verif-sheet {
+            width: 100% !important;
+            /* Pastikan height auto agar tidak memancing halaman kosong */
+            height: auto !important; 
+            
+            /* Margin dalam kertas (Padding) */
+            padding: 10mm 15mm !important; 
+            
+            /* Pastikan tidak ada margin luar */
+            margin: 0 !important;
+            
+            display: block !important;
+        }
+
+        /* Hapus elemen yang tidak perlu dicetak */
+        .btn-aksi-verif, 
+        .btn-aksi-verif * {
+          display: none !important;
+        }
+        
+        .input-verif-cell {
+          border: none !important;
+        }
+        
+        .verif-main-table th {
+            background-color: transparent !important;
+        }
       }
     </style>
   </head>
