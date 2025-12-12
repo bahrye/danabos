@@ -834,144 +834,150 @@
         font-weight: normal;
       }
 
-      /* --- [SETTINGAN KHUSUS CETAK - FINAL FIXED LENGKAP] --- */
+      /* --- [SETTINGAN KHUSUS CETAK - FINAL CLEAN & 1 HALAMAN] --- */
       @media print {
+        /* 1. Reset Ukuran Kertas & Margin Browser */
         @page {
-          size: Legal portrait; /* Kertas F4/Legal */
-          margin: 0mm; /* Reset margin printer */
+          size: Legal portrait; /* Bisa diganti A4 jika perlu */
+          margin: 0mm; /* Nol-kan margin bawaan browser */
         }
 
+        /* 2. Kunci Body agar tidak ada scroll/halaman lebih */
         body, html {
           width: 100%;
           height: 100%;
           margin: 0 !important;
           padding: 0 !important;
-          background-color: white;
+          background-color: white !important; /* Paksa Putih */
+          overflow: hidden !important; /* KUNCI: Memotong halaman ke-2 */
         }
 
-        /* 1. Sembunyikan semua elemen aplikasi selain area cetak */
-        body > * { display: none !important; }
-        #view-admin { display: block !important; } /* Container utama tetap aktif */
-        .sidebar, .main-footer, .modal, .loading-overlay { display: none !important; }
+        /* 3. Sembunyikan SEMUA elemen website */
+        body * {
+          visibility: hidden;
+        }
 
-        /* 2. Setting Area Cetak Verifikasi */
-        #print-area-verif {
-          display: block !important;
-          position: fixed; /* Paksa konten naik ke pojok kiri atas kertas */
-          top: 0; 
-          left: 0;
-          width: 100% !important;
-          height: 100% !important;
-          z-index: 99999;
-          background: white !important;
+        /* 4. Tampilkan HANYA area verifikasi & isinya */
+        #print-area-verif, 
+        #print-area-verif * {
           visibility: visible !important;
+        }
+
+        /* 5. Setting Container Utama (Paksa Satu Halaman) */
+        #print-area-verif {
+          /* POSISI FIXED: Mencabut elemen dari layout web & tempel di kertas */
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
           
-          /* Margin Kertas (Padding Dalam) */
-          padding: 10mm 15mm !important; 
-          box-sizing: border-box;
-        }
-
-        /* Pastikan konten di dalamnya terlihat */
-        #print-area-verif * { visibility: visible !important; }
-
-        /* 3. SEMBUNYIKAN KOLOM AKSI (TOMBOL + / -) */
-        th.btn-aksi-verif, 
-        td.btn-aksi-verif {
-          display: none !important; 
-          width: 0 !important;
-          padding: 0 !important;
+          /* UKURAN: Paksa pas 1 layar cetak */
+          width: 100% !important;
+          height: 100% !important; 
+          max-height: 100vh !important; /* Batas keras tinggi halaman */
+          
+          /* MARGIN & PADDING (Atur jarak isi dari tepi kertas disini) */
+          padding: 10mm 20mm 0mm 20mm !important; /* Atas Kanan Bawah Kiri */
+          margin: 0 !important;
+          
+          /* TAMPILAN: Paksa Background Putih & Hapus Garis */
+          background: white !important; 
+          box-shadow: none !important;
           border: none !important;
+          
+          /* PEMOTONGAN: Potong apapun yang lewat dari 1 halaman */
+          overflow: hidden !important; 
+          
+          z-index: 999999;
         }
 
-        /* 4. PERBAIKAN TABEL AGAR MELEBAR RAPI */
+        /* --- PERBAIKAN ELEMENT DALAM --- */
+
+        /* Sembunyikan Tombol Aksi */
+        .btn-aksi-verif, 
+        th.btn-aksi-verif, 
+        td.btn-aksi-verif,
+        button {
+          display: none !important; 
+        }
+
+        /* Reset Tabel agar rapi */
         .verif-main-table {
           width: 100% !important;
           font-size: 10pt !important;
           border-collapse: collapse;
-          margin-bottom: 15px !important;
+          margin-bottom: 5px !important;
         }
         
-        .verif-main-table th, .verif-main-table td {
+        .verif-main-table th, 
+        .verif-main-table td {
           border: 1px solid #000 !important;
-          padding: 2px 5px !important;
+          padding: 3px 5px !important;
+          vertical-align: middle !important;
         }
 
-        /* Sembunyikan kolom aksi saat print */
-        .verif-main-table .btn-aksi-verif {
-          display: none !important;
-        }
-
-        /* Kolom Nama Berkas diperlebar otomatis */
+        /* Lebar Kolom Nama Berkas */
         .verif-main-table th:nth-child(2),
         .verif-main-table td:nth-child(2) {
-          width: 70% !important; 
+          width: 60% !important; 
         }
 
-        /* Inputan tampak seperti teks biasa */
+        /* Input Teks Polos */
         .input-verif-cell {
           border: none !important;
           background: transparent !important;
           width: 100%;
           font-size: 10pt !important;
+          padding: 0 !important;
         }
 
-        /* 5. LAYOUT TANDA TANGAN (POSISI & GARIS) */
-        
-        /* Container TTD Utama */
+        /* Layout Tanda Tangan */
         .verif-signature-grid {
           display: block !important;
-          margin-top: 20px !important;
           width: 100%;
+          margin-top: 15px !important; 
         }
 
-        /* Baris TTD (Kiri - Kanan) */
         .sig-row {
           display: flex !important;
-          justify-content: space-between !important; /* Jarak maksimal kiri-kanan */
+          justify-content: space-between !important;
           width: 100%;
-          margin-bottom: 15px;
+          margin-bottom: 25px !important;
         }
 
-        /* Box Jabatan (Agar teks jabatan tetap tengah) */
         .verif-sig-box {
-          width: 45% !important;
+          width: 40% !important;
           text-align: center; 
           font-size: 11pt !important;
         }
 
-        /* Label Tengah (Tulisan 'Verifikator') */
         .sig-label-center {
           text-align: center;
           width: 100%;
           font-weight: bold;
-          margin: 10px 0;
+          margin: 10px 0 !important;
           font-size: 11pt;
+          text-decoration: underline;
         }
 
-        /* WRAPPER NAMA & NIP (Agar Rata Kiri Sejajar) */
         .sig-wrap {
-          display: inline-block; /* Bungkus konten agar bisa di-center oleh parent */
-          text-align: left;      /* Isi dalam (Nama & NIP) rata kiri */
-          margin-top: 60px;      /* Jarak Tanda Tangan */
+          margin-top: 60px !important; 
+          display: inline-block;
+          text-align: left;
+          min-width: 200px;
         }
 
-        /* GARIS BAWAH NAMA (Tipis & Panjang) */
         .verif-sig-name {
           display: block;
-          border-bottom: 1px solid #000 !important; /* Garis tipis 1px */
-          min-width: 220px;              /* Panjang garis minimal */
+          border-bottom: 1px solid #000 !important;
           padding-bottom: 2px;
           margin-bottom: 2px;
           font-weight: bold;
           text-transform: uppercase;
-          text-decoration: none !important; /* Hapus underline font bawaan */
-          line-height: 1.2;
+          text-decoration: none !important;
         }
 
-        /* NIP (Rata Kiri mengikuti Wrapper) */
         .verif-sig-nip {
           font-size: 10pt;
-          font-weight: normal;
         }
       }
     </style>
