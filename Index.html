@@ -645,13 +645,23 @@
 
       /* --- [CSS LEMBAR VERIFIKASI - LIVE PREVIEW] --- */
 
-      /* 1. Setting Ukuran Kertas LEGAL/F4 Khusus Preview */
+      /* 1. Setting Kertas Preview (Fleksibel ke Bawah) */
       #print-area-verif.sheet {
-        width: 215.9mm !important;  /* Lebar Legal */
-        height: 330.2mm !important; /* Tinggi Legal (33 cm) */
-        min-height: 330.2mm;
-        padding: 15mm 20mm; /* Margin Kertas */
+        width: 215.9mm !important;  /* Lebar F4/Legal agar muat banyak kolom */
+        min-width: 215.9mm;
+        
+        /* PERBAIKAN TINGGI HALAMAN: */
+        height: auto !important;    /* Tinggi otomatis mengikuti konten */
+        min-height: 297mm;          /* Minimal setinggi A4 */
+        
+        padding: 15mm 15mm;         /* Margin Kertas */
         box-sizing: border-box;
+        margin-bottom: 20px;        /* Jarak luar bawah agar tidak mepet footer browser */
+        
+        /* Flex column agar footer tanda tangan terdorong rapi */
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start; 
       }
 
       /* 2. Container Utama Verifikasi */
@@ -704,67 +714,73 @@
 
       /* --- GANTI BAGIAN CSS INI DI DALAM <style> --- */
 
-      /* 6. Tabel Utama (Daftar Berkas) - UPDATED */
+      /* 2. Tabel Utama (Daftar Berkas) - UPDATED WIDTHS */
       .verif-main-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 10pt;
-        margin-bottom: 10px;
-        table-layout: fixed; 
+        margin-bottom: 20px;
+        table-layout: fixed; /* Wajib fixed agar pengaturan lebar kolom (width) dipatuhi */
       }
 
       .verif-main-table th {
         text-align: center;
         font-weight: bold;
-        background-color: #f0f0f0;
+        background-color: #f8f9fa; /* Warna header agak abu terang */
         border: 1px solid #000;
-        padding: 5px 2px;
-        vertical-align: middle; /* Agar teks header berada di tengah secara vertikal */
+        padding: 8px 4px; /* Padding atas bawah agak lega */
+        vertical-align: middle !important; /* Pastikan teks di tengah secara vertikal */
+        line-height: 1.2;
       }
 
       .verif-main-table td {
         border: 1px solid #000;
-        padding: 2px 4px; 
+        padding: 4px 5px; 
         vertical-align: middle;
-        word-wrap: break-word; 
+        word-wrap: break-word; /* Agar teks panjang turun ke bawah */
       }
 
-      /* PENGATURAN LEBAR KOLOM UNTUK LAYAR & CETAK */
+      /* --- PENGATURAN LEBAR KOLOM (TOTAL +/- 100%) --- */
+      
       /* Kolom 1: No */
       .verif-main-table col:nth-child(1) { width: 5%; }
-      /* Kolom 2: Nama Berkas */
-      .verif-main-table col:nth-child(2) { width: 50%; }
-      /* Kolom 3: Ada */
-      .verif-main-table col:nth-child(3) { width: 8%; }
-      /* Kolom 4: Tidak */
-      .verif-main-table col:nth-child(4) { width: 8%; }
-      /* Kolom 5: Keterangan */
-      .verif-main-table col:nth-child(5) { width: 24%; }
-      /* Kolom 6: Aksi (Hidden saat print) */
+      
+      /* Kolom 2: Nama Berkas (DIPERLEBAR) */
+      .verif-main-table col:nth-child(2) { width: 62%; } 
+      
+      /* Kolom 3: Ada (DIPERKECIL) */
+      .verif-main-table col:nth-child(3) { width: 6%; }
+      
+      /* Kolom 4: Tidak (DIPERKECIL) */
+      .verif-main-table col:nth-child(4) { width: 6%; }
+      
+      /* Kolom 5: Keterangan (DIPERKECIL karena tulis tangan) */
+      .verif-main-table col:nth-child(5) { width: 16%; }
+      
+      /* Kolom 6: Aksi (Hanya tampil di layar) */
       .verif-main-table col:nth-child(6) { width: 5%; }
 
       /* Input dalam tabel (Agar terlihat rapi di preview) */
       .input-verif-cell {
         width: 100%;
-        border: 1px dashed #ccc; /* Garis putus-putus agar tahu bisa diketik */
-        padding: 2px;
+        border: none;
+        border-bottom: 1px dashed #ccc; /* Garis bawah putus-putus tipis */
+        padding: 4px 0;
         font-family: inherit;
-        font-size: inherit;
-        background-color: rgba(255, 255, 0, 0.05); /* Warna tipis penanda input */
+        font-size: 10pt;
+        background-color: transparent;
         color: #000;
-        height: 100%;
       }
       .input-verif-cell:focus {
         outline: none;
-        border: 1px solid #0d6efd;
-        background-color: #fff;
+        border-bottom: 1px solid #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
       }
 
-      /* 7. Layout Tanda Tangan (DIPERBAIKI MIRIP HASIL CETAK) */
+      /* Container Tanda Tangan agar selalu di bawah tapi tidak maksa */
       .verif-signature-grid {
-        display: block;
-        width: 100%;
-        margin-top: 20px;
+        margin-top: auto; /* Push ke bawah jika halaman masih sisa banyak */
+        padding-top: 30px;
       }
 
       /* Baris Tanda Tangan (Kiri & Kanan) */
@@ -3230,13 +3246,14 @@
                               <thead>
                                 <tr>
                                   <th rowspan="2">No</th>
-                                  <th rowspan="2">Nama Berkas</th>
-                                  <th colspan="2">Status</th> <th rowspan="2">Keterangan</th>
-                                  <th rowspan="2" class="btn-aksi-verif">Aksi</th>
+                                  <th rowspan="2">Nama Berkas / Dokumen</th>
+                                  <th colspan="2">Status</th> 
+                                  <th rowspan="2">Keterangan</th>
+                                  <th rowspan="2" class="btn-aksi-verif"><i class="fas fa-cog"></i></th>
                                 </tr>
                                 <tr>
-                                  <th>Ada</th>
-                                  <th>Tidak</th>
+                                  <th style="font-size: 8pt;">Ada</th>
+                                  <th style="font-size: 8pt;">Tidak</th>
                                 </tr>
                               </thead>
                               <tbody id="bodyTabelVerif">
