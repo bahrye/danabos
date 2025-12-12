@@ -643,20 +643,29 @@
         margin-top: 30px;
       }
 
-      /* --- CSS FINAL LEMBAR VERIFIKASI (FIXED: 1 HALAMAN, RAPAT ATAS, LEGAL) --- */
+      /* --- [CSS LEMBAR VERIFIKASI - LIVE PREVIEW] --- */
 
-      /* 1. Container Utama (Tampilan Layar & Cetak) */
+      /* 1. Setting Ukuran Kertas LEGAL/F4 Khusus Preview */
+      #print-area-verif.sheet {
+        width: 215.9mm !important;  /* Lebar Legal */
+        height: 330.2mm !important; /* Tinggi Legal (33 cm) */
+        min-height: 330.2mm;
+        padding: 15mm 20mm; /* Margin Kertas */
+        box-sizing: border-box;
+      }
+
+      /* 2. Container Utama Verifikasi */
       .verif-sheet {
         font-family: 'Times New Roman', Times, serif;
         color: #000;
         background: white;
-        box-sizing: border-box;
         width: 100%;
-        /* Padding standar (bisa disesuaikan jika printer memotong) */
-        padding: 10mm 15mm; 
+        height: 100%;
+        /* Padding 0 karena sudah diatur di parent .sheet */
+        padding: 0; 
       }
 
-      /* 2. Judul Paling Atas */
+      /* 3. Judul Paling Atas */
       .verif-title-top {
         text-align: center;
         font-weight: bold;
@@ -668,7 +677,7 @@
         line-height: 1.1;
       }
 
-      /* 3. Tabel Info Sekolah */
+      /* 4. Tabel Info Sekolah (Header) */
       .verif-header-table {
         width: 100%;
         margin-bottom: 5px; 
@@ -676,29 +685,30 @@
         border: none;
       }
       .verif-header-table td {
-        padding: 1px 2px; /* Jarak baris header sangat rapat */
+        padding: 1px 2px;
         vertical-align: top;
         border: none;
         font-size: 11pt; 
       }
 
-      /* 4. Sub-Judul (RATA TENGAH) */
+      /* 5. Sub-Judul (RATA TENGAH) */
       .verif-subtitle {
         font-weight: bold;
         font-size: 11pt;
         text-transform: uppercase;
-        text-align: center; /* Permintaan Anda: Rata Tengah */
+        text-align: center;
         text-decoration: underline;
         margin-top: 10px;
         margin-bottom: 5px;
       }
 
-      /* 5. Tabel Utama (Daftar Berkas) */
+      /* 6. Tabel Utama (Daftar Berkas) - DIPERBAIKI */
       .verif-main-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 10pt; /* Ukuran font tabel sedikit diperkecil agar muat */
+        font-size: 10pt;
         margin-bottom: 10px;
+        table-layout: fixed; /* KUNCI: Agar lebar kolom patuh pada persen */
       }
       
       .verif-main-table th {
@@ -711,56 +721,91 @@
 
       .verif-main-table td {
         border: 1px solid #000;
-        /* Padding sel diperkecil */
-        padding: 1px 4px; 
+        padding: 2px 4px; 
         vertical-align: middle;
-        height: 18px; /* Paksa tinggi baris minimal */
+        word-wrap: break-word; /* Agar teks panjang turun baris */
       }
 
-      /* Lebar Kolom */
-      .verif-main-table th:nth-child(2),
-      .verif-main-table td:nth-child(2) {
-        width: 50%;       
-      }
+      /* PENGATURAN LEBAR KOLOM (Nama Berkas Lebih Lebar) */
+      .verif-main-table th:nth-child(1), .verif-main-table td:nth-child(1) { width: 5%; }  /* No */
+      .verif-main-table th:nth-child(2), .verif-main-table td:nth-child(2) { width: 55%; } /* Nama Berkas (LEBAR) */
+      .verif-main-table th:nth-child(3), .verif-main-table td:nth-child(3) { width: 10%; } /* Status */
+      .verif-main-table th:nth-child(4), .verif-main-table td:nth-child(4) { width: 25%; } /* Keterangan */
+      .verif-main-table th:nth-child(5), .verif-main-table td:nth-child(5) { width: 5%; }  /* Aksi */
 
-      /* Input */
+      /* Input dalam tabel (Agar terlihat rapi di preview) */
       .input-verif-cell {
         width: 100%;
-        border: 1px dashed #ccc;
-        padding: 0;
+        border: 1px dashed #ccc; /* Garis putus-putus agar tahu bisa diketik */
+        padding: 2px;
         font-family: inherit;
         font-size: inherit;
-        background-color: transparent;
+        background-color: rgba(255, 255, 0, 0.05); /* Warna tipis penanda input */
         color: #000;
         height: 100%;
       }
       .input-verif-cell:focus {
         outline: none;
-        border-color: #0d6efd;
+        border: 1px solid #0d6efd;
+        background-color: #fff;
       }
 
-      /* 6. Tanda Tangan */
+      /* 7. Layout Tanda Tangan (DIPERBAIKI MIRIP HASIL CETAK) */
       .verif-signature-grid {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        margin-top: 15px; /* Jarak secukupnya dari tabel */
-        page-break-inside: avoid; /* Mencegah TTD terpotong */
+        display: block;
+        width: 100%;
+        margin-top: 20px;
       }
+
+      /* Baris Tanda Tangan (Kiri & Kanan) */
+      .sig-row {
+        display: flex;
+        justify-content: space-between; /* Pisahkan ke ujung kiri & kanan */
+        align-items: flex-start;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      /* Box Tanda Tangan */
       .verif-sig-box {
-        width: 40%;
+        width: 45%;
         text-align: center;
-        margin-bottom: 5px;
         font-size: 11pt;
       }
-      .verif-sig-name {
+
+      /* Label Tengah (Tulisan Verifikator) */
+      .sig-label-center {
+        text-align: center;
+        width: 100%;
         font-weight: bold;
         text-decoration: underline;
-        margin-top: 60px; /* Ruang Tanda Tangan */
-        margin-bottom: 0;
+        margin: 15px 0;
+        font-size: 11pt;
       }
-      .verif-sig-box div:last-child {
-        margin-top: 2px;
+
+      /* Wrapper Nama & NIP (Agar rata kiri sejajar di dalam box tengah) */
+      .sig-wrap {
+        display: inline-block; /* Bungkus konten */
+        text-align: left;      /* Isi dalam rata kiri */
+        margin-top: 60px;      /* Jarak untuk tanda tangan */
+        min-width: 200px;
+      }
+
+      /* Nama Pejabat (Garis Bawah) */
+      .verif-sig-name {
+        font-weight: bold;
+        text-decoration: none;
+        border-bottom: 1px solid #000; /* Garis bawah manual CSS */
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+        display: block;
+        line-height: 1.2;
+      }
+
+      /* NIP Pejabat */
+      .verif-sig-nip {
+        font-size: 10pt;
+        font-weight: normal;
       }
 
       /* --- [SETTINGAN KHUSUS CETAK - FINAL FIXED LENGKAP] --- */
