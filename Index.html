@@ -580,6 +580,33 @@
         #print-area-sp * {
           visibility: visible !important;
         }
+
+        /* Tambahan khusus Verifikasi */
+        #print-area-verif {
+          position: fixed; top: 0; left: 0;
+          width: 210mm !important;
+          height: 297mm !important;
+          margin: 0; padding: 0 !important;
+          background: white !important;
+          z-index: 9999;
+          visibility: visible !important;
+        }
+        
+        #print-area-verif * {
+          visibility: visible !important;
+        }
+
+        /* Hilangkan tombol aksi tabel */
+        .btn-aksi-verif, .btn-aksi-verif * {
+          display: none !important;
+        }
+        
+        /* Hilangkan border input agar terlihat seperti teks biasa */
+        .input-verif-cell {
+          border: none !important;
+          background: transparent !important;
+          padding: 0 !important;
+        }
       }
 
       /* --- CSS TAMBAHAN UNTUK SURAT PENGANTAR --- */
@@ -614,6 +641,129 @@
         width: 40%;
         text-align: center;
         margin-top: 30px;
+      }
+
+      /* --- CSS FINAL LEMBAR VERIFIKASI (GABUNGAN & PERBAIKAN) --- */
+
+      .verif-sheet {
+        padding: 15mm 15mm;
+        font-family: 'Times New Roman', Times, serif;
+        color: #000;
+        position: relative;
+        background: white; /* Pastikan background putih */
+      }
+
+      /* 1. Judul Paling Atas */
+      .verif-title-top {
+        text-align: center;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 14pt;
+        margin-bottom: 30px; /* Jarak ke tabel info sekolah */
+        text-decoration: underline;
+        line-height: 1.5;
+      }
+
+      /* 2. Tabel Info Sekolah */
+      .verif-header-table {
+        width: 100%;
+        margin-bottom: 20px;
+        border: none;
+      }
+      .verif-header-table td {
+        padding: 4px 2px; /* Sedikit renggang */
+        vertical-align: top;
+        border: none;
+        font-size: 12pt;
+      }
+
+      /* 3. Sub-Judul di Atas Tabel */
+      .verif-subtitle {
+        font-weight: bold;
+        margin-bottom: 5px; /* Jarak dekat dengan tabel */
+        font-size: 11pt;
+        text-transform: uppercase;
+        margin-top: 20px;
+      }
+
+      /* 4. Tabel Utama */
+      .verif-main-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11pt;
+        margin-bottom: 20px;
+      }
+      .verif-main-table th, 
+      .verif-main-table td {
+        border: 1px solid #000;
+        padding: 5px 8px;
+        vertical-align: middle;
+      }
+      .verif-main-table th {
+        text-align: center;
+        font-weight: bold;
+        background-color: #f0f0f0; /* Abu muda di layar */
+      }
+
+      /* PELEBARAN KOLOM NAMA BERKAS */
+      .verif-main-table th:nth-child(2),
+      .verif-main-table td:nth-child(2) {
+        width: 50%;       /* Mengambil 50% lebar tabel */
+        min-width: 350px; /* Lebar minimum agar input panjang muat */
+      }
+
+      /* Style Input di dalam Tabel */
+      .input-verif-cell {
+        width: 100%;
+        border: 1px dashed #ccc; /* Border putus-putus untuk panduan edit */
+        padding: 5px;
+        font-family: inherit;
+        font-size: inherit;
+        background-color: transparent;
+        color: #000;
+      }
+      .input-verif-cell:focus {
+        outline: none;
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+      }
+
+      /* 5. Tanda Tangan */
+      .verif-signature-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-top: 30px;
+        gap: 20px;
+      }
+      .verif-sig-box {
+        width: 45%;
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      .verif-sig-name {
+        font-weight: bold;
+        text-decoration: underline;
+        margin-top: 70px; /* Jarak untuk tanda tangan */
+      }
+
+      /* --- SETTING CETAK (PRINT) --- */
+      @media print {
+        /* Hilangkan background header tabel agar hemat tinta */
+        .verif-main-table th { background-color: transparent !important; }
+        
+        /* Sembunyikan tombol aksi (+/-) */
+        .btn-aksi-verif { display: none !important; }
+        
+        /* Hilangkan border input agar terlihat seperti teks biasa */
+        .input-verif-cell { 
+          border: none !important; 
+          padding: 0 !important; 
+          resize: none;
+        }
+        
+        /* Pastikan layout cetak rapi */
+        .verif-sheet { padding: 0 !important; }
       }
     </style>
   </head>
@@ -2768,7 +2918,164 @@
             </div>
 
             <div id="view-sub-verifikasi" class="sub-view-section hidden">
-              <div class="alert alert-info">Fitur Cetak Lembar Verifikasi akan segera hadir.</div>
+              <div class="row">
+                <div class="col-lg-4 mb-4">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold py-3 text-primary">
+                      <i class="fas fa-user-edit me-2"></i> Data Pejabat Verifikasi
+                    </div>
+                    <div class="card-body">
+                      <div class="alert alert-warning py-2 small">
+                        <i class="fas fa-info-circle me-1"></i> Kepala Madrasah diambil dari menu Data Sekolah.
+                      </div>
+
+                      <form id="formVerifikasiInput" onsubmit="simpanVerifikasi(event)">
+                        
+                        <h6 class="fw-bold mt-2 border-bottom pb-1">Verifikator I</h6>
+                        <div class="mb-2">
+                          <label class="form-label small mb-1">Nama Lengkap</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNama1" placeholder="Nama Verifikator 1">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small mb-1">NIP</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNip1" placeholder="NIP...">
+                        </div>
+
+                        <h6 class="fw-bold mt-2 border-bottom pb-1">Verifikator II</h6>
+                        <div class="mb-2">
+                          <label class="form-label small mb-1">Nama Lengkap</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNama2" placeholder="Nama Verifikator 2">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small mb-1">NIP</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNip2" placeholder="NIP...">
+                        </div>
+
+                        <h6 class="fw-bold mt-2 border-bottom pb-1">Pengawas Madrasah</h6>
+                        <div class="mb-2">
+                          <label class="form-label small mb-1">Nama Lengkap</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNamaPengawas" placeholder="Nama Pengawas">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small mb-1">NIP</label>
+                          <input type="text" class="form-control form-control-sm" id="vfNipPengawas" placeholder="NIP...">
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                          <button type="submit" id="btnSimpanVerif" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Simpan Data
+                          </button>
+                          <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetTabelVerifikasi()">
+                            <i class="fas fa-sync me-1"></i> Reset Tabel ke Default
+                          </button>
+                          <button type="button" class="btn btn-primary" onclick="window.print()">
+                            <i class="fas fa-print me-1"></i> Cetak PDF
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-8">
+                  <div class="card shadow-sm border-0 bg-light">
+                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Preview Lembar Verifikasi</span>
+                      <small class="text-muted">Kertas A4</small>
+                    </div>
+                    <div class="card-body p-0">
+                      
+                      <div class="sheet-container">
+                        <div id="print-area-verif" class="sheet" style="height: auto; min-height: 297mm;">
+                          <div class="verif-sheet">
+                            
+                            <div class="verif-title-top">
+                              LEMBAR VERIFIKASI DAN VALIDASI PENGAJUAN BOS <span id="vfTitleTahun">2025</span>
+                            </div>
+
+                            <table class="verif-header-table">
+                              <tr>
+                                <td width="20%">Nama Madrasah</td>
+                                <td width="2%">:</td>
+                                <td class="fw-bold" id="vfSchoolName">...</td>
+                              </tr>
+                              <tr>
+                                <td>NSM</td>
+                                <td>:</td>
+                                <td id="vfNsm">...</td>
+                              </tr>
+                              <tr>
+                                <td>Alamat Madrasah</td>
+                                <td>:</td>
+                                <td id="vfAddress">...</td>
+                              </tr>
+                              <tr>
+                                <td>Kecamatan</td>
+                                <td>:</td>
+                                <td id="vfKecamatan">...</td>
+                              </tr>
+                              <tr>
+                                <td>Kabupaten/Kota</td>
+                                <td>:</td>
+                                <td id="vfKabupaten">...</td>
+                              </tr>
+                              <tr>
+                                <td>Periode</td>
+                                <td>:</td>
+                                <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
+                              </tr>
+                            </table>
+
+                            <div class="verif-subtitle">
+                              BERKAS YANG HARUS DIVERIFIKASI :
+                            </div>
+
+                            <table class="verif-main-table" id="tabelVerifikasi">
+                              <thead>
+                                <tr>
+                                  <th width="5%">No.</th>
+                                  <th>Nama Berkas</th>
+                                  <th width="15%">Status<br><small>(Ada/Tidak)</small></th>
+                                  <th width="20%">Keterangan</th>
+                                  <th width="5%" class="btn-aksi-verif">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody id="bodyTabelVerif">
+                                </tbody>
+                            </table>
+
+                            <div class="verif-signature-grid">
+                              <div class="verif-sig-box">
+                                <div>Kepala Madrasah</div>
+                                <div class="verif-sig-name" id="prevVfKepala">...</div>
+                                <div id="prevVfNipKepala">NIP. ...</div>
+                              </div>
+                              <div class="verif-sig-box">
+                                <div>Verifikator I</div>
+                                <div class="verif-sig-name" id="prevVfNama1">...</div>
+                                <div id="prevVfNip1">NIP. ...</div>
+                              </div>
+
+                              <div class="verif-sig-box">
+                                <div>Pengawas Madrasah</div>
+                                <div class="verif-sig-name" id="prevVfPengawas">...</div>
+                                <div id="prevVfNipPengawas">NIP. ...</div>
+                              </div>
+                              <div class="verif-sig-box">
+                                <div>Verifikator II</div>
+                                <div class="verif-sig-name" id="prevVfNama2">...</div>
+                                <div id="prevVfNip2">NIP. ...</div>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -8565,6 +8872,7 @@
         
         if(tabName === 'sampul') initCoverData();
         if(tabName === 'pengantar') initPengantarData();
+        if(tabName === 'verifikasi') initVerifikasiData();
       }
 
       // 2. Inisialisasi Data (Load dari Server) - VERSI PERBAIKAN
@@ -8933,6 +9241,214 @@
            tglIndo = dateObj.getDate() + " " + bln[dateObj.getMonth()] + " " + dateObj.getFullYear();
         }
         document.getElementById('prevSpTanggal').innerText = tglIndo;
+      }
+
+      // Variabel Global untuk menyimpan state tabel
+      let currentVerifRows = []; 
+
+      // Data Default (Hanya dipakai jika Database Kosong)
+      const DEFAULT_VERIF_ROWS = [
+        "Kover", "Check List", "Surat Pengantar", "Surat Pernyataan Pertanggungjawaban",
+        "Formulir BOS - 02", "Formulir BOS-02 (Lampiran)", "Formulir BOS - 03",
+        "Formulir BOS - 04", "Formulir BOS - 06", "Formulir BOS - 07",
+        "Formulir BOS - 08", "Formulir BOS - 09", "Formulir BOS - 10",
+        "Formulir BOS - 11", "Formulir BOS K - 02", "Formulir BOS K - 03",
+        "Formulir BOS K - 04", "Formulir BOS K - 05",
+        "Rincian Kegiatan Anggaran Madrasah", "Nota/Kuitansi/Data Pendukung"
+      ];
+
+      // 1. Inisialisasi Data (Dipanggil saat tab diklik)
+      function initVerifikasiData() {
+        // A. Isi Header Sekolah (Dari Cache Global)
+        const d = DATA_CACHE.sekolah || {};
+        document.getElementById('vfSchoolName').innerText = d.namaSekolah || "...";
+        document.getElementById('vfNsm').innerText = d.nsm || "...";
+        
+        let alamatLengkap = d.alamat || "";
+        if(d.kelurahan) alamatLengkap += ", " + d.kelurahan;
+        document.getElementById('vfAddress').innerText = alamatLengkap;
+        
+        document.getElementById('vfKecamatan').innerText = d.kecamatan || "...";
+        document.getElementById('vfKabupaten').innerText = d.kabupaten || "...";
+        document.getElementById('vfPeriode').innerText = d.periodeAnggaran || "...";
+        document.getElementById('vfTahun').innerText = d.tahunAnggaran || new Date().getFullYear();
+        document.getElementById('vfTitleTahun').innerText = d.tahunAnggaran || new Date().getFullYear();
+
+        // Preview TTD Kepala Sekolah
+        document.getElementById('prevVfKepala').innerText = d.namaKepala || "...";
+        const nipK = d.nipKepala ? "NIP. " + d.nipKepala : "";
+        document.getElementById('prevVfNipKepala').innerText = nipK;
+
+        // B. Ambil Data Verifikasi Tersimpan (Pejabat & Tabel Custom)
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res) {
+          if(res.status === 'success' && res.data) {
+            const db = res.data;
+            
+            // Isi Input Form
+            document.getElementById('vfNama1').value = db.verifikator1?.nama || '';
+            document.getElementById('vfNip1').value = db.verifikator1?.nip || '';
+            
+            document.getElementById('vfNama2').value = db.verifikator2?.nama || '';
+            document.getElementById('vfNip2').value = db.verifikator2?.nip || '';
+            
+            document.getElementById('vfNamaPengawas').value = db.pengawas?.nama || '';
+            document.getElementById('vfNipPengawas').value = db.pengawas?.nip || '';
+
+            // Isi Tabel Custom (Jika ada)
+            if(db.rows && Array.isArray(db.rows) && db.rows.length > 0) {
+              currentVerifRows = db.rows;
+            } else {
+              currentVerifRows = [...DEFAULT_VERIF_ROWS];
+            }
+          } else {
+            // Jika belum ada data, reset ke default
+            currentVerifRows = [...DEFAULT_VERIF_ROWS];
+          }
+          
+          // Render
+          updateVerifPreview();
+          renderTabelVerifikasi();
+
+        }).getDataVerifikasi(token);
+
+        // Tambahkan listener untuk update preview TTD saat mengetik
+        const inputs = document.querySelectorAll('#formVerifikasiInput input');
+        inputs.forEach(el => {
+          el.addEventListener('input', updateVerifPreview);
+        });
+      }
+
+      // 2. Update Teks Tanda Tangan (Realtime)
+      function updateVerifPreview() {
+        const n1 = document.getElementById('vfNama1').value;
+        const nip1 = document.getElementById('vfNip1').value;
+        document.getElementById('prevVfNama1').innerText = n1 || "...";
+        document.getElementById('prevVfNip1').innerText = nip1 ? "NIP. " + nip1 : "NIP. ...";
+
+        const n2 = document.getElementById('vfNama2').value;
+        const nip2 = document.getElementById('vfNip2').value;
+        document.getElementById('prevVfNama2').innerText = n2 || "...";
+        document.getElementById('prevVfNip2').innerText = nip2 ? "NIP. " + nip2 : "NIP. ...";
+
+        const np = document.getElementById('vfNamaPengawas').value;
+        const nipp = document.getElementById('vfNipPengawas').value;
+        document.getElementById('prevVfPengawas').innerText = np || "...";
+        document.getElementById('prevVfNipPengawas').innerText = nipp ? "NIP. " + nipp : "NIP. ...";
+      }
+
+      // 3. Render Tabel dengan Logika Tombol Aksi Spesifik
+      // Fungsi Render Tabel (Update UI)
+      function renderTabelVerifikasi() {
+        const tbody = document.getElementById('bodyTabelVerif');
+        tbody.innerHTML = '';
+
+        currentVerifRows.forEach((itemText, index) => {
+          const isLastRow = (index === currentVerifRows.length - 1);
+          
+          // Logika Tombol Sesuai Request:
+          // Baris Akhir = Tombol Tambah (+)
+          // Baris Lain = Tombol Hapus (-)
+          
+          let btnHtml = '';
+          if (isLastRow) {
+            btnHtml = `<button type="button" class="btn btn-sm btn-success px-2 py-0" onclick="tambahBarisVerif()" title="Tambah Baris"><i class="fas fa-plus"></i></button>`;
+          } else {
+            btnHtml = `<button type="button" class="btn btn-sm btn-danger px-2 py-0" onclick="hapusBarisVerif(${index})" title="Hapus Baris"><i class="fas fa-minus"></i></button>`;
+          }
+
+          // Gunakan 'oninput' atau 'onchange' untuk menangkap editan teks
+          const row = `
+            <tr>
+              <td class="text-center">${index + 1}</td>
+              <td>
+                <input type="text" class="input-verif-cell" value="${itemText}" 
+                      oninput="updateRowText(${index}, this.value)" 
+                      placeholder="Ketik nama berkas...">
+              </td>
+              <td></td>
+              <td></td>
+              <td class="text-center btn-aksi-verif">${btnHtml}</td>
+            </tr>
+          `;
+          tbody.insertAdjacentHTML('beforeend', row);
+        });
+      }
+
+      // 4. CRUD Tabel Lokal
+      // Fungsi Tambah Baris
+      function tambahBarisVerif() {
+        currentVerifRows.push(""); // Tambah string kosong
+        renderTabelVerifikasi();
+        
+        // Fokus otomatis ke baris baru
+        setTimeout(() => {
+          const inputs = document.querySelectorAll('#bodyTabelVerif .input-verif-cell');
+          if(inputs.length > 0) inputs[inputs.length - 1].focus();
+        }, 100);
+      }
+
+      // Fungsi Hapus Baris
+      function hapusBarisVerif(index) {
+        // Hapus dari array memori
+        currentVerifRows.splice(index, 1);
+        // Render ulang tampilan
+        renderTabelVerifikasi();
+        // Opsional: Tampilkan notif kecil bahwa baris terhapus (belum tersimpan ke server)
+      }
+
+      // Fungsi saat user mengetik di kolom Nama Berkas
+      // PENTING: Ini mengupdate array di memori agar siap disimpan
+      function updateRowText(index, val) {
+        currentVerifRows[index] = val;
+      }
+
+      function resetTabelVerifikasi() {
+        if(confirm("Kembalikan tabel ke format standar awal?")) {
+          currentVerifRows = [...DEFAULT_VERIF_ROWS];
+          renderTabelVerifikasi();
+        }
+      }
+
+      // 5. Simpan ke Server
+      function simpanVerifikasi(e) {
+        e.preventDefault();
+        
+        const token = localStorage.getItem('userToken');
+        const btn = document.getElementById('btnSimpanVerif');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        const payload = {
+          verifikator1: {
+            nama: document.getElementById('vfNama1').value,
+            nip: document.getElementById('vfNip1').value
+          },
+          verifikator2: {
+            nama: document.getElementById('vfNama2').value,
+            nip: document.getElementById('vfNip2').value
+          },
+          pengawas: {
+            nama: document.getElementById('vfNamaPengawas').value,
+            nip: document.getElementById('vfNipPengawas').value
+          },
+          rows: currentVerifRows
+        };
+
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          
+          if(res.status === 'success') {
+            Swal.fire({
+              toast: true, position: 'top-end', icon: 'success', 
+              title: 'Data Verifikasi Tersimpan', showConfirmButton: false, timer: 1500
+            });
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanDataVerifikasi(token, payload);
       }
 
     </script>
