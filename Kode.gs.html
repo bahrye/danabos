@@ -2998,3 +2998,61 @@ function getDataSuratPengantar(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI LEMBAR VERIFIKASI (BARU) --- */
+
+// 1. Simpan Data Verifikasi
+function simpanDataVerifikasi(token, data) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const sheetData = sheet.getDataRange().getValues();
+    let rowIdx = -1;
+
+    // Cari Key VERIFIKASI_DATA
+    for (let i = 0; i < sheetData.length; i++) {
+      if (sheetData[i][0] === 'VERIFIKASI_DATA') {
+        rowIdx = i + 1;
+        break;
+      }
+    }
+
+    const jsonString = JSON.stringify(data);
+
+    if (rowIdx !== -1) {
+      sheet.getRange(rowIdx, 2).setValue(jsonString);
+    } else {
+      sheet.appendRow(['VERIFIKASI_DATA', jsonString]);
+    }
+
+    return { status: 'success', message: 'Data Verifikasi berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Ambil Data Verifikasi
+function getDataVerifikasi(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) return { status: 'success', data: null };
+
+    const data = sheet.getDataRange().getValues();
+    let result = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'VERIFIKASI_DATA') {
+        try {
+          result = JSON.parse(data[i][1]);
+        } catch (e) { result = null; }
+        break;
+      }
+    }
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
