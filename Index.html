@@ -3207,17 +3207,12 @@
 
                       <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0">Daftar Item Verifikasi</h6>
-                        <div>
-                          <button class="btn btn-sm btn-outline-danger me-1" onclick="resetVerifList()">
-                            <i class="fas fa-sync me-1"></i> Reset Default
-                          </button>
-                          <button class="btn btn-sm btn-primary" onclick="addVerifItem()">
-                            <i class="fas fa-plus me-1"></i> Tambah Item
-                          </button>
-                        </div>
+                        <button class="btn btn-sm btn-outline-danger me-1" onclick="resetVerifList()">
+                          <i class="fas fa-sync me-1"></i> Reset Default
+                        </button>
                       </div>
 
-                      <div class="table-responsive border rounded mb-4" style="max-height: 400px; overflow-y: auto;">
+                      <div class="table-responsive border rounded mb-2" style="max-height: 400px; overflow-y: auto;">
                         <table class="table table-sm table-striped align-middle mb-0">
                           <thead class="table-light sticky-top">
                             <tr>
@@ -3229,6 +3224,12 @@
                           <tbody id="verifListBody">
                             </tbody>
                         </table>
+                      </div>
+
+                      <div class="d-flex justify-content-end mb-4">
+                        <button class="btn btn-sm btn-primary" onclick="addVerifItem()">
+                          <i class="fas fa-plus me-1"></i> Tambah Item
+                        </button>
                       </div>
 
                       <div class="d-grid mt-4 gap-2 d-md-flex">
@@ -9249,9 +9250,35 @@
         });
       }
 
+      /* --- FUNGSI TAMBAH ITEM DENGAN AUTO FOCUS --- */
       function addVerifItem() {
-        verifItems.push("Item Baru...");
+        // Tambahkan item kosong atau default
+        verifItems.push("Item Baru..."); 
+        
+        // Render ulang tabel
         renderVerifList();
+
+        // Logic Auto Focus ke Baris Terakhir
+        // Gunakan setTimeout agar menunggu tabel selesai digambar ulang oleh browser
+        setTimeout(() => {
+          const tbody = document.getElementById('verifListBody');
+          const rows = tbody.querySelectorAll('tr');
+          
+          if (rows.length > 0) {
+            // Ambil baris terakhir
+            const lastRow = rows[rows.length - 1];
+            // Cari elemen input di dalam baris tersebut
+            const input = lastRow.querySelector('input');
+            
+            if (input) {
+              input.focus();  // Fokuskan kursor
+              input.select(); // Blok teks "Item Baru..." agar user tinggal ketik
+              
+              // Scroll ke bawah agar baris baru terlihat jika tabel panjang
+              input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 100);
       }
 
       function removeVerifItem(index) {
