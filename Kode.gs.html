@@ -3541,3 +3541,187 @@ function hapusLogoSampul(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FITUR BERKAS PENCAIRAN (NEW) --- */
+
+/* --- UPDATE: SIMPAN DATA PKS (Hapus Penyimpanan Template ID) --- */
+function simpanDataPKS(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    
+    const upsert = (key, val) => {
+      let found = false;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          sheet.getRange(i + 1, 2).setValue(val);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sheet.appendRow([key, val]);
+    };
+
+    // Simpan Data User
+    upsert('PKS_NAMA_SINGKAT', String(form.namaSingkat).toUpperCase());
+    upsert('PKS_NOMOR_PKS', form.nomorPks);
+    upsert('PKS_NOMOR_SURAT', form.nomorSurat);
+    upsert('PKS_NO_REK', form.noRek);
+    upsert('PKS_NAMA_REK', form.namaRek);
+    
+    // Simpan Data Override
+    upsert('PKS_OVERRIDE_NAMA', form.namaLengkap);
+    upsert('PKS_OVERRIDE_BOS', form.danaBos);
+    upsert('PKS_OVERRIDE_ALAMAT', form.alamat);
+
+    // HAPUS BAGIAN SIMPAN TEMPLATE ID DISINI
+
+    return { status: 'success', message: 'Data PKS berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- UPDATE: AMBIL DATA PKS (TERMASUK OVERRIDES) --- */
+function getDataPKS(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let res = { 
+      namaSingkat: '', nomorPks: '', nomorSurat: '', 
+      noRek: '', namaRek: '', templateId: '',
+      // Field baru untuk menampung data tersimpan
+      namaLengkap: '', danaBos: '', alamat: '' 
+    };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        const key = data[i][0];
+        const val = data[i][1];
+        
+        if (key === 'PKS_NAMA_SINGKAT') res.namaSingkat = val;
+        if (key === 'PKS_NOMOR_PKS') res.nomorPks = val;
+        if (key === 'PKS_NOMOR_SURAT') res.nomorSurat = val;
+        if (key === 'PKS_NO_REK') res.noRek = val;
+        if (key === 'PKS_NAMA_REK') res.namaRek = val;
+        if (key === 'TEMPLATE_ID_PKS') res.templateId = val;
+        
+        // Ambil data override
+        if (key === 'PKS_OVERRIDE_NAMA') res.namaLengkap = val;
+        if (key === 'PKS_OVERRIDE_BOS') res.danaBos = val;
+        if (key === 'PKS_OVERRIDE_ALAMAT') res.alamat = val;
+      }
+    }
+    return { status: 'success', data: res };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- HELPER FORMAT TEXT BARU --- */
+function toTitleCase(str) {
+  if (!str) return "";
+  return str.replace(/\w\S*/g, function(txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+  });
+}
+
+/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (HARDCODED ID) --- */
+function generateBerkasPencairan(token, tipe, formData) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Ambil Data Sekolah (Master)
+    let ds = {};
+    const sheetSekolah = ss.getSheetByName('DataSekolah');
+    if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
+      const d = sheetSekolah.getRange(2, 1, 1, 19).getValues()[0];
+      ds = {
+        namaSekolah: d[0], 
+        alamat: d[3], provinsi: d[4], kabupaten: d[5], kecamatan: d[6], kelurahan: d[7],
+        namaKepala: d[9], nipKepala: String(d[10]).replace(/'/g,''), 
+        danaBOS: d[15], jumlahAnggaran: d[16], tahunAnggaran: d[17]
+      };
+    }
+
+    // 2. Siapkan Folder Output
+    const folderId = ensureFolderPendukung(token); 
+    const folder = DriveApp.getFolderById(folderId);
+
+    // 3. Tentukan Template ID (HARDCODED)
+    let templateId = '';
+    
+    if (tipe === 'PKS') {
+       // --- ID TEMPLATE TERTANAM DISINI ---
+       templateId = '1eURvpy7nplm6wUlvgEhZJDCI0SaI1EqiURnARaTaDsY'; 
+    } 
+    // Jika nanti ada tab lain (Kuitansi, SPTJB, dll), tambahkan else if disini
+
+    if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan dalam sistem.' };
+
+    // 4. Proses Copy Template
+    let templateFile;
+    try { 
+      templateFile = DriveApp.getFileById(templateId); 
+    } catch(e) { 
+      return { status: 'error', message: 'File Template Master tidak ditemukan. Cek ID Script.' }; 
+    }
+
+    const tempDocFile = templateFile.makeCopy(tipe + '_' + ds.namaSekolah + '_' + new Date().getTime());
+    const doc = DocumentApp.openById(tempDocFile.getId());
+    const body = doc.getBody();
+    const safeReplace = (key, val) => body.replaceText(key, val || '-');
+
+    // --- LOGIKA REPLACE KHUSUS PKS ---
+    if (tipe === 'PKS') {
+      
+      // 1. DATA SEKOLAH LENGKAP (.B & .K)
+      const namaSekolahRaw = formData.namaLengkap || "";
+      safeReplace('<<Nama Sekolah Lengkap.B>>', namaSekolahRaw.toUpperCase());
+      safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(namaSekolahRaw));
+      safeReplace('<<Nama Sekolah Lengkap>>', namaSekolahRaw);
+
+      // 2. DATA NAMA KAMAD (.B & .K)
+      const namaKamadRaw = ds.namaKepala || "";
+      safeReplace('<<Nama Kamad.B>>', namaKamadRaw.toUpperCase());
+      safeReplace('<<Nama Kamad.K>>', toTitleCase(namaKamadRaw));
+      safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
+
+      // 3. DATA LAINNYA
+      safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
+      safeReplace('<<Nama Dana BOS>>', formData.danaBos);
+      safeReplace('<<Alamat Lengkap Madrasah>>', formData.alamat);
+      
+      safeReplace('<<Nomor PKS>>', formData.nomorPks);
+      safeReplace('<<Nomor Surat Madrasah>>', formData.nomorSurat);
+      safeReplace('<<Nomor Rekening>>', formData.noRek);
+      safeReplace('<<Nama Rekening>>', formData.namaRek);
+
+      safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+      
+      const jml = ds.jumlahAnggaran || 0;
+      safeReplace('<<Jumlah Dana>>', formatRupiah(jml));
+      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(jml) + ' Rupiah');
+    }
+
+    doc.saveAndClose();
+
+    // 5. Convert ke PDF
+    const pdfBlob = tempDocFile.getAs(MimeType.PDF);
+    const pdfName = tipe + '_' + ds.namaSekolah + '.pdf';
+    const pdfFile = folder.createFile(pdfBlob).setName(pdfName);
+    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    tempDocFile.setTrashed(true);
+
+    return { status: 'success', url: pdfFile.getUrl() };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
