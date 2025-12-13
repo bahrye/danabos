@@ -3087,8 +3087,19 @@
                       
                       <div class="mb-4 p-3 border rounded bg-light text-center">
                         <label class="form-label small fw-bold mb-2">Logo Cover</label>
-                        <div class="mb-2 d-flex justify-content-center align-items-center" style="height: 120px; background: white; border: 1px dashed #ccc;">
-                           <img id="logoPreviewCover" src="https://i.imgur.com/WqGSzFl.png" style="max-height: 100px; max-width: 100%; object-fit: contain;">
+                        
+                        <div class="mb-2 position-relative d-flex justify-content-center align-items-center bg-white" 
+                            style="height: 120px; border: 1px dashed #ccc; overflow: hidden;">
+                          
+                          <img id="logoPreviewCover" src="https://i.imgur.com/WqGSzFl.png" 
+                                style="max-height: 100px; max-width: 100%; object-fit: contain;">
+                          
+                          <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 shadow-sm rounded-circle d-flex align-items-center justify-content-center" 
+                                  style="width: 28px; height: 28px; z-index: 10;"
+                                  onclick="hapusLogoCover()" title="Hapus Logo">
+                            <i class="fas fa-trash-alt" style="font-size: 0.75rem;"></i>
+                          </button>
+
                         </div>
                         <div class="input-group input-group-sm">
                           <input type="file" class="form-control" id="fileLogoCover" accept="image/*" onchange="previewLogoLocal(this, 'logoPreviewCover')">
@@ -9086,7 +9097,7 @@
         }
       }
 
-      // 3. Fungsi Upload Logo ke Server
+      /* --- UPDATE FUNGSI UPLOAD LOGO (CACHE UPDATE) --- */
       function uploadLogoCover() {
         const fileInput = document.getElementById('fileLogoCover');
         if (fileInput.files.length === 0) {
@@ -9095,6 +9106,7 @@
         }
 
         const file = fileInput.files[0];
+        // Validasi Ukuran 2MB
         if (file.size > 2 * 1024 * 1024) {
           Swal.fire('File Terlalu Besar', 'Maksimal ukuran file adalah 2MB', 'warning');
           return;
@@ -9102,7 +9114,13 @@
 
         const token = localStorage.getItem('userToken');
         
-        Swal.fire({title: 'Mengupload...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+        // Tampilkan Loading
+        Swal.fire({
+          title: 'Mengupload...', 
+          html: 'Mohon tunggu sebentar...',
+          allowOutsideClick: false, 
+          didOpen: () => Swal.showLoading()
+        });
 
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -9110,15 +9128,82 @@
           const rawBase64 = reader.result.split(',')[1]; 
           const payload = { base64: rawBase64, mimeType: file.type };
           
-          google.script.run.withSuccessHandler(function(res) {
-            if(res.status === 'success') {
-                DATA_CACHE.pendukung = null;
-                Swal.fire('Sukses', 'Logo berhasil diupload dan disimpan!', 'success');
-            } else {
-                Swal.fire('Gagal', res.message, 'error');
-            }
-          }).simpanLogoSampul(token, payload);
+          google.script.run
+            .withFailureHandler(function(err) {
+              Swal.fire('Gagal', err.message, 'error');
+            })
+            .withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                  
+                  // [PERUBAHAN UTAMA] UPDATE CACHE LOKAL SECARA LANGSUNG
+                  // Kita menyuntikkan ID Logo baru ke dalam memori cache
+                  if (DATA_CACHE.pendukung) {
+                      // Pastikan struktur objek ada
+                      if (!DATA_CACHE.pendukung.cover) DATA_CACHE.pendukung.cover = {};
+                      
+                      // Update ID Logo
+                      DATA_CACHE.pendukung.cover.logoId = res.fileId;
+                  }
+
+                  // Bersihkan input file agar sistem tahu proses upload sudah tuntas
+                  // (Penting agar validasi generate tidak error)
+                  document.getElementById('fileLogoCover').value = "";
+                  
+                  Swal.fire({
+                    icon: 'success', 
+                    title: 'Berhasil', 
+                    text: 'Logo berhasil diupload dan disimpan!',
+                    timer: 1500,
+                    showConfirmButton: false
+                  });
+
+              } else {
+                  Swal.fire('Gagal', res.message, 'error');
+              }
+            })
+            .simpanLogoSampul(token, payload);
         };
+      }
+
+      /* --- TAMBAHKAN FUNGSI INI DI BAGIAN SCRIPT Index.html --- */
+
+      function hapusLogoCover() {
+        Swal.fire({
+          title: 'Hapus Logo?',
+          text: "Logo akan dihapus permanen dan kembali ke logo default (Kemenag).",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: 'Ya, Hapus'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const token = localStorage.getItem('userToken');
+            
+            // Tampilkan Loading
+            Swal.fire({
+              title: 'Menghapus...', 
+              allowOutsideClick: false, 
+              didOpen: () => Swal.showLoading()
+            });
+
+            google.script.run.withSuccessHandler(function(res) {
+              if(res.status === 'success') {
+                  document.getElementById('logoPreviewCover').src = "https://i.imgur.com/WqGSzFl.png";
+                  document.getElementById('fileLogoCover').value = ""; 
+                  
+                  // UPDATE CACHE: Set logoId menjadi null
+                  if (DATA_CACHE.pendukung && DATA_CACHE.pendukung.cover) {
+                      DATA_CACHE.pendukung.cover.logoId = null;
+                  }
+                  
+                  Swal.fire('Terhapus', 'Logo berhasil dihapus.', 'success');
+              } else {
+                  Swal.fire('Gagal', res.message, 'error');
+              }
+            }).hapusLogoSampul(token);
+          }
+        });
       }
 
       /* --- LOAD & SIMPAN DATA COVER (PERIODE TERKUNCI TOTAL SEJAK AWAL) --- */
@@ -9172,6 +9257,8 @@
         }).getDataSekolah(token);
       }
 
+      /* --- UPDATE FUNGSI simpanDataCover --- */
+
       function simpanDataCover() {
         const token = localStorage.getItem('userToken');
         const config = {
@@ -9188,12 +9275,15 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
+          
           if(res.status === 'success') {
-            // INVALIDASI CACHE (Agar saat reload tab, data baru diambil)
-            DATA_CACHE.pendukung = null; 
-            
-            // Atau update manual cache lokal (Opsional, lebih cepat tapi ribet)
-            // DATA_CACHE.pendukung.cover.headerText = config.header; ...
+            // [PERUBAHAN] UPDATE CACHE LOKAL (JANGAN NULL-KAN)
+            if(DATA_CACHE.pendukung && DATA_CACHE.pendukung.cover) {
+                DATA_CACHE.pendukung.cover.headerText = config.header;
+                DATA_CACHE.pendukung.cover.titleText = config.title;
+                // Periode biasanya read-only dari data sekolah, tapi kita update saja biar sinkron
+                DATA_CACHE.pendukung.cover.periodText = config.period;
+            }
             
             Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Cover Disimpan', showConfirmButton:false, timer:1500});
           }
@@ -9335,20 +9425,35 @@
          }).getDataVerifikasi(token);
       }
 
-      /* --- UPDATE: GENERATE PDF DENGAN AUTO-SAVE & KONFIRMASI REPLACE --- */
+      /* --- FUNGSI UPDATE: GENERATE PDF DOKUMEN PENDUKUNG --- */
       function generatePdfPendukung(tipe) {
         const token = localStorage.getItem('userToken');
         let formData = {};
 
-        // Validasi & Ambil Data
+        // === [1] VALIDASI: CEK APAKAH ADA LOGO YANG BELUM DIUPLOAD (KHUSUS COVER) ===
+        if (tipe === 'COVER') {
+          const inputLogo = document.getElementById('fileLogoCover');
+          // Jika input value tidak kosong, berarti user sudah pilih file tapi belum klik tombol Upload
+          if (inputLogo && inputLogo.value !== "") {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Logo Belum Diupload!',
+              html: 'Anda telah memilih gambar baru tetapi <b>belum menekan tombol Upload</b>.<br><br>Mohon klik tombol <b>Upload</b> (Warna Biru) terlebih dahulu agar logo tersimpan di server sebelum melakukan Generate.',
+              confirmButtonText: 'Oke, Mengerti',
+              confirmButtonColor: '#0d6efd'
+            });
+            return; // HENTIKAN PROSES GENERATE
+          }
+        }
+
+        // === [2] PERSIAPAN DATA FORM SESUAI TIPE ===
         if (tipe === 'COVER') {
           formData.desain = document.getElementById('coverDesignSelect').value;
           formData.header = document.getElementById('inpHeaderCover').value;
           formData.judul = document.getElementById('inpJudulCover').value;
           formData.periode = document.getElementById('inpPeriodeCover').value;
           
-          // [FITUR BARU] AUTO-SAVE COVER
-          // Simpan konfigurasi ke database secara diam-diam (background process)
+          // Auto-save konfigurasi cover ke database (background process)
           const configSave = {
             header: formData.header,
             title: formData.judul,
@@ -9363,7 +9468,7 @@
           
           if (!formData.nomor) return Swal.fire('Error', 'Nomor Surat wajib diisi', 'warning');
           
-          // [FITUR BARU] AUTO-SAVE SURAT PENGANTAR
+          // Auto-save surat pengantar
           google.script.run.simpanDataSuratPengantar(token, formData);
 
         } else if (tipe === 'VERIFIKASI') {
@@ -9381,26 +9486,28 @@
           };
           formData.rows = verifItems;
           
-          // [FITUR BARU] AUTO-SAVE VERIFIKASI
+          // Auto-save verifikasi
           google.script.run.simpanDataVerifikasi(token, formData);
         }
 
-        // --- LOGIKA KONFIRMASI JIKA SUDAH ADA FILE ---
+        // === [3] CEK APAKAH FILE LAMA SUDAH ADA? (UNTUK KONFIRMASI) ===
         let fileAda = false;
+        // Cek keberadaan tombol "Lihat PDF" yang tidak hidden
         if (tipe === 'COVER' && !document.getElementById('btnViewCover').classList.contains('hidden')) fileAda = true;
         if (tipe === 'SP' && !document.getElementById('btnViewSp').classList.contains('hidden')) fileAda = true;
         if (tipe === 'VERIFIKASI' && !document.getElementById('btnViewVerif').classList.contains('hidden')) fileAda = true;
 
         let confirmMsg = "Sistem akan membuat dokumen PDF baru.";
         let confirmBtn = "Generate";
-        let confirmColor = "#0d6efd"; // Biru
+        let confirmColor = "#0d6efd"; // Biru Default
 
         if (fileAda) {
           confirmMsg = "File lama akan <b>DIHAPUS</b> dan digantikan dengan file baru. Lanjutkan?";
           confirmBtn = "Ya, Ganti File";
-          confirmColor = "#dc3545"; // Merah
+          confirmColor = "#dc3545"; // Merah Warning
         }
 
+        // === [4] KONFIRMASI & EKSEKUSI ===
         Swal.fire({
           title: 'Generate PDF?',
           html: confirmMsg,
@@ -9433,13 +9540,21 @@
               })
               .withSuccessHandler(function(res) {
                 if (res.status === 'success') {
-                  DATA_CACHE.pendukung = null;
+                  
+                  // === [5] UPDATE CACHE LOKAL (AGAR TIDAK PERLU RELOAD TAB) ===
+                  if (DATA_CACHE.pendukung) {
+                      if (!DATA_CACHE.pendukung.fileStatus) DATA_CACHE.pendukung.fileStatus = {};
+                      
+                      // Simpan ID file baru ke memori cache
+                      DATA_CACHE.pendukung.fileStatus[tipe] = res.fileId;
+                  }
 
-                  // --- UPDATE UI TOMBOL SETELAH SUKSES ---
+                  // === [6] UPDATE TAMPILAN TOMBOL SECARA LANGSUNG ===
                   if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
                   if (tipe === 'SP') updateBtnView('btnViewSp', 'urlPdfSp', res.fileId);
                   if (tipe === 'VERIFIKASI') updateBtnView('btnViewVerif', 'urlPdfVerif', res.fileId);
 
+                  // Tampilkan Pesan Sukses
                   Swal.fire({
                     icon: 'success',
                     title: 'Berhasil',
@@ -9452,7 +9567,7 @@
                   });
 
                 } else if (res.status === 'error_template') {
-                  // --- ERROR KHUSUS TEMPLATE ---
+                  // === ERROR KHUSUS JIKA TEMPLATE BERMASALAH ===
                   Swal.fire({
                     icon: 'error',
                     title: 'Gagal Generate!',
@@ -9474,6 +9589,7 @@
                   });
 
                 } else {
+                  // Error Umum Lainnya
                   Swal.fire({ icon: 'error', title: 'Gagal', text: res.message });
                 }
               })
@@ -9631,6 +9747,8 @@
         }).getDataSekolah(token);
       }
 
+      /* --- UPDATE FUNGSI simpanDataSP --- */
+
       function simpanDataSP() {
         const token = localStorage.getItem('userToken');
         const form = {
@@ -9647,17 +9765,26 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
+          
           if(res.status === 'success') {
-            DATA_CACHE.pendukung = null;
+            // [PERUBAHAN] UPDATE CACHE LOKAL SP
+            if(DATA_CACHE.pendukung && DATA_CACHE.pendukung.sp) {
+                DATA_CACHE.pendukung.sp.nomor = form.nomor;
+                DATA_CACHE.pendukung.sp.tempat = form.tempat;
+                DATA_CACHE.pendukung.sp.tanggal = form.tanggal;
+            }
+
             Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Surat Disimpan', showConfirmButton:false, timer:1500});
           }
           else Swal.fire('Gagal', res.message, 'error');
         }).simpanDataSuratPengantar(token, form);
       }
 
-      /* --- SIMPAN DATA VERIFIKASI (TANPA GENERATE) --- */
+      /* --- UPDATE FUNGSI simpanDataVerif --- */
+
       function simpanDataVerif() {
         const token = localStorage.getItem('userToken');
+        // Ambil value dari form
         const formData = {
           verifikator1: { 
             nama: document.getElementById('vfNama1').value, 
@@ -9671,7 +9798,7 @@
             nama: document.getElementById('vfNamaPengawas').value, 
             nip: document.getElementById('vfNipPengawas').value 
           },
-          rows: verifItems // List item verifikasi
+          rows: verifItems // List item global variable
         };
 
         const btn = event.target.closest('button');
@@ -9682,8 +9809,19 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
+          
           if(res.status === 'success') {
-            DATA_CACHE.pendukung = null;
+            // [PERUBAHAN] UPDATE CACHE LOKAL VERIFIKASI
+            if(DATA_CACHE.pendukung) {
+                // Buat objek verif jika belum ada
+                if(!DATA_CACHE.pendukung.verif) DATA_CACHE.pendukung.verif = {};
+                
+                DATA_CACHE.pendukung.verif.verifikator1 = formData.verifikator1;
+                DATA_CACHE.pendukung.verif.verifikator2 = formData.verifikator2;
+                DATA_CACHE.pendukung.verif.pengawas = formData.pengawas;
+                DATA_CACHE.pendukung.verif.rows = formData.rows;
+            }
+
             Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Verifikasi Disimpan', showConfirmButton:false, timer:1500});
           }
           else Swal.fire('Gagal', res.message, 'error');
@@ -9692,32 +9830,32 @@
 
       /* --- LOGIKA BARU: CETAK DOKUMEN PENDUKUNG (BATCH LOADING) --- */
 
-      // 1. Loader Utama: Dipanggil saat menu diklik
-      function loadAllPendukungData(forceRefresh = false) {
+      /* --- GANTI FUNGSI loadAllPendukungData DI Index.html --- */
+
+      function loadAllPendukungData(forceRefresh = false, targetTab = 'sampul') {
         // A. CEK CACHE
         if (!forceRefresh && DATA_CACHE.pendukung) {
           console.log("Data Pendukung loaded from Cache.");
-          // Langsung buka tab default (Sampul) tanpa loading server
-          bukaSubTab('sampul'); 
+          bukaSubTab(targetTab); // Buka tab sesuai parameter (default: sampul)
           return;
         }
 
         // B. FETCH SERVER
-        toggleLoading(true, "Memuat data..."); // Tampilkan Spinner
+        toggleLoading(true, "Memuat data...");
 
         const token = localStorage.getItem('userToken');
 
         google.script.run
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res) {
-            toggleLoading(false); // Sembunyikan Spinner
+            toggleLoading(false);
 
             if (res.status === 'success') {
-              // SIMPAN SEMUA DATA KE CACHE
+              // SIMPAN DATA KE CACHE
               DATA_CACHE.pendukung = res.data;
               
-              // Buka tab default dan render datanya dari cache
-              bukaSubTab('sampul');
+              // Buka tab yang diminta
+              bukaSubTab(targetTab);
             } else {
               Swal.fire('Gagal', 'Gagal memuat data pendukung: ' + res.message, 'error');
             }
