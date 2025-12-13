@@ -3585,7 +3585,7 @@ function simpanDataPKS(token, form) {
   }
 }
 
-/* --- UPDATE: AMBIL DATA PKS (TERMASUK OVERRIDES) --- */
+/* --- UPDATE: AMBIL DATA PKS (TERMASUK STATUS FILE OUTPUT) --- */
 function getDataPKS(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3594,8 +3594,9 @@ function getDataPKS(token) {
     let res = { 
       namaSingkat: '', nomorPks: '', nomorSurat: '', 
       noRek: '', namaRek: '', templateId: '',
-      // Field baru untuk menampung data tersimpan
-      namaLengkap: '', danaBos: '', alamat: '' 
+      namaLengkap: '', danaBos: '', alamat: '',
+      // Field untuk status file output
+      pdfId: null, docId: null 
     };
 
     if (sheet) {
@@ -3609,12 +3610,15 @@ function getDataPKS(token) {
         if (key === 'PKS_NOMOR_SURAT') res.nomorSurat = val;
         if (key === 'PKS_NO_REK') res.noRek = val;
         if (key === 'PKS_NAMA_REK') res.namaRek = val;
-        if (key === 'TEMPLATE_ID_PKS') res.templateId = val;
         
-        // Ambil data override
+        // Data Override
         if (key === 'PKS_OVERRIDE_NAMA') res.namaLengkap = val;
         if (key === 'PKS_OVERRIDE_BOS') res.danaBos = val;
         if (key === 'PKS_OVERRIDE_ALAMAT') res.alamat = val;
+
+        // Ambil ID File Hasil Generate
+        if (key === 'OUTPUT_ID_PKS_PDF') res.pdfId = val;
+        if (key === 'OUTPUT_ID_PKS_DOC') res.docId = val;
       }
     }
     return { status: 'success', data: res };
@@ -3631,7 +3635,7 @@ function toTitleCase(str) {
   });
 }
 
-/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (HARDCODED ID) --- */
+/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (SIMPAN ID FILE) --- */
 function generateBerkasPencairan(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3649,18 +3653,46 @@ function generateBerkasPencairan(token, tipe, formData) {
       };
     }
 
-    // 2. Siapkan Folder Output
+    // 2. Siapkan Folder Output & Pengaturan
     const folderId = ensureFolderPendukung(token); 
     const folder = DriveApp.getFolderById(folderId);
+    
+    // Siapkan Sheet Pengaturan untuk menyimpan ID File
+    let sheetSet = ss.getSheetByName('DataPengaturan');
+    if (!sheetSet) { sheetSet = ss.insertSheet('DataPengaturan'); sheetSet.appendRow(['KEY', 'VALUE']); }
+    
+    // Helper untuk update/insert key di DataPengaturan
+    const updateOutputId = (key, newId) => {
+      const data = sheetSet.getDataRange().getValues();
+      let rowIdx = -1;
+      let oldId = null;
+      
+      for(let i=0; i<data.length; i++){
+        if(data[i][0] === key) {
+          rowIdx = i+1;
+          oldId = data[i][1];
+          break;
+        }
+      }
+      
+      // Hapus file lama jika ada
+      if(oldId && oldId !== "") {
+        try { DriveApp.getFileById(oldId).setTrashed(true); } catch(e){}
+      }
+
+      // Simpan ID baru
+      if(rowIdx !== -1) {
+        sheetSet.getRange(rowIdx, 2).setValue(newId);
+      } else {
+        sheetSet.appendRow([key, newId]);
+      }
+    };
 
     // 3. Tentukan Template ID (HARDCODED)
     let templateId = '';
-    
     if (tipe === 'PKS') {
-       // --- ID TEMPLATE TERTANAM DISINI ---
        templateId = '1eURvpy7nplm6wUlvgEhZJDCI0SaI1EqiURnARaTaDsY'; 
     } 
-    // Jika nanti ada tab lain (Kuitansi, SPTJB, dll), tambahkan else if disini
 
     if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan dalam sistem.' };
 
@@ -3679,22 +3711,18 @@ function generateBerkasPencairan(token, tipe, formData) {
 
     // --- LOGIKA REPLACE KHUSUS PKS ---
     if (tipe === 'PKS') {
-      
-      // 1. DATA SEKOLAH LENGKAP (.B & .K)
       const namaSekolahRaw = formData.namaLengkap || "";
       safeReplace('<<Nama Sekolah Lengkap.B>>', namaSekolahRaw.toUpperCase());
       safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(namaSekolahRaw));
       safeReplace('<<Nama Sekolah Lengkap>>', namaSekolahRaw);
 
-      // 2. DATA NAMA KAMAD (.B & .K)
       const namaKamadRaw = ds.namaKepala || "";
       safeReplace('<<Nama Kamad.B>>', namaKamadRaw.toUpperCase());
       safeReplace('<<Nama Kamad.K>>', toTitleCase(namaKamadRaw));
       safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
 
-      // 3. DATA LAINNYA
       safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
-      safeReplace('<<Nama Dana BOS>>', formData.danaBos);
+      safeReplace('<<Nama Dana BOS>>', formData.danaBOS); // Typo di form input fix
       safeReplace('<<Alamat Lengkap Madrasah>>', formData.alamat);
       
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
@@ -3711,15 +3739,37 @@ function generateBerkasPencairan(token, tipe, formData) {
 
     doc.saveAndClose();
 
-    // 5. Convert ke PDF
+    // 5. Convert ke PDF & Simpan Master Doc
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    const pdfName = tipe + '_' + ds.namaSekolah + '.pdf';
-    const pdfFile = folder.createFile(pdfBlob).setName(pdfName);
+    const fileNameBase = tipe + '_' + ds.namaSekolah;
+    
+    // A. Simpan File PDF
+    const pdfFile = folder.createFile(pdfBlob).setName(fileNameBase + '.pdf');
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    tempDocFile.setTrashed(true);
+    // B. Simpan File Doc (Untuk Unduh Word) - Jangan ditrash, tapi pindahkan ke folder
+    const docFile = DriveApp.getFileById(tempDocFile.getId());
+    docFile.setName(fileNameBase + ' (Master).docx'); // Rename biar jelas
+    docFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Pindahkan Doc ke folder yang sama dengan PDF
+    try {
+      folder.addFile(docFile);
+      DriveApp.getRootFolder().removeFile(docFile);
+    } catch(e) {}
 
-    return { status: 'success', url: pdfFile.getUrl() };
+    // 6. Simpan ID File ke Database
+    if (tipe === 'PKS') {
+        updateOutputId('OUTPUT_ID_PKS_PDF', pdfFile.getId());
+        updateOutputId('OUTPUT_ID_PKS_DOC', docFile.getId());
+    }
+
+    return { 
+      status: 'success', 
+      url: pdfFile.getUrl(),
+      pdfId: pdfFile.getId(),
+      docId: docFile.getId()
+    };
 
   } catch (e) {
     return { status: 'error', message: e.toString() };
