@@ -3507,3 +3507,37 @@ function getAllPendukungData(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- TAMBAHKAN FUNGSI INI DI Kode.gs --- */
+
+function hapusLogoSampul(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    if (!sheet) return { status: 'success', message: 'Data sudah bersih.' };
+
+    const data = sheet.getDataRange().getValues();
+    
+    // Loop cari key COVER_LOGO_ID
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'COVER_LOGO_ID') {
+        const fileId = data[i][1];
+        
+        // 1. Hapus File di Google Drive (Jika ada)
+        if (fileId) {
+          try { DriveApp.getFileById(fileId).setTrashed(true); } catch(e) {}
+        }
+        
+        // 2. Hapus Baris di Spreadsheet
+        sheet.deleteRow(i + 1);
+        
+        return { status: 'success', message: 'Logo berhasil dihapus.' };
+      }
+    }
+    return { status: 'success', message: 'Tidak ada logo tersimpan.' };
+    
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
