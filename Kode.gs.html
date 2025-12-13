@@ -3056,3 +3056,235 @@ function getDataVerifikasi(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- [BARU] LOGIKA GENERATE DOKUMEN PENDUKUNG (COVER, SP, VERIFIKASI) --- */
+
+// 1. Simpan Pengaturan Template Pendukung (ID Google Docs)
+function simpanSettingDokumenPendukung(token, settings) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    
+    const updateOrInsert = (key, val) => {
+      let found = false;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          sheet.getRange(i + 1, 2).setValue(val);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sheet.appendRow([key, val]);
+    };
+
+    updateOrInsert('TEMPLATE_ID_COVER_1', settings.cover1);
+    updateOrInsert('TEMPLATE_ID_COVER_2', settings.cover2);
+    updateOrInsert('TEMPLATE_ID_SP', settings.sp);
+    updateOrInsert('TEMPLATE_ID_VERIFIKASI', settings.verif);
+
+    return { status: 'success', message: 'ID Template berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Ambil Pengaturan Template Pendukung
+function getSettingDokumenPendukung(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    let res = { cover1: '', cover2: '', sp: '', verif: '' };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === 'TEMPLATE_ID_COVER_1') res.cover1 = data[i][1];
+        if (data[i][0] === 'TEMPLATE_ID_COVER_2') res.cover2 = data[i][1];
+        if (data[i][0] === 'TEMPLATE_ID_SP') res.sp = data[i][1];
+        if (data[i][0] === 'TEMPLATE_ID_VERIFIKASI') res.verif = data[i][1];
+      }
+    }
+    return { status: 'success', data: res };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 3. GENERATE PDF DOKUMEN PENDUKUNG (FINAL UPDATE: LOGIKA NIP OTOMATIS)
+function generateDokumenPendukung(token, tipe, formData) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Ambil Data Sekolah
+    let ds = {};
+    const sheetSekolah = ss.getSheetByName('DataSekolah');
+    if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
+      const d = sheetSekolah.getRange(2, 1, 1, 19).getValues()[0];
+      ds = {
+        namaSekolah: d[0], npsn: String(d[1]).replace(/'/g,''), nsm: String(d[2]).replace(/'/g,''),
+        alamat: d[3], provinsi: d[4], kabupaten: d[5], kecamatan: d[6], kelurahan: d[7], tempatTTD: d[8],
+        namaKepala: d[9], nipKepala: String(d[10]).replace(/'/g,''), 
+        namaBendahara: d[11], nipBendahara: String(d[12]).replace(/'/g,''),
+        danaBOS: d[15], tahunAnggaran: d[17], periodeAnggaran: d[18]
+      };
+    }
+
+    // 2. Ambil Pengaturan Template & Gambar
+    let templateId = '';
+    let coverLogoId = null;
+    let kopSuratId = null;
+
+    const sheetSet = ss.getSheetByName('DataPengaturan');
+    if (sheetSet) {
+      const dataSet = sheetSet.getDataRange().getValues();
+      let settingsMap = {};
+      dataSet.forEach(row => settingsMap[row[0]] = row[1]);
+
+      if (tipe === 'COVER') {
+        templateId = (formData.desain === '2') ? settingsMap['TEMPLATE_ID_COVER_2'] : settingsMap['TEMPLATE_ID_COVER_1'];
+        coverLogoId = settingsMap['COVER_LOGO_ID'];
+      } else if (tipe === 'SP') {
+        templateId = settingsMap['TEMPLATE_ID_SP'];
+        kopSuratId = settingsMap['KOP_SURAT_ID'];
+      } else if (tipe === 'VERIFIKASI') {
+        templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'];
+      }
+    }
+
+    if (!templateId) return { status: 'error', message: 'ID Template belum diatur di menu pengaturan.' };
+
+    // 3. Proses Template
+    const templateFile = DriveApp.getFileById(templateId);
+    const tempDocFile = templateFile.makeCopy('TEMP_' + tipe + '_' + new Date().getTime());
+    const doc = DocumentApp.openById(tempDocFile.getId());
+    const body = doc.getBody();
+    
+    // --- HELPER UTILS ---
+    const safeReplace = (key, val) => body.replaceText(key, val || '-');
+
+    // Helper Format NIP (Logika Permintaan User)
+    const formatNipLengkap = (val) => {
+        // Jika ada isi dan bukan strip
+        if (val && String(val).trim() !== "" && String(val).trim() !== "-") {
+            return "NIP. " + String(val).trim();
+        }
+        // Jika kosong
+        return "NIP.";
+    };
+
+    // Helper Replace Gambar
+    const replaceWithImage = (placeholder, imageId) => {
+      if (imageId) {
+        try {
+          const imgFile = DriveApp.getFileById(imageId);
+          const imgBlob = imgFile.getBlob();
+          let searchResult = body.findText(placeholder);
+          if (!searchResult) {
+             const header = doc.getHeader();
+             if(header) searchResult = header.findText(placeholder);
+          }
+          if (searchResult) {
+            const textElement = searchResult.getElement();
+            const parent = textElement.getParent();
+            textElement.removeFromParent();
+            const img = parent.asParagraph().insertInlineImage(0, imgBlob);
+            const width = img.getWidth();
+            const height = img.getHeight();
+            if (width > 600) {
+               const newWidth = 600; const newHeight = (height / width) * newWidth;
+               img.setWidth(newWidth); img.setHeight(newHeight);
+            }
+          }
+        } catch(err) { body.replaceText(placeholder, ''); }
+      } else { body.replaceText(placeholder, ''); }
+    };
+
+    // --- REPLACE DATA UMUM ---
+    safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
+    safeReplace('<<NSM>>', ds.nsm);
+    safeReplace('<<NPSN>>', ds.npsn);
+    safeReplace('<<Alamat Lengkap Sekolah>>', (ds.alamat||'') + ', ' + (ds.kelurahan||'') + ', ' + (ds.kecamatan||'') + ', ' + (ds.kabupaten||''));
+    safeReplace('<<Alamat Sekolah>>', ds.alamat);
+    safeReplace('<<Kecamatan>>', ds.kecamatan);
+    safeReplace('<<Kabupaten>>', ds.kabupaten);
+    safeReplace('<<Provinsi>>', ds.provinsi);
+    safeReplace('<<Kelurahan>>', ds.kelurahan);
+    safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+    safeReplace('<<Periode>>', ds.periodeAnggaran);
+    
+    // Pejabat Sekolah (Global)
+    safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
+    // GUNAKAN FORMAT NIP BARU DISINI
+    safeReplace('<<NIP Kepala Sekolah>>', formatNipLengkap(ds.nipKepala)); 
+
+    // --- LOGIKA KHUSUS ---
+    if (tipe === 'COVER') {
+        safeReplace('<<Header>>', formData.header);
+        safeReplace('<<Judul>>', formData.judul);
+        safeReplace('<<Keterangan Periode>>', formData.periode);
+        replaceWithImage('<<LOGO>>', coverLogoId);
+        replaceWithImage('<<KOP SURAT>>', coverLogoId); 
+    
+    } else if (tipe === 'SP') {
+        safeReplace('<<Nomor Surat>>', formData.nomor);
+        safeReplace('<<Tempat TTD>>', formData.tempat);
+        const tglIndo = formatTanggalIndo(formData.tanggal);
+        safeReplace('<<Tanggal Surat>>', tglIndo);
+        replaceWithImage('<<KOP SURAT>>', kopSuratId);
+
+    } else if (tipe === 'VERIFIKASI') {
+        // Helper Nama Kosong -> Garis Bawah
+        const fmtNama = (val) => (val && val.trim() !== "") ? val : "_______________________";
+
+        // VERIFIKATOR 1
+        safeReplace('<<Nama Verifikator 1>>', fmtNama(formData.verifikator1.nama));
+        safeReplace('<<NIP Verifikator 1>>', formatNipLengkap(formData.verifikator1.nip));
+        
+        // VERIFIKATOR 2
+        safeReplace('<<Nama Verifikator 2>>', fmtNama(formData.verifikator2.nama));
+        safeReplace('<<NIP Verifikator 2>>', formatNipLengkap(formData.verifikator2.nip));
+        
+        // PENGAWAS
+        safeReplace('<<Nama Pengawas>>', fmtNama(formData.pengawas.nama));
+        safeReplace('<<NIP Pengawas>>', formatNipLengkap(formData.pengawas.nip));
+
+        // TABEL DINAMIS
+        const items = formData.rows || [];
+        const tables = body.getTables();
+        tables.forEach(table => {
+          let rowIndexTemplate = -1;
+          for (let r = 0; r < table.getNumRows(); r++) {
+            if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
+              rowIndexTemplate = r; break; 
+            }
+          }
+          if (rowIndexTemplate !== -1) {
+            const templateRow = table.getRow(rowIndexTemplate);
+            items.forEach((itemText, index) => {
+               const newRow = table.insertTableRow(rowIndexTemplate + index, templateRow.copy());
+               try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){} 
+               try { newRow.getCell(1).setText(itemText); } catch(e){} 
+               newRow.replaceText('<<TABLE_ROW>>', '');
+            });
+            table.removeRow(rowIndexTemplate + items.length);
+          }
+        });
+    }
+
+    doc.saveAndClose();
+
+    const pdfBlob = tempDocFile.getAs(MimeType.PDF);
+    const pdfName = 'Dokumen_' + tipe + '_' + ds.namaSekolah + '.pdf';
+    const pdfFile = DriveApp.createFile(pdfBlob).setName(pdfName);
+    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    tempDocFile.setTrashed(true);
+
+    return { status: 'success', url: pdfFile.getUrl() };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
+  }
+}
