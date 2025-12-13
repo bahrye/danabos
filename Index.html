@@ -9117,28 +9117,55 @@
         };
       }
 
-      /* --- LOAD & SIMPAN DATA COVER --- */
+      /* --- LOAD & SIMPAN DATA COVER (PERIODE TERKUNCI TOTAL SEJAK AWAL) --- */
       function loadCoverData(token) {
-        // Placeholder loading
+        // Visual loading state
         document.getElementById('logoPreviewCover').style.opacity = '0.5';
         document.getElementById('inpHeaderCover').placeholder = "Memuat...";
         
-        google.script.run.withSuccessHandler(function(res) {
-          document.getElementById('logoPreviewCover').style.opacity = '1';
+        // 1. KUNCI INPUT PERIODE SEJAK AWAL (Bahkan saat Loading)
+        const inputPeriode = document.getElementById('inpPeriodeCover');
+        inputPeriode.value = ""; // Kosongkan nilai lama
+        inputPeriode.placeholder = "Memuat otomatis...";
+        inputPeriode.readOnly = true; // Langsung kunci agar tidak bisa diklik/edit
+        inputPeriode.classList.add('bg-light'); // Beri warna abu-abu (visual disabled)
+
+        // 2. AMBIL DATA SEKOLAH TERLEBIH DAHULU (Untuk Dapatkan Periode)
+        google.script.run.withSuccessHandler(function(resSekolah) {
           
-          if(res.status === 'success') {
-            const d = res.data;
-            // 1. Load Logo
-            if(d.logoId) {
-              const url = "https://drive.google.com/thumbnail?id=" + d.logoId + "&sz=w400";
-              document.getElementById('logoPreviewCover').src = url;
+          // Ambil Periode dari Data Sekolah
+          const dataSekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+          const periodeOtomatis = dataSekolah.periodeAnggaran || "";
+
+          // 3. SETELAH ITU BARU AMBIL PENGATURAN COVER (Untuk Logo & Judul)
+          google.script.run.withSuccessHandler(function(res) {
+            document.getElementById('logoPreviewCover').style.opacity = '1';
+            document.getElementById('inpHeaderCover').placeholder = "Contoh: YAYASAN...";
+
+            if (res.status === 'success') {
+              const d = res.data;
+              
+              // A. Load Logo
+              if (d.logoId) {
+                const url = "https://drive.google.com/thumbnail?id=" + d.logoId + "&sz=w400";
+                document.getElementById('logoPreviewCover').src = url;
+              }
+
+              // B. Load Teks Header & Judul (Masih Bisa Diedit)
+              if (d.headerText) document.getElementById('inpHeaderCover').value = d.headerText;
+              if (d.titleText) document.getElementById('inpJudulCover').value = d.titleText;
+
+              // C. ISI NILAI PERIODE (TETAP TERKUNCI)
+              inputPeriode.value = periodeOtomatis;
+              
+              // Jika data sekolah belum disetting
+              if (!periodeOtomatis) {
+                  inputPeriode.placeholder = "Periode belum disetting di Menu Data Sekolah";
+              }
             }
-            // 2. Load Teks Input
-            if(d.headerText) document.getElementById('inpHeaderCover').value = d.headerText;
-            if(d.titleText) document.getElementById('inpJudulCover').value = d.titleText;
-            if(d.periodText) document.getElementById('inpPeriodeCover').value = d.periodText;
-          }
-        }).getCoverSettings(token);
+          }).getCoverSettings(token);
+
+        }).getDataSekolah(token);
       }
 
       function simpanDataCover() {
@@ -9519,25 +9546,55 @@
         else Swal.fire('Error', 'Link PDF tidak ditemukan. Silakan generate ulang.', 'error');
       }
 
-      /* --- LOAD & SIMPAN DATA SURAT PENGANTAR --- */
+      /* --- LOAD & SIMPAN DATA SURAT PENGANTAR (TEMPAT TTD TERKUNCI TOTAL SEJAK AWAL) --- */
       function loadDataSP(token) {
-        document.getElementById('spNomor').placeholder = "Memuat...";
+        // 1. KUNCI INPUT TEMPAT TTD SEJAK AWAL (Bahkan saat Loading)
+        const inputNomor = document.getElementById('spNomor');
+        const inputTempat = document.getElementById('spTempat');
+
+        inputNomor.placeholder = "Memuat...";
         
-        google.script.run.withSuccessHandler(function(res) {
-          if(res.status === 'success') {
-            const d = res.data;
-            if(d.nomor) document.getElementById('spNomor').value = d.nomor;
-            if(d.tempat) document.getElementById('spTempat').value = d.tempat;
-            
-            if(d.tanggal) {
-              document.getElementById('spTanggal').value = d.tanggal;
-            } else {
-              // Default hari ini jika kosong
-              document.getElementById('spTanggal').valueAsDate = new Date();
-            }
+        // Reset & Kunci Tempat TTD
+        inputTempat.value = ""; 
+        inputTempat.placeholder = "Memuat otomatis...";
+        inputTempat.readOnly = true; // Langsung kunci
+        inputTempat.classList.add('bg-light'); // Beri warna abu-abu
+
+        // 2. AMBIL DATA SEKOLAH TERLEBIH DAHULU (Untuk Dapatkan Tempat Default)
+        google.script.run.withSuccessHandler(function(resSekolah) {
+          
+          // Ambil Tempat TTD dari Data Sekolah
+          const dataSekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+          const tempatDefault = dataSekolah.tempatTTD || "";
+
+          // Isi nilai Tempat TTD (Tetap Terkunci)
+          inputTempat.value = tempatDefault;
+          
+          if (!tempatDefault) {
+              inputTempat.placeholder = "Tempat TTD belum disetting di Data Sekolah";
           }
-          document.getElementById('spNomor').placeholder = "Contoh: 001/MTs.../...";
-        }).getDataSuratPengantar(token);
+
+          // 3. AMBIL DATA SURAT PENGANTAR (Untuk Nomor & Tanggal)
+          google.script.run.withSuccessHandler(function(res) {
+            if (res.status === 'success') {
+              const d = res.data;
+              
+              // Isi Nomor Surat (Bisa diedit)
+              if (d.nomor) inputNomor.value = d.nomor;
+              
+              // Isi Tanggal
+              if (d.tanggal) {
+                document.getElementById('spTanggal').value = d.tanggal;
+              } else {
+                // Default hari ini jika kosong
+                document.getElementById('spTanggal').valueAsDate = new Date();
+              }
+            }
+            inputNomor.placeholder = "Contoh: 001/MTs.../...";
+            
+          }).getDataSuratPengantar(token);
+
+        }).getDataSekolah(token);
       }
 
       function simpanDataSP() {
