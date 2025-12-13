@@ -9270,38 +9270,37 @@
          }).getDataVerifikasi(token);
       }
 
-      /* --- UPDATE: GENERATE PDF DENGAN KONFIRMASI REPLACE --- */
+      /* --- UPDATE: GENERATE PDF DENGAN KONFIRMASI REPLACE & ERROR HANDLING --- */
       function generatePdfPendukung(tipe) {
         const token = localStorage.getItem('userToken');
         let formData = {};
 
-        // Validasi & Ambil Data (Sama seperti kode sebelumnya)
+        // Validasi & Ambil Data
         if (tipe === 'COVER') {
           formData.desain = document.getElementById('coverDesignSelect').value;
           formData.header = document.getElementById('inpHeaderCover').value;
           formData.judul = document.getElementById('inpJudulCover').value;
           formData.periode = document.getElementById('inpPeriodeCover').value;
-        } 
-        else if (tipe === 'SP') {
+        } else if (tipe === 'SP') {
           formData.nomor = document.getElementById('spNomor').value;
           formData.tempat = document.getElementById('spTempat').value;
           formData.tanggal = document.getElementById('spTanggal').value;
-          if(!formData.nomor) return Swal.fire('Error', 'Nomor Surat wajib diisi', 'warning');
-        } 
-        else if (tipe === 'VERIFIKASI') {
-          formData.verifikator1 = { 
-            nama: document.getElementById('vfNama1').value, 
-            nip: document.getElementById('vfNip1').value 
+          if (!formData.nomor) return Swal.fire('Error', 'Nomor Surat wajib diisi', 'warning');
+        } else if (tipe === 'VERIFIKASI') {
+          formData.verifikator1 = {
+            nama: document.getElementById('vfNama1').value,
+            nip: document.getElementById('vfNip1').value
           };
-          formData.verifikator2 = { 
-            nama: document.getElementById('vfNama2').value, 
-            nip: document.getElementById('vfNip2').value 
+          formData.verifikator2 = {
+            nama: document.getElementById('vfNama2').value,
+            nip: document.getElementById('vfNip2').value
           };
-          formData.pengawas = { 
-            nama: document.getElementById('vfNamaPengawas').value, 
-            nip: document.getElementById('vfNipPengawas').value 
+          formData.pengawas = {
+            nama: document.getElementById('vfNamaPengawas').value,
+            nip: document.getElementById('vfNipPengawas').value
           };
-          formData.rows = verifItems; 
+          formData.rows = verifItems;
+          // Simpan data verifikasi ke DB secara async agar tersimpan
           google.script.run.simpanDataVerifikasi(token, formData);
         }
 
@@ -9332,44 +9331,92 @@
           cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
-              
-              // Tampilkan Loading
-              Swal.fire({
-                title: 'Memproses...',
-                html: 'Sedang membuat PDF dan menyimpannya ke folder...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-              });
 
-              // Panggil Backend
-              google.script.run
-                .withFailureHandler(function(err){
-                  Swal.fire('Gagal', err.message, 'error');
-                })
-                .withSuccessHandler(function(res){
-                  if(res.status === 'success') {
-                      
-                      // --- UPDATE UI TOMBOL SETELAH SUKSES ---
-                      if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
-                      if (tipe === 'SP') updateBtnView('btnViewSp', 'urlPdfSp', res.fileId);
-                      if (tipe === 'VERIFIKASI') updateBtnView('btnViewVerif', 'urlPdfVerif', res.fileId);
-                      // ---------------------------------------
+            // Tampilkan Loading
+            Swal.fire({
+              title: 'Memproses...',
+              html: 'Sedang membuat PDF dan menyimpannya ke folder...',
+              allowOutsideClick: false,
+              didOpen: () => Swal.showLoading()
+            });
 
-                      Swal.fire({
-                        icon: 'success', 
-                        title: 'Berhasil',
-                        text: 'Dokumen tersimpan di Folder Generate Tambahan.',
-                        confirmButtonText: 'Buka PDF',
-                        showCancelButton: true,
-                        cancelButtonText: 'Tutup'
-                      }).then((r) => {
-                        if(r.isConfirmed) window.open(res.url, '_blank');
-                      });
-                  } else {
-                      Swal.fire('Error', res.message, 'error');
-                  }
-                })
-                .generateDokumenPendukung(token, tipe, formData);
+            // Panggil Backend
+            google.script.run
+              .withFailureHandler(function(err) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Terputus',
+                  text: 'Gagal menghubungi server: ' + err.message,
+                  confirmButtonColor: '#d33'
+                });
+              })
+              .withSuccessHandler(function(res) {
+                if (res.status === 'success') {
+
+                  // --- UPDATE UI TOMBOL SETELAH SUKSES ---
+                  if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
+                  if (tipe === 'SP') updateBtnView('btnViewSp', 'urlPdfSp', res.fileId);
+                  if (tipe === 'VERIFIKASI') updateBtnView('btnViewVerif', 'urlPdfVerif', res.fileId);
+
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Dokumen tersimpan di Folder Generate Tambahan.',
+                    confirmButtonText: 'Buka PDF',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup'
+                  }).then((r) => {
+                    if (r.isConfirmed) window.open(res.url, '_blank');
+                  });
+
+                } else if (res.status === 'error_template') {
+
+                  // --- [TAMPILAN ERROR KHUSUS TEMPLATE] ---
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Generate!',
+                    html: `
+                      <div style="text-align: left; font-size: 0.9rem; color: #333;">
+                        <div style="background: #fff5f5; border-left: 4px solid #dc3545; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                          <strong style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Masalah:</strong><br> ${res.message}
+                        </div>
+                        <p class="mb-2" style="font-size: 0.85rem;">${res.detail}</p>
+                        
+                        <div style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                          <p class="small text-muted mb-1 fw-bold">
+                            <i class="fas fa-lightbulb text-warning"></i> Kemungkinan Penyebab:
+                          </p>
+                          <ul class="small text-muted mb-0" style="padding-left: 20px;">
+                            <li>ID File Template salah ketik / tidak lengkap.</li>
+                            <li>File Google Doc asli sudah dihapus.</li>
+                            <li>Akses file belum diatur ke <i>"Anyone with the link can view"</i>.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-cog me-1"></i> Perbaiki ID Template',
+                    cancelButtonText: 'Tutup',
+                    confirmButtonColor: '#ffc107', // Warna Kuning Warning
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true
+                  }).then((resultErr) => {
+                    if (resultErr.isConfirmed) {
+                      // INTERAKTIF: Otomatis pindah ke tab Setting Template
+                      bukaSubTab('setting-doc');
+                    }
+                  });
+
+                } else {
+                  // Error umum lainnya
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: res.message
+                  });
+                }
+              })
+              .generateDokumenPendukung(token, tipe, formData);
           }
         });
       }
