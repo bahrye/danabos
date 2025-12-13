@@ -3453,3 +3453,57 @@ function getDokumenPendukungStatus(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI AGREGATOR: AMBIL SEMUA DATA PENDUKUNG SEKALIGUS --- */
+function getAllPendukungData(token) {
+  try {
+    // 1. Ambil Data Sekolah (Untuk Default Value)
+    const resSekolah = getDataSekolah(token);
+    const sekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+
+    // 2. Ambil Setting Cover
+    const resCover = getCoverSettings(token);
+    const cover = (resCover.status === 'success') ? resCover.data : {};
+
+    // 3. Ambil Opsi Desain Cover (System + Custom)
+    const resDesain = getCoverTemplateList(token);
+    const desain = (resDesain.status === 'success') ? resDesain : { system: [], userCustomId: '' };
+
+    // 4. Ambil Data Surat Pengantar
+    const resSP = getDataSuratPengantar(token);
+    const sp = (resSP.status === 'success') ? resSP.data : {};
+
+    // 5. Ambil Data Verifikasi
+    const resVerif = getDataVerifikasi(token); // Mengembalikan {verifikator1, verifikator2, pengawas, rows}
+    
+    // Perbaikan format Data Verifikasi agar konsisten
+    let verifData = null;
+    if (resVerif.status === 'success' && resVerif.data) {
+       verifData = resVerif.data;
+    }
+
+    // 6. Ambil Setting ID Template (Docs)
+    const resDoc = getSettingDokumenPendukung(token);
+    const docSettings = (resDoc.status === 'success') ? resDoc.data : {};
+
+    // 7. Ambil Status File PDF (Sudah generate atau belum)
+    const resStatus = getDokumenPendukungStatus(token);
+    const fileStatus = (resStatus.status === 'success') ? resStatus.data : {};
+
+    return {
+      status: 'success',
+      data: {
+        sekolah: sekolah,
+        cover: cover,
+        desain: desain,
+        sp: sp,
+        verif: verifData,
+        docSettings: docSettings,
+        fileStatus: fileStatus
+      }
+    };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
