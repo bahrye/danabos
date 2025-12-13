@@ -1229,6 +1229,12 @@
                 <i class="fas fa-file-signature me-2"></i> Cetak Pendukung
               </a>
             </li>
+
+            <li class="nav-item">
+              <a onclick="navigasiKe('panel-berkas-pencairan', this)" class="nav-link" style="cursor: pointer;">
+                <i class="fas fa-file-invoice-dollar me-2"></i> Berkas Pencairan
+              </a>
+            </li>
             
             <li class="nav-item mt-2"><small class="text-secondary ms-3 text-uppercase" style="font-size:0.7rem; letter-spacing:1px;">Akun</small></li>
 
@@ -3264,6 +3270,131 @@
 
           </div>
 
+          <div id="panel-berkas-pencairan" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-file-invoice-dollar text-primary"></i> Berkas Pencairan Dana</h2>
+
+            <ul class="nav nav-tabs nav-tabs-scrollable mb-4">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-pencairan-pks" onclick="bukaTabPencairan('pks')">
+                  <i class="fas fa-handshake me-2"></i> PKS
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-muted" disabled>
+                  <i class="fas fa-envelope me-2"></i> Permohonan
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-muted" disabled>
+                  <i class="fas fa-receipt me-2"></i> Kuitansi
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-muted" disabled>
+                  <i class="fas fa-file-contract me-2"></i> SPTJB
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-muted" disabled>
+                  <i class="fas fa-file-signature me-2"></i> SPTJM
+                </button>
+              </li>
+            </ul>
+
+            <div id="view-pencairan-pks" class="view-pencairan">
+              <div class="row">
+                <div class="col-lg-8 mx-auto">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-primary text-white py-3">
+                      <h5 class="mb-0 fw-bold"><i class="fas fa-handshake me-2"></i> Perjanjian Kerja Sama (PKS)</h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                      <form id="formPks" onsubmit="generatePks(event)">
+                        
+                        <h6 class="text-secondary fw-bold border-bottom pb-2 mb-3">Data Sekolah (Dapat Diedit)</h6>
+                        
+                        <div class="row mb-3">
+                          <div class="col-md-6">
+                            <label class="form-label small text-muted">Nama Sekolah Lengkap</label>
+                            <input type="text" class="form-control" id="pksNamaLengkap" required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label small text-muted">Nama Kamad (Dari Database)</label>
+                            <input type="text" class="form-control bg-light" id="pksKamad" readonly>
+                          </div>
+                        </div>
+
+                        <div class="row mb-3">
+                          <div class="col-md-6">
+                            <label class="form-label small text-muted">Nama Dana BOS</label>
+                            <input type="text" class="form-control" id="pksDanaBos">
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small text-muted">Tahun</label>
+                            <input type="text" class="form-control bg-light" id="pksTahun" readonly>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small text-muted">Jumlah Dana</label>
+                            <input type="text" class="form-control bg-light fw-bold text-success" id="pksJumlah" readonly>
+                          </div>
+                        </div>
+
+                        <div class="mb-4">
+                          <label class="form-label small text-muted">Alamat Lengkap Madrasah</label>
+                          <textarea class="form-control" id="pksAlamat" rows="2"></textarea>
+                        </div>
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">Input Data PKS</h6>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Nama Sekolah Singkat</label>
+                          <input type="text" class="form-control" id="pksNamaSingkat" 
+                                 placeholder="Contoh: MTS TANUNTUNG" 
+                                 style="text-transform: uppercase;"
+                                 oninput="this.value = this.value.toUpperCase()" 
+                                 required>
+                        </div>
+
+                        <div class="row mb-3">
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Nomor PKS</label>
+                            <input type="text" class="form-control" id="pksNomorPks" placeholder="Nomor Perjanjian..." required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Nomor Surat Madrasah</label>
+                            <input type="text" class="form-control" id="pksNomorSurat" placeholder="Nomor Surat Keluar..." required>
+                          </div>
+                        </div>
+
+                        <div class="row mb-3">
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Nomor Rekening</label>
+                            <input type="text" class="form-control font-monospace" id="pksNoRek" placeholder="0000-00-..." required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Atas Nama Rekening</label>
+                            <input type="text" class="form-control" id="pksNamaRek" placeholder="Sesuai Buku Tabungan" required>
+                          </div>
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                          <button type="button" class="btn btn-outline-primary flex-grow-1" onclick="simpanDataPksSaja()">
+                            <i class="fas fa-save me-2"></i> Simpan Data Saja
+                          </button>
+                          <button type="submit" class="btn btn-success flex-grow-1">
+                            <i class="fas fa-print me-2"></i> Simpan & Generate PDF
+                          </button>
+                        </div>
+
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div id="panel-uraian" class="panel-content hidden">
             <h2 class="mb-4"><i class="fas fa-list-ul text-primary"></i> Data Uraian Pekerjaan</h2>
             
@@ -3704,6 +3835,7 @@
           // Panggil fungsi loader utama (Batch Load)
           loadAllPendukungData(); 
         }
+        if(panelId === 'panel-berkas-pencairan') bukaTabPencairan('pks');
       }
 
       /* --- LOGIKA APLIKASI --- */
@@ -10005,6 +10137,187 @@
         document.getElementById('tplCoverCustom').value = d.docSettings.coverCustom || '';
         document.getElementById('tplSp').value = d.docSettings.sp || '';
         document.getElementById('tplVerif').value = d.docSettings.verif || '';
+      }
+
+      /* --- LOGIKA BERKAS PENCAIRAN --- */
+
+      // 1. Fungsi Navigasi Tab
+      function bukaTabPencairan(tabName) {
+        // Reset Active State
+        document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.view-pencairan').forEach(el => el.classList.add('hidden'));
+
+        // Activate Selected
+        const btnId = 'tab-pencairan-' + tabName;
+        const viewId = 'view-pencairan-' + tabName;
+        
+        const btn = document.getElementById(btnId);
+        const view = document.getElementById(viewId);
+
+        if(btn) btn.classList.add('active');
+        if(view) view.classList.remove('hidden');
+
+        // Load Data Sesuai Tab
+        if(tabName === 'pks') loadPksData();
+      }
+
+      // [REVISI] Load Data PKS (Gabungan: Saved Data vs Default Data)
+      function loadPksData() {
+        const token = localStorage.getItem('userToken');
+        document.getElementById('pksNamaSingkat').placeholder = "Memuat...";
+
+        // 1. Ambil Data PKS yang Tersimpan (Prioritas 1)
+        google.script.run.withSuccessHandler(function(resPks){
+          const saved = (resPks.status === 'success') ? resPks.data : {};
+
+          // 2. Ambil Data Master Sekolah (Prioritas 2 / Default)
+          // Kita butuh data sekolah untuk fallback jika data PKS belum pernah disimpan
+          if(DATA_CACHE.sekolah) {
+             applyPksData(saved, DATA_CACHE.sekolah);
+          } else {
+             google.script.run.withSuccessHandler(function(resSekolah){
+               if(resSekolah.status === 'success') {
+                 DATA_CACHE.sekolah = resSekolah.data;
+                 applyPksData(saved, resSekolah.data);
+               }
+             }).getDataSekolah(token);
+          }
+        }).getDataPKS(token);
+      }
+
+      // [BARU] Fungsi Helper Penggabungan Data
+      function applyPksData(saved, defaults) {
+        
+        // A. DATA EDITABLE (Logika: Pakai Saved jika ada, jika tidak pakai Default)
+        
+        // 1. Nama Sekolah Lengkap
+        document.getElementById('pksNamaLengkap').value = saved.namaLengkap || defaults.namaSekolah || '';
+        
+        // 2. Dana BOS
+        document.getElementById('pksDanaBos').value = saved.danaBos || defaults.danaBOS || '';
+        
+        // 3. Alamat Lengkap
+        // Buat format alamat default yang rapi (bersihkan koma ganda jika ada data kosong)
+        let defaultAlamat = `${defaults.alamat || ''}, ${defaults.kelurahan || ''}, ${defaults.kecamatan || ''}, ${defaults.kabupaten || ''}, ${defaults.provinsi || ''}`;
+        // Regex untuk membersihkan ", , ," menjadi ","
+        defaultAlamat = defaultAlamat.replace(/^, |, $/g, '').replace(/, ,/g, ',').replace(/, ,/g, ',');
+        
+        document.getElementById('pksAlamat').value = saved.alamat || defaultAlamat;
+
+
+        // B. DATA MANUAL PKS (Murni dari saved)
+        document.getElementById('pksNamaSingkat').value = saved.namaSingkat || '';
+        document.getElementById('pksNomorPks').value = saved.nomorPks || '';
+        document.getElementById('pksNomorSurat').value = saved.nomorSurat || '';
+        document.getElementById('pksNoRek').value = saved.noRek || '';
+        document.getElementById('pksNamaRek').value = saved.namaRek || '';
+        
+        // C. DATA READONLY (Selalu dari Master Data Sekolah, tidak disimpan di PKS)
+        document.getElementById('pksKamad').value = defaults.namaKepala || '';
+        document.getElementById('pksTahun').value = defaults.tahunAnggaran || '';
+        
+        const jml = defaults.jumlahAnggaran || 0;
+        document.getElementById('pksJumlah').value = formatRupiahJS(jml);
+      }
+
+      // Helper Render Data Sekolah ke Form PKS
+      function renderDataSekolahToPks(d) {
+        document.getElementById('pksNamaLengkap').value = d.namaSekolah || '';
+        document.getElementById('pksKamad').value = d.namaKepala || '';
+        document.getElementById('pksDanaBos').value = d.danaBOS || '';
+        document.getElementById('pksTahun').value = d.tahunAnggaran || '';
+        
+        // Format Rupiah
+        const jml = d.jumlahAnggaran || 0;
+        document.getElementById('pksJumlah').value = formatRupiahJS(jml);
+
+        // Alamat Lengkap Komposit
+        const alamatFull = `${d.alamat || '-'}, ${d.kelurahan || '-'}, ${d.kecamatan || '-'}, ${d.kabupaten || '-'}, ${d.provinsi || '-'}`;
+        document.getElementById('pksAlamat').value = alamatFull;
+      }
+
+      // 3. Simpan Data PKS Saja
+      function simpanDataPksSaja() {
+        const token = localStorage.getItem('userToken');
+        const form = ambilFormPks();
+
+        toggleLoading(true, "Menyimpan Data...");
+        
+        google.script.run.withSuccessHandler(function(res){
+          toggleLoading(false);
+          if(res.status === 'success') {
+            Swal.fire({
+              toast: true, position: 'top-end', icon: 'success', 
+              title: 'Data PKS Disimpan', showConfirmButton: false, timer: 1500
+            });
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanDataPKS(token, form);
+      }
+
+      // 4. Generate PDF PKS (UPDATE: Hapus Validasi Template ID)
+      function generatePks(e) {
+        e.preventDefault();
+        const token = localStorage.getItem('userToken');
+        const form = ambilFormPks();
+
+        // VALIDASI TEMPLATE ID DIHAPUS KARENA SUDAH DI-SCRIPT
+
+        // 1. Simpan Data Dulu
+        google.script.run.simpanDataPKS(token, form);
+
+        // 2. Konfirmasi & Generate
+        Swal.fire({
+          title: 'Generate PKS?',
+          text: "Pastikan data sudah benar. File PDF akan dibuat.",
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Buat PDF',
+          confirmButtonColor: '#198754'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            
+            toggleLoading(true, "Membuat PDF PKS...");
+
+            google.script.run
+              .withFailureHandler(function(err){
+                 toggleLoading(false);
+                 Swal.fire('Gagal', err.message, 'error');
+              })
+              .withSuccessHandler(function(res){
+                 toggleLoading(false);
+                 if(res.status === 'success') {
+                   Swal.fire({
+                     icon: 'success', title: 'Berhasil!',
+                     text: 'Dokumen PKS telah dibuat.',
+                     confirmButtonText: 'Buka PDF'
+                   }).then(() => {
+                     window.open(res.url, '_blank');
+                   });
+                 } else {
+                   Swal.fire('Gagal', res.message, 'error');
+                 }
+              })
+              .generateBerkasPencairan(token, 'PKS', form);
+          }
+        });
+      }
+
+      // Helper Ambil Value Form PKS (UPDATE: Hapus templateId)
+      function ambilFormPks() {
+        return {
+          namaLengkap: document.getElementById('pksNamaLengkap').value,
+          danaBos: document.getElementById('pksDanaBos').value,
+          alamat: document.getElementById('pksAlamat').value,
+          
+          namaSingkat: document.getElementById('pksNamaSingkat').value,
+          nomorPks: document.getElementById('pksNomorPks').value,
+          nomorSurat: document.getElementById('pksNomorSurat').value,
+          noRek: document.getElementById('pksNoRek').value,
+          namaRek: document.getElementById('pksNamaRek').value
+          // templateId DIHAPUS
+        };
       }
 
     </script>
