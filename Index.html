@@ -2928,422 +2928,196 @@
                   <i class="fas fa-check-double me-2"></i> Lembar Verifikasi
                 </button>
               </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold text-danger" id="tab-sub-setting-doc" onclick="bukaSubTab('setting-doc')">
+                  <i class="fas fa-cog me-2"></i> Setting Template
+                </button>
+              </li>
             </ul>
+
+            <div id="view-sub-setting-doc" class="sub-view-section hidden">
+              <div class="card shadow-sm border-0">
+                <div class="card-header bg-danger text-white fw-bold">
+                  <i class="fas fa-cogs me-2"></i> Konfigurasi ID Template Google Docs
+                </div>
+                <div class="card-body">
+                  <div class="alert alert-warning small">
+                    <i class="fas fa-info-circle me-1"></i> Masukkan ID File Google Docs untuk masing-masing jenis dokumen. Pastikan akses file adalah "Anyone with link can view".
+                  </div>
+                  
+                  <form id="formSettingDocPendukung" onsubmit="simpanSettingDocPendukung(event)">
+                    <div class="mb-3">
+                      <label class="form-label fw-bold small">ID Template Cover Desain 1</label>
+                      <input type="text" class="form-control font-monospace" id="tplCover1" placeholder="ID Doc Cover 1...">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-bold small">ID Template Cover Desain 2</label>
+                      <input type="text" class="form-control font-monospace" id="tplCover2" placeholder="ID Doc Cover 2...">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-bold small">ID Template Surat Pengantar</label>
+                      <input type="text" class="form-control font-monospace" id="tplSp" placeholder="ID Doc Surat Pengantar...">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-bold small">ID Template Lembar Verifikasi</label>
+                      <input type="text" class="form-control font-monospace" id="tplVerif" placeholder="ID Doc Verifikasi...">
+                      <div class="form-text">Pastikan di dalam tabel template verifikasi ada baris dengan teks <code>&lt;&lt;TABLE_ROW&gt;&gt;</code>.</div>
+                    </div>
+
+                    <div class="text-end">
+                      <button type="submit" id="btnSimpanSetDoc" class="btn btn-primary"><i class="fas fa-save me-1"></i> Simpan ID Template</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
 
             <div id="view-sub-sampul" class="sub-view-section">
               <div class="row">
-                
-                <div class="col-lg-4 mb-4">
+                <div class="col-md-6 mx-auto">
                   <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold py-3">Pengaturan Sampul</div>
-                    <div class="card-body">
+                    <div class="card-body p-4">
+                      <h5 class="card-title text-primary fw-bold mb-4">Cetak Cover Laporan</h5>
                       
-                      <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Pilih Desain:</label>
-                        <div class="d-grid gap-2">
-                          <input type="radio" class="btn-check" name="desainSampul" id="ds1" value="design-v1" autocomplete="off" checked onchange="updatePreviewSampul()">
-                          <label class="btn btn-outline-dark text-start btn-sm" for="ds1">1. Klasik (Border Ganda)</label>
-
-                          <input type="radio" class="btn-check" name="desainSampul" id="ds2" value="design-v2" autocomplete="off" onchange="updatePreviewSampul()">
-                          <label class="btn btn-outline-success text-start btn-sm" for="ds2">2. Modern (Blok Hijau)</label>
-
-                          <input type="radio" class="btn-check" name="desainSampul" id="ds3" value="design-v3" autocomplete="off" onchange="updatePreviewSampul()">
-                          <label class="btn btn-outline-secondary text-start btn-sm" for="ds3">3. Minimalis (Clean)</label>
-
-                          <input type="radio" class="btn-check" name="desainSampul" id="ds4" value="design-v4" autocomplete="off" onchange="updatePreviewSampul()">
-                          <label class="btn btn-outline-dark text-start btn-sm" for="ds4">4. Formal (Garis Tegas)</label>
-                          
-                          <input type="radio" class="btn-check" name="desainSampul" id="ds5" value="design-v5" autocomplete="off" onchange="updatePreviewSampul()">
-                          <label class="btn btn-outline-primary text-start btn-sm" for="ds5">5. Kreatif (Bingkai Biru)</label>
-                        </div>
-                      </div>
-
-                      <hr>
-
-                      <div class="mb-3">
-                        <label class="form-label small fw-bold">Instansi / Kementerian</label>
-                        <input type="text" class="form-control form-control-sm" id="inpHeaderCover" value="KEMENTERIAN AGAMA" oninput="updatePreviewSampul()" placeholder="Contoh: YAYASAN PENDIDIKAN...">
-                      </div>
-
-                      <div class="mb-3">
-                        <label class="form-label small fw-bold">Judul Laporan</label>
-                        <input type="text" class="form-control form-control-sm" id="inpJudulCover" value="LAPORAN PENGGUNAAN DANA BOS" oninput="updatePreviewSampul()">
-                      </div>
-                      
-                      <div class="mb-3">
-                        <label class="form-label small fw-bold">Periode / Keterangan</label>
-                        <input type="text" class="form-control form-control-sm" id="inpPeriodeCover" placeholder="Contoh: (Januari s/d Juni 2025)" oninput="updatePreviewSampul()">
-                      </div>
-                      
-                      <div class="mb-3 p-2 border rounded bg-light">
-                        <label class="form-label small fw-bold mb-2">Logo Sampul</label>
-                        <div class="d-flex align-items-center mb-2">
-                          <img id="logoPreviewForm" src="https://i.imgur.com/WqGSzFl.png" class="me-2 border bg-white rounded" width="50" height="50" style="object-fit: contain;">
-                          <div class="w-100">
-                              <input class="form-control form-control-sm mb-1" type="file" id="fileLogoSampul" accept="image/*" onchange="previewLogoLocal(this)">
-                              <small class="text-muted d-block" style="font-size: 0.7rem;">*Klik tombol Simpan di bawah untuk upload permanen.</small>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="d-grid gap-2 mt-4">
-                        <button id="btnSimpanCover" class="btn btn-success btn-sm" onclick="simpanKonfigurasiSampul()">
-                          <i class="fas fa-save me-1"></i> Simpan Teks & Logo
-                        </button>
+                      <div class="mb-4 p-3 border rounded bg-light text-center">
+                        <label class="form-label small fw-bold mb-2">Logo Cover</label>
                         
-                        <button class="btn btn-info text-white" onclick="exportToWord('print-area', 'Cover_LPJ.doc', 'A4')">
-                          <i class="fas fa-file-word me-2"></i> Simpan Word
-                        </button>
-                        <button class="btn btn-primary" onclick="cetakHalamanIni()">
-                          <i class="fas fa-print me-2"></i> Cetak / Simpan PDF
-                        </button>
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-lg-8">
-                  <div class="card shadow-sm border-0 bg-light">
-                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Live Preview</span>
-                      <small class="text-muted">Kertas A4</small>
-                    </div>
-                    <div class="card-body p-0">
-                      
-                      <div class="sheet-container">
-                        <div id="print-area" class="sheet">
-                            <div id="cover-content" class="design-v1">
-                                </div>
+                        <div class="mb-2 d-flex justify-content-center align-items-center" style="height: 120px; background: white; border: 1px dashed #ccc;">
+                           <img id="logoPreviewCover" src="https://i.imgur.com/WqGSzFl.png" style="max-height: 100px; max-width: 100%; object-fit: contain;">
                         </div>
+
+                        <div class="input-group input-group-sm">
+                          <input type="file" class="form-control" id="fileLogoCover" accept="image/*" onchange="previewLogoLocal(this, 'logoPreviewCover')">
+                          <button class="btn btn-primary" type="button" onclick="uploadLogoCover()">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload
+                          </button>
+                        </div>
+                        <small class="text-muted" style="font-size: 0.7rem;">*Klik Upload agar logo tersimpan di server.</small>
+                      </div>
+                      <div class="mb-4">
+                        <label class="form-label fw-bold">Pilih Desain Template</label>
+                        <select class="form-select" id="coverDesignSelect">
+                          <option value="1">Desain 1 (Default)</option>
+                          <option value="2">Desain 2 (Alternatif)</option>
+                        </select>
                       </div>
 
+                      <div class="mb-3">
+                        <label class="form-label small text-muted">Header / Instansi</label>
+                        <input type="text" class="form-control" id="inpHeaderCover" value="KEMENTERIAN AGAMA" placeholder="Contoh: YAYASAN...">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small text-muted">Judul Laporan</label>
+                        <input type="text" class="form-control" id="inpJudulCover" value="LAPORAN PENGGUNAAN DANA BOS">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small text-muted">Periode / Keterangan</label>
+                        <input type="text" class="form-control" id="inpPeriodeCover" placeholder="(Januari - Juni 2025)">
+                      </div>
+
+                      <div class="d-grid mt-4">
+                        <button class="btn btn-success btn-lg" onclick="generatePdfPendukung('COVER')">
+                          <i class="fas fa-print me-2"></i> Cek Hasil (PDF)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
 
             <div id="view-sub-pengantar" class="sub-view-section hidden">
               <div class="row">
-                
-                <div class="col-lg-4 mb-4">
+                <div class="col-md-6 mx-auto">
                   <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold py-3 text-primary">
-                      <i class="fas fa-edit me-2"></i> Data Surat Pengantar
-                    </div>
-                    <div class="card-body">
+                    <div class="card-body p-4">
+                      <h5 class="card-title text-primary fw-bold mb-4">Cetak Surat Pengantar</h5>
                       
-                      <div class="alert alert-info py-2 mb-3" style="font-size: 0.8rem;">
-                        <i class="fas fa-magic me-1"></i>
-                        Isi surat dan tujuan akan dibuat otomatis berdasarkan data sekolah.
-                      </div>
-
                       <div class="mb-3">
-                        <label class="form-label small fw-bold">Nomor Surat</label>
-                        <input type="text" class="form-control" id="spNomor" placeholder="Contoh: 001/MTs.../..." oninput="updatePreviewPengantar()">
+                        <label class="form-label fw-bold">Nomor Surat</label>
+                        <input type="text" class="form-control" id="spNomor" placeholder="Contoh: 001/MTs.../...">
                       </div>
 
                       <div class="row">
                         <div class="col-md-6 mb-3">
-                          <label class="form-label small fw-bold">Tempat TTD</label>
-                          <input type="text" class="form-control" id="spTempat" oninput="updatePreviewPengantar()">
+                          <label class="form-label fw-bold">Tempat TTD</label>
+                          <input type="text" class="form-control" id="spTempat">
                         </div>
                         <div class="col-md-6 mb-3">
-                          <label class="form-label small fw-bold">Tanggal TTD</label>
-                          <input type="date" class="form-control" id="spTanggal" oninput="updatePreviewPengantar()">
+                          <label class="form-label fw-bold">Tanggal TTD</label>
+                          <input type="date" class="form-control" id="spTanggal">
                         </div>
                       </div>
 
-                      <div class="d-grid gap-2 mt-4">
-                        <button class="btn btn-success" onclick="simpanPengantarDatabase()">
-                          <i class="fas fa-cloud-upload-alt me-2"></i> Simpan Data
-                        </button>
-                        
-                        <button class="btn btn-info text-white" onclick="exportToWord('print-area-sp', 'Surat_Pengantar.doc', 'A4')">
-                          <i class="fas fa-file-word me-2"></i> Simpan Word
-                        </button>
-                        <button class="btn btn-primary" onclick="cetakHalamanIni()">
-                          <i class="fas fa-print me-2"></i> Cetak PDF
+                      <div class="d-grid mt-4">
+                        <button class="btn btn-success btn-lg" onclick="generatePdfPendukung('SP')">
+                          <i class="fas fa-print me-2"></i> Cek Hasil (PDF)
                         </button>
                       </div>
-
                     </div>
                   </div>
                 </div>
-
-                <div class="col-lg-8">
-                  <div class="card shadow-sm border-0 bg-light">
-                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-                      <span class="fw-bold small"><i class="fas fa-eye me-1"></i> Preview Surat Pengantar</span>
-                      <small class="text-muted">Kertas A4</small>
-                    </div>
-                    <div class="card-body p-0">
-                      
-                      <div class="sheet-container">
-                        <div id="print-area-sp" class="sheet" style="padding: 0; display: flex; flex-direction: column;">
-                          
-                          <div id="header-kop-container" style="width: 100%; text-align: center;">
-                            <img id="spKopImage" src="" style="width: 100%; height: auto; object-fit: contain; display: none;">
-                            <div id="spKopText" class="p-4 text-muted bg-light border-bottom" style="display:none; font-style: italic;">
-                              <i class="fas fa-image me-1"></i> [Kop Surat Belum Diupload di Menu Pengaturan]
-                            </div>
-                          </div>
-
-                          <div class="surat-body" style="padding: 5mm 15mm 15mm 15mm; flex-grow: 1;">
-                            
-                            <div class="text-center mb-4 mt-2">
-                              <span class="fw-bold fs-5" style="text-decoration: underline;">SURAT PENGANTAR</span><br>
-                              <span>Nomor Surat : <span id="prevSpNomor">...</span></span>
-                            </div>
-
-                            <div class="mb-4" style="text-align: left; width: 100%; margin-top: 20px;">
-                              Kepada<br>
-                              Yth. Kepala Kantor Kementerian Agama<br>
-                              Kabupaten <span class="dyn-kabupaten">...</span><br>
-                              c.q. Pejabat Pembuat Komitmen BOS<br>
-                              Kementerian Agama Kabupaten <span class="dyn-kabupaten">...</span><br>
-                              di <span class="dyn-kabupaten">...</span>
-                            </div>
-
-                            <table class="tbl-pengantar">
-                              <thead>
-                                <tr>
-                                  <th width="5%">No.</th>
-                                  <th width="45%">Jenis Surat</th>
-                                  <th width="20%">Banyaknya</th>
-                                  <th width="30%">Keterangan</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td class="text-center">1</td>
-                                  
-                                  <td style="text-align: justify; vertical-align: top;">
-                                    Laporan Pertanggungjawaban (LPJ) penggunaan dana BOS reguler <span id="prevSpNamaSekolah" class="fw-bold">...</span>, <span id="prevSpKelurahan">...</span>, Kecamatan <span id="prevSpKecamatan">...</span>, Kabupaten <span class="dyn-kabupaten">...</span>.
-                                  </td>
-                                  
-                                  <td class="text-center" style="vertical-align: top;">1 (Satu) Bendel</td>
-                                  
-                                  <td style="vertical-align: top;">Dikirimkan dengan hormat kepada bapak/ibu untuk diketahui sebagaimana mestinya.</td>
-                                </tr>
-                              </tbody>
-                            </table>
-
-                            <div class="signature-box">
-                              <div class="mb-1"><span id="prevSpTempat">...</span>, <span id="prevSpTanggal">...</span></div>
-                              <div class="fw-bold mb-5">Kepala Madrasah</div>
-                              <br><br>
-                              <div class="fw-bold text-decoration-underline mt-3 text-uppercase" id="prevSpKepala">...</div>
-                              <div>NIP. <span id="prevSpNip">...</span></div>
-                            </div>
-
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-
               </div>
             </div>
 
             <div id="view-sub-verifikasi" class="sub-view-section hidden">
               <div class="row">
-                <div class="col-lg-4 mb-4">
+                <div class="col-lg-10 mx-auto">
                   <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold py-3 text-primary">
-                      <i class="fas fa-user-edit me-2"></i> Data Pejabat Verifikasi
-                    </div>
-                    <div class="card-body">
-                      <div class="alert alert-warning py-2 small">
-                        <i class="fas fa-info-circle me-1"></i> Kepala Madrasah diambil dari menu Data Sekolah.
-                      </div>
+                    <div class="card-body p-4">
+                      <h5 class="card-title text-primary fw-bold mb-4">Cetak Lembar Verifikasi</h5>
 
-                      <form id="formVerifikasiInput" onsubmit="simpanVerifikasi(event)">
-                        
-                        <h6 class="fw-bold mt-2 border-bottom pb-1">Verifikator I</h6>
-                        <div class="mb-2">
-                          <label class="form-label small mb-1">Nama Lengkap</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNama1" placeholder="Nama Verifikator 1">
+                      <div class="row g-3 mb-4 p-3 bg-light rounded border">
+                        <div class="col-md-4">
+                          <label class="form-label small fw-bold">Verifikator 1</label>
+                          <input type="text" class="form-control form-control-sm mb-1" id="vfNama1" placeholder="Nama">
+                          <input type="text" class="form-control form-control-sm" id="vfNip1" placeholder="NIP">
                         </div>
-                        <div class="mb-3">
-                          <label class="form-label small mb-1">NIP</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNip1" placeholder="NIP...">
+                        <div class="col-md-4">
+                          <label class="form-label small fw-bold">Verifikator 2</label>
+                          <input type="text" class="form-control form-control-sm mb-1" id="vfNama2" placeholder="Nama">
+                          <input type="text" class="form-control form-control-sm" id="vfNip2" placeholder="NIP">
                         </div>
-
-                        <h6 class="fw-bold mt-2 border-bottom pb-1">Verifikator II</h6>
-                        <div class="mb-2">
-                          <label class="form-label small mb-1">Nama Lengkap</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNama2" placeholder="Nama Verifikator 2">
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label small mb-1">NIP</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNip2" placeholder="NIP...">
-                        </div>
-
-                        <h6 class="fw-bold mt-2 border-bottom pb-1">Pengawas Madrasah</h6>
-                        <div class="mb-2">
-                          <label class="form-label small mb-1">Nama Lengkap</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNamaPengawas" placeholder="Nama Pengawas">
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label small mb-1">NIP</label>
-                          <input type="text" class="form-control form-control-sm" id="vfNipPengawas" placeholder="NIP...">
-                        </div>
-
-                        <div class="d-grid gap-2 mt-4">
-                          <button type="submit" id="btnSimpanVerif" class="btn btn-success">
-                            <i class="fas fa-save me-1"></i> Simpan Data
-                          </button>
-                          <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetTabelVerifikasi()">
-                            <i class="fas fa-sync me-1"></i> Reset Tabel ke Default
-                          </button>
-                          
-                          <button class="btn btn-info text-white" onclick="exportToWord('print-area-verif', 'Lembar_Verifikasi.doc', 'F4')">
-                            <i class="fas fa-file-word me-2"></i> Simpan Word
-                          </button>
-                          <button type="button" class="btn btn-primary" onclick="window.print()">
-                            <i class="fas fa-print me-1"></i> Cetak PDF
-                          </button>
-                        </div>
-
-                      </form>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-lg-8">
-                  <div class="card shadow-sm border-0 bg-light">
-                    
-                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center sticky-top" style="z-index: 10;">
-                      
-                      <div class="d-flex align-items-center">
-                        <span class="fw-bold small text-primary me-3"><i class="fas fa-eye me-1"></i> Preview Verifikasi</span>
-                        
-                        <div class="alert alert-warning py-1 px-2 mb-0 d-flex align-items-center" style="font-size: 0.75rem;">
-                          <i class="fas fa-info-circle me-1"></i>
-                          <span>Silakan ubah/hapus isi tabel langsung di bawah.</span>
+                        <div class="col-md-4">
+                          <label class="form-label small fw-bold">Pengawas</label>
+                          <input type="text" class="form-control form-control-sm mb-1" id="vfNamaPengawas" placeholder="Nama">
+                          <input type="text" class="form-control form-control-sm" id="vfNipPengawas" placeholder="NIP">
                         </div>
                       </div>
 
-                      <button id="btnSimpanTabel" class="btn btn-sm btn-success fw-bold shadow-sm" onclick="simpanVerifikasi(event)">
-                        <i class="fas fa-save me-1"></i> Simpan Isi Tabel
-                      </button>
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0">Daftar Item Verifikasi</h6>
+                        <div>
+                          <button class="btn btn-sm btn-outline-danger me-1" onclick="resetVerifList()">
+                            <i class="fas fa-sync me-1"></i> Reset Default
+                          </button>
+                          <button class="btn btn-sm btn-primary" onclick="addVerifItem()">
+                            <i class="fas fa-plus me-1"></i> Tambah Item
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="table-responsive border rounded mb-4" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                          <thead class="table-light sticky-top">
+                            <tr>
+                              <th width="5%" class="text-center">No</th>
+                              <th>Nama Berkas / Dokumen</th>
+                              <th width="10%" class="text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody id="verifListBody">
+                            </tbody>
+                        </table>
+                      </div>
+
+                      <div class="d-grid">
+                        <button class="btn btn-success btn-lg" onclick="generatePdfPendukung('VERIFIKASI')">
+                          <i class="fas fa-print me-2"></i> Cek Hasil (PDF)
+                        </button>
+                      </div>
 
                     </div>
-
-                    <div class="card-body p-0">
-                      
-                      <div class="sheet-container">
-                        <div id="print-area-verif" class="sheet">
-                          <div class="verif-sheet">
-                            
-                            <div class="verif-title-top">
-                              LEMBAR VERIFIKASI DAN VALIDASI PENGAJUAN BOS <span id="vfTitleTahun">2025</span>
-                            </div>
-
-                            <table class="verif-header-table">
-                              <colgroup>
-                                <col style="width: 25%;"> <col style="width: 2%;">  <col style="width: 73%;"> </colgroup>
-
-                              <tr>
-                                <td>Nama Madrasah</td> 
-                                <td class="text-center">:</td> 
-                                <td class="fw-bold" id="vfSchoolName">...</td>
-                              </tr>
-                              <tr>
-                                <td>NSM</td> 
-                                <td class="text-center">:</td> 
-                                <td id="vfNsm">...</td>
-                              </tr>
-                              <tr>
-                                <td>Alamat Madrasah</td> 
-                                <td class="text-center">:</td> 
-                                <td id="vfAddress">...</td>
-                              </tr>
-                              <tr>
-                                <td>Kecamatan</td> 
-                                <td class="text-center">:</td> 
-                                <td id="vfKecamatan">...</td>
-                              </tr>
-                              <tr>
-                                <td>Kabupaten/Kota</td> 
-                                <td class="text-center">:</td> 
-                                <td id="vfKabupaten">...</td>
-                              </tr>
-                              <tr>
-                                <td>Periode</td> 
-                                <td class="text-center">:</td> 
-                                <td><span id="vfPeriode">...</span> Tahun <span id="vfTahun">...</span></td>
-                              </tr>
-                            </table>
-
-                            <div class="verif-subtitle">BERKAS YANG HARUS DIVERIFIKASI :</div>
-
-                            <table class="verif-main-table" id="tabelVerifikasi">
-                              <colgroup>
-                                <col> <col> <col> <col> <col> <col class="btn-aksi-verif"> 
-                              </colgroup>
-
-                              <thead>
-                                <tr>
-                                  <th rowspan="2">No</th>
-                                  <th rowspan="2">Nama Berkas / Dokumen</th>
-                                  <th colspan="2">Status</th> 
-                                  <th rowspan="2">Keterangan</th>
-                                  <th rowspan="2" class="btn-aksi-verif"><i class="fas fa-cog"></i></th>
-                                </tr>
-                                <tr>
-                                  <th style="font-size: 8pt;">Ada</th>
-                                  <th style="font-size: 8pt;">Tidak</th>
-                                </tr>
-                              </thead>
-                              <tbody id="bodyTabelVerif"></tbody>
-                            </table>
-
-                            <div class="verif-signature-grid">
-                              <div class="sig-row">
-                                <div class="verif-sig-box">
-                                  <div>Kepala Madrasah</div>
-                                  <div class="sig-wrap">
-                                    <div class="verif-sig-name" id="prevVfKepala">&nbsp;</div>
-                                    <div class="verif-sig-nip" id="prevVfNipKepala">NIP.</div>
-                                  </div>
-                                </div>
-                                <div class="verif-sig-box">
-                                  <div>Pengawas Madrasah</div>
-                                  <div class="sig-wrap">
-                                    <div class="verif-sig-name" id="prevVfPengawas">&nbsp;</div>
-                                    <div class="verif-sig-nip" id="prevVfNipPengawas">NIP.</div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div class="sig-label-center">Verifikator</div>
-
-                              <div class="sig-row">
-                                <div class="verif-sig-box">
-                                  <div>Verifikator I</div>
-                                  <div class="sig-wrap">
-                                    <div class="verif-sig-name" id="prevVfNama1">&nbsp;</div>
-                                    <div class="verif-sig-nip" id="prevVfNip1">NIP.</div>
-                                  </div>
-                                </div>
-                                <div class="verif-sig-box">
-                                  <div>Verifikator II</div>
-                                  <div class="sig-wrap">
-                                    <div class="verif-sig-name" id="prevVfNama2">&nbsp;</div>
-                                    <div class="verif-sig-nip" id="prevVfNip2">NIP.</div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            </div>
-                        </div>
-                      </div> </div>
                   </div>
                 </div>
               </div>
@@ -9124,817 +8898,286 @@
         cacheDataGuru = [];
       }
 
-      /* --- LOGIC CETAK PENDUKUNG --- */
+      /* --- [BARU] LOGIKA CETAK DOKUMEN PENDUKUNG (DOC TEMPLATE) --- */
 
-      let currentCoverLogo = "https://i.imgur.com/WqGSzFl.png"; 
+      // Data Default Verifikasi
+      const DEFAULT_VERIF_ITEMS = [
+        "Surat Pengantar LPJ BOS",
+        "Permohonan Pencairan Dana BOS (Formulir BOS-04)",
+        "Surat Pernyataan Kebenaran Data Rekening Bank (Formulir BOS-05)",
+        "Surat Perjanjian Kerja Sama (Formulir BOS-06)",
+        "Surat Pernyataan Tanggung Jawab Belanja (Formulir BOS-07)",
+        "Laporan Pertanggungjawaban Bantuan Operasional (Formulir BOS-08)",
+        "Kuitansi Penerimaan Bantuan Operasional (Formulir BOS-10)",
+        "Rencana Kegiatan dan Anggaran Madrasah (RKAM)",
+        "Buku Kas Umum (BKU)",
+        "Buku Pembantu Pajak",
+        "Bukti Pengeluaran (Nota/Faktur/Kuitansi)",
+        "Dokumentasi Kegiatan / Foto Barang"
+      ];
 
-      // 1. Tab Switching
+      let verifItems = [...DEFAULT_VERIF_ITEMS];
+
+      /* --- TAMBAHAN LOGIKA LOGO COVER --- */
+
+      // 1. Update fungsi bukaSubTab agar memuat logo saat tab Sampul dibuka
+      // (Timpa fungsi bukaSubTab yang sebelumnya)
       function bukaSubTab(tabName) {
-        document.getElementById('tab-sub-sampul').classList.remove('active');
-        document.getElementById('tab-sub-pengantar').classList.remove('active');
-        document.getElementById('tab-sub-verifikasi').classList.remove('active');
-        
-        document.getElementById('view-sub-sampul').classList.add('hidden');
-        document.getElementById('view-sub-pengantar').classList.add('hidden');
-        document.getElementById('view-sub-verifikasi').classList.add('hidden');
-        
+        document.querySelectorAll('#panel-cetak-pendukung .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.sub-view-section').forEach(el => el.classList.add('hidden'));
+
         document.getElementById('tab-sub-' + tabName).classList.add('active');
         document.getElementById('view-sub-' + tabName).classList.remove('hidden');
-        
-        if(tabName === 'sampul') initCoverData();
-        if(tabName === 'pengantar') initPengantarData();
-        if(tabName === 'verifikasi') initVerifikasiData();
-      }
 
-      // 2. Inisialisasi Data (Load dari Server) - VERSI PERBAIKAN
-      function initCoverData() {
         const token = localStorage.getItem('userToken');
-        
-        // Fungsi internal: Ambil settingan Header/Judul/Logo Cover setelah data sekolah siap
-        const fetchCoverSettings = () => {
-            const d = DATA_CACHE.sekolah || {}; // Data sekolah pasti sudah ada sekarang
-            
-            document.getElementById('inpHeaderCover').placeholder = "Memuat...";
-            
-            google.script.run.withSuccessHandler(function(res) {
-              if(res.status === 'success') {
-                const s = res.data;
-                
-                // Load Teks Tersimpan
-                if(s.headerText) document.getElementById('inpHeaderCover').value = s.headerText;
-                if(s.titleText)  document.getElementById('inpJudulCover').value = s.titleText;
-                
-                // Load Periode (Logika Prioritas: DB > Rumus Default)
-                if(s.periodText && s.periodText !== "") {
-                  document.getElementById('inpPeriodeCover').value = s.periodText;
-                } else {
-                  // Fallback ke default jika belum pernah diset manual
-                  const defaultPeriod = d.periodeAnggaran ? `(${d.periodeAnggaran} ${d.tahunAnggaran || ''})` : "(Tahun Anggaran " + new Date().getFullYear() + ")";
-                  document.getElementById('inpPeriodeCover').value = defaultPeriod;
-                }
-                
-                // Load Logo
-                if(s.logoId) {
-                  currentCoverLogo = "https://drive.google.com/thumbnail?id=" + s.logoId + "&sz=w600"; 
-                }
-                
-                document.getElementById('logoPreviewForm').src = currentCoverLogo;
-                updatePreviewSampul(); // Render ulang tampilan akhir
-              }
-            }).getCoverSettings(token);
-        };
 
-        // --- LOGIKA UTAMA PERBAIKAN ---
-        // Cek apakah Data Sekolah sudah ada di Cache?
-        if (!DATA_CACHE.sekolah) {
-            // Jika KOSONG (User langsung masuk menu ini setelah login), ambil dulu dari server!
-            toggleLoading(true, "Menyiapkan Data...");
-            
-            google.script.run.withSuccessHandler(function(res) {
-                toggleLoading(false);
-                if (res.status === 'success') {
-                    DATA_CACHE.sekolah = res.data; // Simpan ke Global Cache
-                    
-                    // Render awal segera setelah data sekolah didapat
-                    updatePreviewSampul(); 
-                    
-                    // Lanjut ambil detail setting cover
-                    fetchCoverSettings();
-                }
-            }).getDataSekolah(token);
-        } else {
-            // Jika SUDAH ADA (User dari menu lain), langsung render & ambil setting
-            updatePreviewSampul(); 
-            fetchCoverSettings();
+        if (tabName === 'sampul') {
+           loadCoverLogo(token); // <--- LOAD LOGO
+        } else if (tabName === 'setting-doc') {
+          loadSettingDoc(token);
+        } else if (tabName === 'verifikasi') {
+          renderVerifList();
+          loadDataPejabatVerif(token); 
+        } else if (tabName === 'pengantar') {
+           if(!document.getElementById('spTanggal').value) {
+             document.getElementById('spTanggal').valueAsDate = new Date();
+           }
         }
       }
 
-      // Preview Logo Lokal
-      function previewLogoLocal(input) {
+      // 2. Fungsi Preview Gambar Lokal (Sebelum Upload)
+      function previewLogoLocal(input, imgId) {
         if (input.files && input.files[0]) {
           const reader = new FileReader();
           reader.onload = function(e) {
-            currentCoverLogo = e.target.result;
-            document.getElementById('logoPreviewForm').src = currentCoverLogo;
-            updatePreviewSampul();
+            document.getElementById(imgId).src = e.target.result;
           }
           reader.readAsDataURL(input.files[0]);
         }
       }
 
-      // 3. RENDER HTML (UPDATED STRUCTURE)
-      function updatePreviewSampul() {
-        const sheet = document.getElementById('print-area');
-        // Ambil dari cache, atau objek kosong jika belum siap
-        const d = DATA_CACHE.sekolah || {}; 
-        
-        // Ambil Value Input
-        const headerText = document.getElementById('inpHeaderCover').value || "KEMENTERIAN AGAMA";
-        const judul = document.getElementById('inpJudulCover').value || "LAPORAN PENGGUNAAN DANA BOS";
-        const periode = document.getElementById('inpPeriodeCover').value; // Value ini akan diisi otomatis oleh initCoverData
-        
-        // Ambil elemen radio button yang terpilih
-        const selectedDesign = document.querySelector('input[name="desainSampul"]:checked');
-        const design = selectedDesign ? selectedDesign.value : 'design-v1';
-        
-        // Identitas Sekolah (Fallback ke teks default jika data belum loading)
-        const namaSekolah = d.namaSekolah || "NAMA SEKOLAH";
-        const tahun = d.tahunAnggaran || new Date().getFullYear();
-        let kota = "KOTA/KABUPATEN";
-        
-        if (d.kabupaten) {
-            kota = d.kabupaten.toUpperCase().replace("KAB. ", "").replace("KOTA ", "");
+      // 3. Fungsi Upload Logo ke Server
+      function uploadLogoCover() {
+        const fileInput = document.getElementById('fileLogoCover');
+        if (fileInput.files.length === 0) {
+          Swal.fire('Peringatan', 'Pilih file gambar terlebih dahulu!', 'warning');
+          return;
         }
-        
-        // Set Class Desain pada Parent
-        sheet.className = "sheet " + design;
-        sheet.innerHTML = "";
 
-        // --- STRUKTUR KONTEN BERDASARKAN DESAIN ---
-
-        if (design === 'design-v2') {
-          // V2: Bar Hijau Atas Bawah
-          sheet.innerHTML = `
-              <div class="design-v2" style="height:100%; width:100%; display:flex; flex-direction:column;">
-                  <div class="bar-header"></div>
-                  <div class="cover-layout-wrapper">
-                      <div class="section-top">
-                          <div class="txt-instansi text-muted">${headerText}</div>
-                          <div class="txt-title">${judul}</div>
-                          <div class="txt-period text-muted">${periode}</div>
-                      </div>
-                      <div class="section-middle">
-                          <img src="${currentCoverLogo}" class="img-logo">
-                      </div>
-                      <div class="section-bottom">
-                          <div class="txt-school text-success">${namaSekolah}</div>
-                          <div class="txt-year text-muted">TAHUN ${tahun}</div>
-                          <div class="txt-city text-muted">${kota}</div>
-                      </div>
-                  </div>
-                  <div class="bar-footer"></div>
-              </div>
-          `;
-        } 
-        else if (design === 'design-v4') {
-          // V4: Formal (Garis Kop)
-          sheet.innerHTML = `
-              <div class="cover-layout-wrapper">
-                  <div class="section-top">
-                      <div class="txt-instansi text-dark" style="margin-bottom:5px;">${headerText}</div>
-                      <div class="txt-title">${judul}</div>
-                      <div class="txt-period" style="font-style:italic;">${periode}</div>
-                  </div>
-                  <div class="section-middle">
-                      <img src="${currentCoverLogo}" class="img-logo">
-                  </div>
-                  <div class="section-bottom">
-                      <div class="txt-school">${namaSekolah}</div>
-                      <div class="txt-year">TAHUN ${tahun}</div>
-                      <div class="txt-city">${kota}</div>
-                  </div>
-              </div>
-          `;
+        const file = fileInput.files[0];
+        if (file.size > 2 * 1024 * 1024) {
+          Swal.fire('File Terlalu Besar', 'Maksimal ukuran file adalah 2MB', 'warning');
+          return;
         }
-        else {
-          // V1 (Klasik), V3 (Minimalis), V5 (Kreatif)
-          let htmlInstansi = `<div class="txt-instansi">${headerText}</div>`;
-          let headerInstansi = "";
+
+        const token = localStorage.getItem('userToken');
+        
+        Swal.fire({title: 'Mengupload...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function() {
+          const rawBase64 = reader.result.split(',')[1]; 
+          const payload = { base64: rawBase64, mimeType: file.type };
           
-          if (design === 'design-v3') {
-              htmlInstansi = ""; 
-              headerInstansi = `<div class="txt-instansi" style="color:#777; margin-bottom:15px;">${headerText}</div>`; 
-          }
-
-          sheet.innerHTML = `
-              <div class="cover-layout-wrapper">
-                  <div class="section-top">
-                      ${headerInstansi}
-                      <div class="txt-title">${judul}</div>
-                      <div class="txt-period">${periode}</div>
-                  </div>
-                  <div class="section-middle">
-                      <img src="${currentCoverLogo}" class="img-logo">
-                  </div>
-                  <div class="section-bottom">
-                      ${htmlInstansi}
-                      <div class="txt-school">${namaSekolah}</div>
-                      <div class="txt-year">TAHUN ${tahun}</div>
-                      <div class="txt-city">${kota}</div>
-                  </div>
-              </div>
-          `;
-        }
-      }
-
-      // 4. Simpan Konfigurasi ke Server (Header, Title, Period, Logo)
-      function simpanKonfigurasiSampul() {
-        const token = localStorage.getItem('userToken');
-        const btn = document.getElementById('btnSimpanCover');
-        const fileInput = document.getElementById('fileLogoSampul');
-        
-        // Ambil Data Teks
-        const configData = {
-          header: document.getElementById('inpHeaderCover').value,
-          title: document.getElementById('inpJudulCover').value,
-          period: document.getElementById('inpPeriodeCover').value
+          google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') {
+                Swal.fire('Sukses', 'Logo berhasil diupload dan disimpan!', 'success');
+            } else {
+                Swal.fire('Gagal', res.message, 'error');
+            }
+          }).simpanLogoSampul(token, payload);
         };
-
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
-
-        // Helper Simpan Teks
-        const saveDetails = () => {
-          google.script.run.withSuccessHandler(function() {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            Swal.fire({
-              toast: true, position: 'top-end', icon: 'success', 
-              title: 'Pengaturan Sampul Tersimpan', showConfirmButton: false, timer: 1500
-            });
-          }).simpanDetailSampul(token, configData);
-        };
-
-        // Cek Upload File
-        if (fileInput.files.length > 0) {
-          const file = fileInput.files[0];
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = function() {
-            const rawBase64 = reader.result.split(',')[1]; 
-            const payload = { base64: rawBase64, mimeType: file.type };
-            
-            google.script.run.withSuccessHandler(function(res) {
-              if(res.status === 'success') {
-                  currentCoverLogo = "https://drive.google.com/thumbnail?id=" + res.fileId + "&sz=w600";
-                  saveDetails(); // Lanjut simpan teks
-              } else {
-                  btn.innerHTML = originalText;
-                  btn.disabled = false;
-                  Swal.fire('Gagal Upload', res.message, 'error');
-              }
-            }).simpanLogoSampul(token, payload);
-          };
-        } else {
-          saveDetails(); // Hanya simpan teks
-        }
       }
 
-      function cetakHalamanIni() {
-        window.print();
-      }
-
-      /* --- LOGIKA SURAT PENGANTAR (DATABASE VERSION) --- */
-
-      function initPengantarData() {
-        const d = DATA_CACHE.sekolah || {};
-        const token = localStorage.getItem('userToken');
-        
-        // 1. Ambil Kop Surat (Tampilan)
-        const imgKop = document.getElementById('spKopImage');
-        const txtKop = document.getElementById('spKopText');
-        imgKop.style.display = 'none';
-        txtKop.style.display = 'block';
-
-        google.script.run.withSuccessHandler(function(res) {
-          if (res.status === 'success' && res.fileId) {
-            const imageUrl = "https://drive.google.com/thumbnail?id=" + res.fileId + "&sz=w1000";
-            imgKop.src = imageUrl;
-            imgKop.style.display = 'block';
-            txtKop.style.display = 'none';
-          }
-        }).getKopSurat(token);
-
-        // 2. LOAD DATA DARI DATABASE (SERVER)
-        // Kita beri placeholder loading dulu
-        document.getElementById('spNomor').placeholder = "Memuat dari database...";
+      // 4. Fungsi Load Logo Tersimpan dari Server
+      function loadCoverLogo(token) {
+        // Placeholder loading
+        document.getElementById('logoPreviewCover').style.opacity = '0.5';
         
         google.script.run.withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            const db = res.data;
-            
-            // --- LOGIKA PRIORITAS: DATABASE > DEFAULT ---
-            
-            // A. NOMOR SURAT
-            if (db.nomor && db.nomor !== "") {
-               document.getElementById('spNomor').value = db.nomor;
-            } else {
-               document.getElementById('spNomor').value = ""; // Biarkan placeholder muncul
-               document.getElementById('spNomor').placeholder = "Contoh: 001/MTs.../...";
-            }
-
-            // B. TEMPAT TTD
-            if (db.tempat && db.tempat !== "") {
-               document.getElementById('spTempat').value = db.tempat;
-            } else {
-               // Default: Ambil dari Data Sekolah
-               let kota = (d.kabupaten || "Bulukumba").replace(/KAB\.\s*|KOTA\s*/gi, ""); 
-               kota = kota.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
-               document.getElementById('spTempat').value = kota;
-            }
-
-            // C. TANGGAL TTD
-            if (db.tanggal && db.tanggal !== "") {
-               document.getElementById('spTanggal').value = db.tanggal;
-            } else {
-               // Default: Hari ini
-               document.getElementById('spTanggal').valueAsDate = new Date();
-            }
-
-            // Render Preview setelah data terisi
-            updatePreviewPengantar();
+          document.getElementById('logoPreviewCover').style.opacity = '1';
+          if(res.status === 'success' && res.data.logoId) {
+             // Tampilkan thumbnail dari Drive
+             const url = "https://drive.google.com/thumbnail?id=" + res.data.logoId + "&sz=w400";
+             document.getElementById('logoPreviewCover').src = url;
           }
-        }).getDataSuratPengantar(token);
+        }).getCoverSettings(token); // Kita reuse fungsi getCoverSettings yang sudah ada di Kode.gs
       }
 
-      // Fungsi Baru: Simpan ke Database saat tombol diklik
-      function simpanPengantarDatabase() {
-        const token = localStorage.getItem('userToken');
-        
-        const form = {
-          nomor: document.getElementById('spNomor').value,
-          tempat: document.getElementById('spTempat').value,
-          tanggal: document.getElementById('spTanggal').value
-        };
-
-        // Ubah tombol jadi loading
-        const btn = document.querySelector('button[onclick="simpanPengantarDatabase()"]');
-        const textAsli = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Menyimpan...';
-        btn.disabled = true;
-
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          btn.innerHTML = textAsli;
-          btn.disabled = false;
-
-          if (res.status === 'success') {
-            Swal.fire({
-              toast: true, position: 'top-end', icon: 'success', 
-              title: 'Tersimpan di Database', showConfirmButton: false, timer: 2000
-            });
-          } else {
-            Swal.fire('Gagal', res.message, 'error');
-          }
-        }).simpanDataSuratPengantar(token, form);
-      }
-
-      function updatePreviewPengantar() {
-        const d = DATA_CACHE.sekolah || {};
-
-        // --- BAGIAN DINAMIS (Data Sekolah) ---
-        let kabBersih = (d.kabupaten || "...").replace(/KAB\.\s*|KOTA\s*/gi, "");
-        kabBersih = kabBersih.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
-
-        document.querySelectorAll('.dyn-kabupaten').forEach(el => {
-            el.innerText = kabBersih;
-        });
-
-        document.getElementById('prevSpNamaSekolah').innerText = d.namaSekolah || "...";
-        document.getElementById('prevSpKelurahan').innerText = d.kelurahan || "..."; 
-        document.getElementById('prevSpKecamatan').innerText = d.kecamatan || "...";
-        document.getElementById('prevSpKepala').innerText = d.namaKepala || "KEPALA MADRASAH";
-        document.getElementById('prevSpNip').innerText = d.nipKepala || "-";
-
-        // --- BAGIAN MANUAL (Input User) ---
-        const valNomor = document.getElementById('spNomor').value;
-        const valTempat = document.getElementById('spTempat').value;
-        const valTanggal = document.getElementById('spTanggal').value;
-
-        // 1. Update Preview
-        document.getElementById('prevSpNomor').innerText = valNomor || "xxxx.xxxx.xxx";
-        document.getElementById('prevSpTempat').innerText = valTempat;
-
-        let tglIndo = valTanggal;
-        if(valTanggal) {
-           const dateObj = new Date(valTanggal);
-           const bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-           tglIndo = dateObj.getDate() + " " + bln[dateObj.getMonth()] + " " + dateObj.getFullYear();
-        }
-        document.getElementById('prevSpTanggal').innerText = tglIndo;
-      }
-
-      // Variabel Global untuk menyimpan state tabel
-      let currentVerifRows = []; 
-
-      // Data Default (Hanya dipakai jika Database Kosong)
-      const DEFAULT_VERIF_ROWS = [
-        "Cover", "Surat Pengantar LPJ BOS", "Permohonan Pencairan Dana BOS (Formulir BOS-04)",
-        "Data Jumlah dan Siswa Penerima BOS", "Tanda Bukti BAP EMIS", "Tanda Bukti BAP BOS",
-        "Surat Pernyataan Kebenaran data rekening Bank (Formulir BOS-05)", "Surat Perjanjian Kerja Sama/SPK (Formulir BOS-06)", "Surat Pernyataan Tanggung Jawab Belanja/SPTJB (Formulir BOS-07)",
-        "Laporan Pertanggungjawaban Bantuan Operasional (Formulir BOS-08)", "Kuitansi Penerimaan Bantuan Operasional (Formulir BOS-10)", "Rencana Kegiatan dan Anggaran Madrasah/RKAM (Format BOS K-1)",
-        "Buku Kas Umum / BKU (Format BOS K-2)", "Buku Pembantu Pajak / BPP (Format BOS K-3)", "Kuitansi Pengeluaran (Formulir BOS K-7)",
-        "Nota dan Faktur / Bukti Pembelian", "Photo Pembelian Barang Elektronik, Laptop, Meubelair, dll (Jika ada)",
-        "SK Jadwal Mengajar dan Daftar Hadir Guru Penerima Honor dari BOS"
-      ];
-
-      // 1. Inisialisasi Data (Dipanggil saat tab diklik)
-      function initVerifikasiData() {
-        // A. Isi Header Sekolah (Dari Cache Global)
-        const d = DATA_CACHE.sekolah || {};
-        document.getElementById('vfSchoolName').innerText = d.namaSekolah || "...";
-        document.getElementById('vfNsm').innerText = d.nsm || "...";
-        
-        let alamatLengkap = d.alamat || "";
-        if(d.kelurahan) alamatLengkap += ", " + d.kelurahan;
-        document.getElementById('vfAddress').innerText = alamatLengkap;
-        
-        document.getElementById('vfKecamatan').innerText = d.kecamatan || "...";
-        document.getElementById('vfKabupaten').innerText = d.kabupaten || "...";
-        document.getElementById('vfPeriode').innerText = d.periodeAnggaran || "...";
-        document.getElementById('vfTahun').innerText = d.tahunAnggaran || new Date().getFullYear();
-        document.getElementById('vfTitleTahun').innerText = d.tahunAnggaran || new Date().getFullYear();
-
-        // Preview TTD Kepala Sekolah
-        document.getElementById('prevVfKepala').innerText = d.namaKepala || "...";
-        const nipK = d.nipKepala ? "NIP. " + d.nipKepala : "";
-        document.getElementById('prevVfNipKepala').innerText = nipK;
-
-        // B. Ambil Data Verifikasi Tersimpan (Pejabat & Tabel Custom)
-        const token = localStorage.getItem('userToken');
-        google.script.run.withSuccessHandler(function(res) {
+      // 2. Setting ID Template
+      function loadSettingDoc(token) {
+        google.script.run.withSuccessHandler(function(res){
           if(res.status === 'success' && res.data) {
-            const db = res.data;
-            
-            // Isi Input Form
-            document.getElementById('vfNama1').value = db.verifikator1?.nama || '';
-            document.getElementById('vfNip1').value = db.verifikator1?.nip || '';
-            
-            document.getElementById('vfNama2').value = db.verifikator2?.nama || '';
-            document.getElementById('vfNip2').value = db.verifikator2?.nip || '';
-            
-            document.getElementById('vfNamaPengawas').value = db.pengawas?.nama || '';
-            document.getElementById('vfNipPengawas').value = db.pengawas?.nip || '';
-
-            // Isi Tabel Custom (Jika ada)
-            if(db.rows && Array.isArray(db.rows) && db.rows.length > 0) {
-              currentVerifRows = db.rows;
-            } else {
-              currentVerifRows = [...DEFAULT_VERIF_ROWS];
-            }
-          } else {
-            // Jika belum ada data, reset ke default
-            currentVerifRows = [...DEFAULT_VERIF_ROWS];
+            const d = res.data;
+            document.getElementById('tplCover1').value = d.cover1 || '';
+            document.getElementById('tplCover2').value = d.cover2 || '';
+            document.getElementById('tplSp').value = d.sp || '';
+            document.getElementById('tplVerif').value = d.verif || '';
           }
-          
-          // Render
-          updateVerifPreview();
-          renderTabelVerifikasi();
-
-        }).getDataVerifikasi(token);
-
-        // Tambahkan listener untuk update preview TTD saat mengetik
-        const inputs = document.querySelectorAll('#formVerifikasiInput input');
-        inputs.forEach(el => {
-          el.addEventListener('input', updateVerifPreview);
-        });
+        }).getSettingDokumenPendukung(token);
       }
 
-      // 2. Update Teks Tanda Tangan (Realtime) - FINAL
-      function updateVerifPreview() {
-        // Helper Nama: Jika kosong, isi spasi (&nbsp;) agar garis border tetap muncul
-        const fmtNama = (val) => (val && val.trim() !== "") ? val : "&nbsp;";
-        
-        // Helper NIP: Jika kosong, tampilkan "NIP." saja
-        const fmtNip = (val) => (val && val.trim() !== "") ? "NIP. " + val : "NIP.";
+      function simpanSettingDocPendukung(e) {
+        e.preventDefault();
+        const token = localStorage.getItem('userToken');
+        const settings = {
+          cover1: document.getElementById('tplCover1').value.trim(),
+          cover2: document.getElementById('tplCover2').value.trim(),
+          sp: document.getElementById('tplSp').value.trim(),
+          verif: document.getElementById('tplVerif').value.trim()
+        };
 
-        // --- UPDATE ELEMEN HTML ---
+        const btn = document.getElementById('btnSimpanSetDoc');
+        const txt = btn.innerHTML;
+        btn.innerHTML = 'Menyimpan...'; btn.disabled = true;
 
-        // 1. Verifikator I
-        const n1 = document.getElementById('vfNama1').value;
-        const nip1 = document.getElementById('vfNip1').value;
-        document.getElementById('prevVfNama1').innerHTML = fmtNama(n1); // Pakai innerHTML untuk &nbsp;
-        document.getElementById('prevVfNip1').innerText = fmtNip(nip1);
-
-        // 2. Verifikator II
-        const n2 = document.getElementById('vfNama2').value;
-        const nip2 = document.getElementById('vfNip2').value;
-        document.getElementById('prevVfNama2').innerHTML = fmtNama(n2);
-        document.getElementById('prevVfNip2').innerText = fmtNip(nip2);
-
-        // 3. Pengawas Madrasah
-        const np = document.getElementById('vfNamaPengawas').value;
-        const nipp = document.getElementById('vfNipPengawas').value;
-        document.getElementById('prevVfPengawas').innerHTML = fmtNama(np);
-        document.getElementById('prevVfNipPengawas').innerText = fmtNip(nipp);
-        
-        // 4. Kepala Madrasah (Data dari Cache Data Sekolah)
-        // Ambil data sekolah dari cache global (jika ada)
-        const d = (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.sekolah) ? DATA_CACHE.sekolah : {};
-        document.getElementById('prevVfKepala').innerHTML = fmtNama(d.namaKepala);
-        document.getElementById('prevVfNipKepala').innerText = fmtNip(d.nipKepala);
+        google.script.run.withSuccessHandler(function(res){
+          btn.innerHTML = txt; btn.disabled = false;
+          if(res.status === 'success') Swal.fire('Tersimpan', res.message, 'success');
+          else Swal.fire('Gagal', res.message, 'error');
+        }).simpanSettingDokumenPendukung(token, settings);
       }
 
-      // 3. Render Tabel dengan Logika Tombol Aksi Spesifik
-      function renderTabelVerifikasi() {
-        const tbody = document.getElementById('bodyTabelVerif');
+      // 3. Logic Verifikasi List (CRUD)
+      function renderVerifList() {
+        const tbody = document.getElementById('verifListBody');
         tbody.innerHTML = '';
-
-        currentVerifRows.forEach((itemText, index) => {
-          const isLastRow = (index === currentVerifRows.length - 1);
-          
-          // Logika Tombol Tambah/Hapus
-          let btnHtml = '';
-          if (isLastRow) {
-            btnHtml = `<button type="button" class="btn btn-sm btn-success px-2 py-0" onclick="tambahBarisVerif()" title="Tambah Baris"><i class="fas fa-plus"></i></button>`;
-          } else {
-            btnHtml = `<button type="button" class="btn btn-sm btn-danger px-2 py-0" onclick="hapusBarisVerif(${index})" title="Hapus Baris"><i class="fas fa-minus"></i></button>`;
-          }
-
-          // UPDATE PADA BAGIAN HTML ROW DI BAWAH INI:
-          // Menambahkan kolom kosong ekstra <td></td> untuk memisahkan "Ada" dan "Tidak"
+        
+        verifItems.forEach((item, index) => {
           const row = `
             <tr>
               <td class="text-center">${index + 1}</td>
               <td>
-                <input type="text" class="input-verif-cell" value="${itemText}" 
-                      oninput="updateRowText(${index}, this.value)" 
-                      placeholder="Ketik nama berkas...">
+                <input type="text" class="form-control form-control-sm border-0 bg-transparent" 
+                  value="${item}" onchange="updateVerifItem(${index}, this.value)">
               </td>
-              <td></td> <td></td> <td></td> <td class="text-center btn-aksi-verif">${btnHtml}</td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-link text-danger p-0" onclick="removeVerifItem(${index})">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
             </tr>
           `;
-          tbody.insertAdjacentHTML('beforeend', row);
+          tbody.innerHTML += row;
         });
       }
 
-      // 4. CRUD Tabel Lokal
-      // Fungsi Tambah Baris
-      function tambahBarisVerif() {
-        currentVerifRows.push(""); // Tambah string kosong
-        renderTabelVerifikasi();
-        
-        // Fokus otomatis ke baris baru
-        setTimeout(() => {
-          const inputs = document.querySelectorAll('#bodyTabelVerif .input-verif-cell');
-          if(inputs.length > 0) inputs[inputs.length - 1].focus();
-        }, 100);
+      function addVerifItem() {
+        verifItems.push("Item Baru...");
+        renderVerifList();
       }
 
-      // Fungsi Hapus Baris
-      function hapusBarisVerif(index) {
-        // Hapus dari array memori
-        currentVerifRows.splice(index, 1);
-        // Render ulang tampilan
-        renderTabelVerifikasi();
-        // Opsional: Tampilkan notif kecil bahwa baris terhapus (belum tersimpan ke server)
+      function removeVerifItem(index) {
+        verifItems.splice(index, 1);
+        renderVerifList();
       }
 
-      // Fungsi saat user mengetik di kolom Nama Berkas
-      // PENTING: Ini mengupdate array di memori agar siap disimpan
-      function updateRowText(index, val) {
-        currentVerifRows[index] = val;
+      function updateVerifItem(index, val) {
+        verifItems[index] = val;
       }
 
-      function resetTabelVerifikasi() {
-        if(confirm("Kembalikan tabel ke format standar awal?")) {
-          currentVerifRows = [...DEFAULT_VERIF_ROWS];
-          renderTabelVerifikasi();
+      function resetVerifList() {
+        if(confirm('Kembalikan ke daftar default?')) {
+          verifItems = [...DEFAULT_VERIF_ITEMS];
+          renderVerifList();
         }
       }
+      
+      // Load Pejabat Verifikasi (Reuse function dari kode lama atau buat baru)
+      function loadDataPejabatVerif(token) {
+         google.script.run.withSuccessHandler(function(res){
+            if(res.status==='success' && res.data) {
+                // Isi input form jika ada data tersimpan
+                const d = res.data;
+                if(d.verifikator1) {
+                    document.getElementById('vfNama1').value = d.verifikator1.nama;
+                    document.getElementById('vfNip1').value = d.verifikator1.nip;
+                }
+                if(d.verifikator2) {
+                    document.getElementById('vfNama2').value = d.verifikator2.nama;
+                    document.getElementById('vfNip2').value = d.verifikator2.nip;
+                }
+                if(d.pengawas) {
+                    document.getElementById('vfNamaPengawas').value = d.pengawas.nama;
+                    document.getElementById('vfNipPengawas').value = d.pengawas.nip;
+                }
+                // Jika rows tersimpan, pakai itu
+                if(d.rows && d.rows.length > 0) {
+                    verifItems = d.rows;
+                    renderVerifList();
+                }
+            }
+         }).getDataVerifikasi(token);
+      }
 
-      // 5. Simpan ke Server (Perbaikan: Handle 2 Tombol & Mencegah Form Hilang)
-      function simpanVerifikasi(e) {
-        e.preventDefault();
-        
-        // --- 1. IDENTIFIKASI TOMBOL ---
-        const btnKiri = document.getElementById('btnSimpanVerif'); // Tombol di Form Data Pejabat
-        const btnKanan = document.getElementById('btnSimpanTabel'); // Tombol di Preview Tabel
-        
-        let activeBtn = null;
-
-        // Cek siapa yang memicu event ini
-        // Jika dipicu oleh form submit (Form Kiri), maka tombol aktif adalah btnKiri
-        if (e.target.id === 'formVerifikasiInput') {
-            activeBtn = btnKiri;
-        } 
-        // Jika dipicu oleh klik tombol kanan
-        else if (e.currentTarget.id === 'btnSimpanTabel') {
-            activeBtn = btnKanan;
-        }
-        // Fallback: Jika tidak terdeteksi, default ke tombol kiri
-        else {
-            activeBtn = btnKiri;
-        }
-
-        // --- 2. MASUK MODE LOADING (LOCK KEDUANYA) ---
-        const originalHtml = activeBtn ? activeBtn.innerHTML : 'Simpan';
-        
-        // Ubah tampilan tombol yang sedang aktif saja
-        if (activeBtn) {
-            activeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Menyimpan...';
-        }
-
-        // Matikan (Disable) KEDUA tombol agar tidak bisa diklik bersamaan
-        if(btnKiri) btnKiri.disabled = true;
-        if(btnKanan) btnKanan.disabled = true;
-
+      // 4. GENERATE PDF BUTTON ACTION
+      function generatePdfPendukung(tipe) {
         const token = localStorage.getItem('userToken');
+        let formData = {};
 
-        // Helper untuk ambil nilai input dengan aman
-        const getVal = (id) => {
-            const el = document.getElementById(id);
-            return el ? el.value : ""; 
-        };
+        // Validasi & Ambil Data sesuai Tipe
+        if (tipe === 'COVER') {
+          formData.desain = document.getElementById('coverDesignSelect').value;
+          formData.header = document.getElementById('inpHeaderCover').value;
+          formData.judul = document.getElementById('inpJudulCover').value;
+          formData.periode = document.getElementById('inpPeriodeCover').value;
+        } 
+        else if (tipe === 'SP') {
+          formData.nomor = document.getElementById('spNomor').value;
+          formData.tempat = document.getElementById('spTempat').value;
+          formData.tanggal = document.getElementById('spTanggal').value;
+          if(!formData.nomor) return Swal.fire('Error', 'Nomor Surat wajib diisi', 'warning');
+        } 
+        else if (tipe === 'VERIFIKASI') {
+          formData.verifikator1 = { 
+            nama: document.getElementById('vfNama1').value, 
+            nip: document.getElementById('vfNip1').value 
+          };
+          formData.verifikator2 = { 
+            nama: document.getElementById('vfNama2').value, 
+            nip: document.getElementById('vfNip2').value 
+          };
+          formData.pengawas = { 
+            nama: document.getElementById('vfNamaPengawas').value, 
+            nip: document.getElementById('vfNipPengawas').value 
+          };
+          formData.rows = verifItems; // Array List
+          
+          // Simpan data Verifikasi ke Database juga agar tidak hilang
+          google.script.run.simpanDataVerifikasi(token, formData);
+        }
 
-        const payload = {
-          verifikator1: {
-            nama: getVal('vfNama1'),
-            nip: getVal('vfNip1')
-          },
-          verifikator2: {
-            nama: getVal('vfNama2'),
-            nip: getVal('vfNip2')
-          },
-          pengawas: {
-            nama: getVal('vfNamaPengawas'),
-            nip: getVal('vfNipPengawas')
-          },
-          rows: currentVerifRows
-        };
+        // Tampilkan Loading
+        Swal.fire({
+          title: 'Memproses PDF...',
+          html: 'Mohon tunggu, sedang membuat dokumen...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        });
 
+        // Panggil Backend
         google.script.run
-          .withFailureHandler(function(err) {
-             // KEMBALIKAN STATE JIKA GAGAL
-             if (activeBtn) activeBtn.innerHTML = originalHtml;
-             if(btnKiri) btnKiri.disabled = false;
-             if(btnKanan) btnKanan.disabled = false;
-             
-             console.error(err);
-             Swal.fire('Gagal', 'Terjadi kesalahan: ' + err.message, 'error');
+          .withFailureHandler(function(err){
+             Swal.fire('Gagal', err.message, 'error');
           })
-          .withSuccessHandler(function(res) {
-            // KEMBALIKAN STATE JIKA SUKSES
-            if (activeBtn) activeBtn.innerHTML = originalHtml;
-            if(btnKiri) btnKiri.disabled = false;
-            if(btnKanan) btnKanan.disabled = false;
-            
-            if(res.status === 'success') {
-              Swal.fire({
-                toast: true, position: 'top-end', icon: 'success', 
-                title: 'Data Berhasil Disimpan', showConfirmButton: false, timer: 1500
-              });
-            } else {
-              Swal.fire('Gagal', res.message, 'error');
-            }
+          .withSuccessHandler(function(res){
+             if(res.status === 'success') {
+                Swal.fire({
+                  icon: 'success', 
+                  title: 'Berhasil',
+                  text: 'Dokumen siap dicetak!',
+                  confirmButtonText: 'Buka PDF',
+                  showCancelButton: true,
+                  cancelButtonText: 'Tutup'
+                }).then((r) => {
+                   if(r.isConfirmed) window.open(res.url, '_blank');
+                });
+             } else {
+                Swal.fire('Error', res.message, 'error');
+             }
           })
-          .simpanDataVerifikasi(token, payload);
-      }
-
-      /* --- FUNGSI EXPORT KE WORD (VERSI PRO - HIGH FIDELITY) --- */
-      function exportToWord(elementId, filename, pageSize = 'A4') {
-        var element = document.getElementById(elementId);
-        if (!element) {
-          Swal.fire('Error', 'Area dokumen tidak ditemukan.', 'error');
-          return;
-        }
-
-        // 1. CLONE NODE (Agar tidak merusak tampilan asli)
-        var clone = element.cloneNode(true);
-
-        // 2. PRE-PROCESSING (Ubah Input jadi Teks)
-        var inputs = clone.querySelectorAll('input');
-        inputs.forEach(function(inp) {
-          var val = inp.value;
-          var span = document.createElement('span');
-          span.innerText = val;
-          span.style.fontFamily = 'Times New Roman'; // Paksa font standar surat
-          if (inp.parentNode) inp.parentNode.replaceChild(span, inp);
-        });
-
-        // 3. KONVERSI FLEXBOX KE TABEL (Khusus Cover agar Layout Atas-Tengah-Bawah Rapi di Word)
-        // Word tidak paham 'justify-content: space-between', jadi kita ubah strukturnya.
-        var flexWrapper = clone.querySelector('.cover-layout-wrapper');
-        if (flexWrapper) {
-          var top = flexWrapper.querySelector('.section-top');
-          var mid = flexWrapper.querySelector('.section-middle');
-          var bot = flexWrapper.querySelector('.section-bottom');
-
-          if (top && mid && bot) {
-            // Buat Tabel Pengganti Layout
-            var newTable = document.createElement('table');
-            newTable.style.width = '100%';
-            newTable.style.height = '100%'; // Full Height kertas
-            newTable.style.border = 'none';
-            newTable.style.textAlign = 'center';
-
-            // Baris Atas
-            var trTop = newTable.insertRow();
-            var tdTop = trTop.insertCell();
-            tdTop.style.verticalAlign = 'top';
-            tdTop.style.height = '20%'; // Proporsi area atas
-            tdTop.appendChild(top);
-
-            // Baris Tengah (Logo)
-            var trMid = newTable.insertRow();
-            var tdMid = trMid.insertCell();
-            tdMid.style.verticalAlign = 'middle';
-            tdMid.appendChild(mid);
-
-            // Baris Bawah
-            var trBot = newTable.insertRow();
-            var tdBot = trBot.insertCell();
-            tdBot.style.verticalAlign = 'bottom';
-            tdBot.style.height = '20%'; // Proporsi area bawah
-            tdBot.appendChild(bot);
-
-            // Ganti div wrapper dengan tabel baru ini
-            flexWrapper.innerHTML = '';
-            flexWrapper.appendChild(newTable);
-          }
-        }
-
-        // 4. ATUR UKURAN KERTAS & MARGIN (@page)
-        // Word membaca CSS @page untuk menentukan ukuran fisik kertas
-        var cssPageSize = "";
-        if (pageSize === 'F4' || pageSize === 'LEGAL') {
-          // Ukuran F4/Folio (21.59cm x 33cm)
-          cssPageSize = "@page { size: 21.59cm 33cm; margin: 1.5cm 2cm 1.5cm 2cm; mso-page-orientation: portrait; }";
-        } else {
-          // Ukuran A4 (21cm x 29.7cm)
-          cssPageSize = "@page { size: 21cm 29.7cm; margin: 2cm 2cm 2cm 2cm; mso-page-orientation: portrait; }";
-        }
-
-        // 5. DEFINISI CSS LENGKAP (Agar Desain Terbawa)
-        // Kita masukkan style yang sama persis dengan 'media print' di CSS asli
-        var cssStyles = `
-          <style>
-            ${cssPageSize}
-            body { font-family: 'Times New Roman', serif; color: #000; }
-            
-            /* Reset Tabel agar garisnya muncul di Word */
-            table { border-collapse: collapse; width: 100%; }
-            
-            /* Style Khusus Cover */
-            .sheet { width: 100%; text-align: center; }
-            .txt-instansi { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
-            .txt-title { font-size: 26pt; font-weight: bold; text-transform: uppercase; line-height: 1.2; margin: 20px 0; }
-            .txt-period { font-size: 16pt; margin-bottom: 20px; }
-            .txt-school { font-size: 20pt; font-weight: bold; text-transform: uppercase; margin-top: 10px; }
-            .txt-year { font-size: 16pt; font-weight: bold; margin-top: 5px; }
-            .txt-city { font-size: 14pt; font-weight: bold; text-transform: uppercase; margin-top: 15px; }
-            .img-logo { width: 200px; height: auto; }
-
-            /* Desain Border Sampul (V1) */
-            .design-v1 .cover-layout-wrapper {
-              border: 5px double #000; 
-              padding: 20px;
-              height: 95%; /* Agar border tidak terpotong */
-            }
-
-            /* Style Khusus Verifikasi */
-            .verif-title-top { text-align: center; font-size: 14pt; font-weight: bold; text-decoration: underline; margin-bottom: 20px; text-transform: uppercase; }
-            .verif-subtitle { text-align: center; font-weight: bold; text-decoration: underline; margin: 10px 0; text-transform: uppercase; }
-            .verif-header-table td { border: none; padding: 2px; font-size: 12pt; }
-            
-            .verif-main-table th { border: 1px solid #000; background-color: #f0f0f0; font-weight: bold; padding: 5px; text-align: center; }
-            .verif-main-table td { border: 1px solid #000; padding: 4px; vertical-align: middle; }
-            
-            /* Tanda Tangan */
-            .verif-signature-grid { width: 100%; margin-top: 30px; }
-            .sig-row { width: 100%; display: flex; justify-content: space-between; }
-            /* Fallback tabel untuk layout TTD jika flex gagal di Word versi lama */
-            .sig-table { width: 100%; border: none; margin-top: 20px; }
-            .sig-table td { border: none; text-align: center; vertical-align: top; padding-top: 20px; }
-            .verif-sig-name { font-weight: bold; text-decoration: underline; margin-top: 60px; }
-          </style>
-        `;
-
-        // 6. WRAPPER KHUSUS WORD (XML Namespace)
-        var preHtml = `
-          <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-                xmlns:w='urn:schemas-microsoft-com:office:word' 
-                xmlns='http://www.w3.org/TR/REC-html40'>
-          <head>
-            <meta charset='utf-8'>
-            <title>${filename}</title>
-            ${cssStyles}
-          </head>
-          <body>
-            <div class="Section1">
-        `;
-        
-        var postHtml = "</div></body></html>";
-        var html = preHtml + clone.innerHTML + postHtml;
-
-        // 7. DOWNLOAD FILE
-        var blob = new Blob(['\ufeff', html], {
-            type: 'application/msword'
-        });
-        
-        var url = URL.createObjectURL(blob);
-        var link = document.createElement("a");
-        document.body.appendChild(link);
-        
-        if (navigator.msSaveOrOpenBlob) {
-            navigator.msSaveOrOpenBlob(blob, filename); // Untuk IE/Edge lama
-        } else {
-            link.href = url;
-            link.download = filename;
-            link.click();
-        }
-        
-        document.body.removeChild(link);
+          .generateDokumenPendukung(token, tipe, formData);
       }
 
     </script>
