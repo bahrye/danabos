@@ -3592,7 +3592,8 @@
         // Tambahan Cache Sekolah
         sekolah: null,
         template_settings: null,
-        dashboard: null
+        dashboard: null,
+        pendukung: null
       };
 
       // Variabel untuk menyimpan input mana yang sedang diketik user
@@ -3689,7 +3690,8 @@
         if(panelId === 'panel-cetak-pdf') bukaTabCetak('toko');
 
         if(panelId === 'panel-cetak-pendukung') {
-          bukaSubTab('sampul'); // Default buka tab sampul
+          // Panggil fungsi loader utama (Batch Load)
+          loadAllPendukungData(); 
         }
       }
 
@@ -9110,6 +9112,7 @@
           
           google.script.run.withSuccessHandler(function(res) {
             if(res.status === 'success') {
+                DATA_CACHE.pendukung = null;
                 Swal.fire('Sukses', 'Logo berhasil diupload dan disimpan!', 'success');
             } else {
                 Swal.fire('Gagal', res.message, 'error');
@@ -9177,7 +9180,7 @@
           period: document.getElementById('inpPeriodeCover').value
         };
 
-        const btn = event.target.closest('button'); // Ambil tombol yang diklik
+        const btn = event.target.closest('button');
         const oriText = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
         btn.disabled = true;
@@ -9185,7 +9188,15 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
-          if(res.status === 'success') Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Cover Disimpan', showConfirmButton:false, timer:1500});
+          if(res.status === 'success') {
+            // INVALIDASI CACHE (Agar saat reload tab, data baru diambil)
+            DATA_CACHE.pendukung = null; 
+            
+            // Atau update manual cache lokal (Opsional, lebih cepat tapi ribet)
+            // DATA_CACHE.pendukung.cover.headerText = config.header; ...
+            
+            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Cover Disimpan', showConfirmButton:false, timer:1500});
+          }
           else Swal.fire('Gagal', res.message, 'error');
         }).simpanDetailSampul(token, config);
       }
@@ -9422,6 +9433,7 @@
               })
               .withSuccessHandler(function(res) {
                 if (res.status === 'success') {
+                  DATA_CACHE.pendukung = null;
 
                   // --- UPDATE UI TOMBOL SETELAH SUKSES ---
                   if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
@@ -9635,7 +9647,10 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
-          if(res.status === 'success') Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Surat Disimpan', showConfirmButton:false, timer:1500});
+          if(res.status === 'success') {
+            DATA_CACHE.pendukung = null;
+            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Surat Disimpan', showConfirmButton:false, timer:1500});
+          }
           else Swal.fire('Gagal', res.message, 'error');
         }).simpanDataSuratPengantar(token, form);
       }
@@ -9667,9 +9682,191 @@
         google.script.run.withSuccessHandler(function(res) {
           btn.innerHTML = oriText;
           btn.disabled = false;
-          if(res.status === 'success') Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Verifikasi Disimpan', showConfirmButton:false, timer:1500});
+          if(res.status === 'success') {
+            DATA_CACHE.pendukung = null;
+            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Verifikasi Disimpan', showConfirmButton:false, timer:1500});
+          }
           else Swal.fire('Gagal', res.message, 'error');
         }).simpanDataVerifikasi(token, formData);
+      }
+
+      /* --- LOGIKA BARU: CETAK DOKUMEN PENDUKUNG (BATCH LOADING) --- */
+
+      // 1. Loader Utama: Dipanggil saat menu diklik
+      function loadAllPendukungData(forceRefresh = false) {
+        // A. CEK CACHE
+        if (!forceRefresh && DATA_CACHE.pendukung) {
+          console.log("Data Pendukung loaded from Cache.");
+          // Langsung buka tab default (Sampul) tanpa loading server
+          bukaSubTab('sampul'); 
+          return;
+        }
+
+        // B. FETCH SERVER
+        toggleLoading(true, "Memuat data..."); // Tampilkan Spinner
+
+        const token = localStorage.getItem('userToken');
+
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
+            toggleLoading(false); // Sembunyikan Spinner
+
+            if (res.status === 'success') {
+              // SIMPAN SEMUA DATA KE CACHE
+              DATA_CACHE.pendukung = res.data;
+              
+              // Buka tab default dan render datanya dari cache
+              bukaSubTab('sampul');
+            } else {
+              Swal.fire('Gagal', 'Gagal memuat data pendukung: ' + res.message, 'error');
+            }
+          })
+          .getAllPendukungData(token);
+      }
+
+      // 2. Fungsi Buka Tab (HANYA RENDER DARI CACHE, TIDAK ADA FETCH SERVER)
+      function bukaSubTab(tabName) {
+        // Reset UI Tab
+        document.querySelectorAll('#panel-cetak-pendukung .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.sub-view-section').forEach(el => el.classList.add('hidden'));
+
+        document.getElementById('tab-sub-' + tabName).classList.add('active');
+        document.getElementById('view-sub-' + tabName).classList.remove('hidden');
+
+        // Pastikan Cache Ada (Safety check)
+        if (!DATA_CACHE.pendukung) {
+          loadAllPendukungData(); // Reload jika cache hilang/kosong
+          return;
+        }
+
+        const d = DATA_CACHE.pendukung; // Ambil dari Cache
+
+        // Update Tombol View PDF (Berlaku untuk semua tab)
+        updateBtnView('btnViewCover', 'urlPdfCover', d.fileStatus.COVER);
+        updateBtnView('btnViewSp', 'urlPdfSp', d.fileStatus.SP);
+        updateBtnView('btnViewVerif', 'urlPdfVerif', d.fileStatus.VERIF);
+
+        // --- RENDER SESUAI TAB ---
+        if (tabName === 'sampul') {
+          renderTabCover(d);
+        } else if (tabName === 'pengantar') {
+          renderTabSP(d);
+        } else if (tabName === 'verifikasi') {
+          renderTabVerif(d);
+        } else if (tabName === 'setting-doc') {
+          renderTabSetting(d);
+        }
+      }
+
+      // 3. Render Tab Cover
+      function renderTabCover(d) {
+        // A. Logo
+        if (d.cover.logoId) {
+          document.getElementById('logoPreviewCover').src = "https://drive.google.com/thumbnail?id=" + d.cover.logoId + "&sz=w400";
+        }
+
+        // B. Dropdown Desain
+        const select = document.getElementById('coverDesignSelect');
+        select.innerHTML = '';
+        
+        // Opsi System
+        if (d.desain.system && d.desain.system.length > 0) {
+          d.desain.system.forEach(tpl => {
+            const opt = document.createElement('option');
+            opt.value = tpl.id;
+            opt.text = tpl.name;
+            select.add(opt);
+          });
+        } else {
+          select.add(new Option("-- Tidak ada template sistem --", ""));
+        }
+
+        // Opsi Custom
+        const optCustom = document.createElement('option');
+        optCustom.value = 'CUSTOM';
+        optCustom.text = 'Desain Custom (Milik Sendiri)';
+        optCustom.style.fontWeight = 'bold';
+        optCustom.style.color = '#0d6efd';
+        if (!d.desain.userCustomId) {
+          optCustom.text += ' [Belum Diatur]';
+          optCustom.disabled = true;
+        }
+        select.add(optCustom);
+        select.selectedIndex = 0; // Default
+
+        // C. Input Form
+        document.getElementById('inpHeaderCover').value = d.cover.headerText || 'KEMENTERIAN AGAMA';
+        document.getElementById('inpJudulCover').value = d.cover.titleText || 'LAPORAN PENGGUNAAN DANA BOS';
+        
+        // Periode (Terkunci, ambil dari data sekolah)
+        const inputPeriode = document.getElementById('inpPeriodeCover');
+        const periodeSekolah = d.sekolah.periodeAnggaran || "";
+        inputPeriode.value = periodeSekolah;
+        inputPeriode.readOnly = true;
+        inputPeriode.classList.add('bg-light');
+        if(!periodeSekolah) inputPeriode.placeholder = "Periode belum disetting di Data Sekolah";
+      }
+
+      // 4. Render Tab SP
+      function renderTabSP(d) {
+        const inputNomor = document.getElementById('spNomor');
+        const inputTempat = document.getElementById('spTempat');
+        const inputTanggal = document.getElementById('spTanggal');
+
+        // Nomor Surat (User Input)
+        inputNomor.value = d.sp.nomor || '';
+        
+        // Tempat TTD (Terkunci, dari Data Sekolah)
+        const tempatDefault = d.sekolah.tempatTTD || "";
+        inputTempat.value = tempatDefault;
+        inputTempat.readOnly = true;
+        inputTempat.classList.add('bg-light');
+        if(!tempatDefault) inputTempat.placeholder = "Belum disetting di Data Sekolah";
+
+        // Tanggal
+        if (d.sp.tanggal) {
+          inputTanggal.value = d.sp.tanggal;
+        } else {
+          inputTanggal.valueAsDate = new Date();
+        }
+      }
+
+      // 5. Render Tab Verifikasi
+      function renderTabVerif(d) {
+        const v = d.verif || {};
+        
+        // Verifikator 1
+        if(v.verifikator1) {
+          document.getElementById('vfNama1').value = v.verifikator1.nama || '';
+          document.getElementById('vfNip1').value = v.verifikator1.nip || '';
+        }
+        // Verifikator 2
+        if(v.verifikator2) {
+          document.getElementById('vfNama2').value = v.verifikator2.nama || '';
+          document.getElementById('vfNip2').value = v.verifikator2.nip || '';
+        }
+        // Pengawas
+        if(v.pengawas) {
+          document.getElementById('vfNamaPengawas').value = v.pengawas.nama || '';
+          document.getElementById('vfNipPengawas').value = v.pengawas.nip || '';
+        }
+
+        // List Item (Global Variable `verifItems` dari kode lama)
+        if(v.rows && v.rows.length > 0) {
+          verifItems = v.rows;
+        } else {
+          // Jika data kosong, gunakan default
+          verifItems = [...DEFAULT_VERIF_ITEMS];
+        }
+        renderVerifList(); // Panggil fungsi render tabel list yang sudah ada
+      }
+
+      // 6. Render Tab Setting
+      function renderTabSetting(d) {
+        document.getElementById('tplCoverCustom').value = d.docSettings.coverCustom || '';
+        document.getElementById('tplSp').value = d.docSettings.sp || '';
+        document.getElementById('tplVerif').value = d.docSettings.verif || '';
       }
 
     </script>
