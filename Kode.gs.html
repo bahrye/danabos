@@ -3194,12 +3194,43 @@ function getSettingDokumenPendukung(token) {
   }
 }
 
-/* --- UPDATE: GENERATE DOKUMEN (DENGAN FALLBACK DEFAULT) --- */
+/* --- [BARU] HELPER FOLDER GENERATE TAMBAHAN --- */
+function ensureFolderPendukung(token) {
+  const ss = SpreadsheetApp.openById(token);
+  let sheet = ss.getSheetByName('DataPengaturan');
+  if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+  const data = sheet.getDataRange().getValues();
+  let folderId = null;
+  let sekolahFolderId = null;
+
+  // Cari ID Folder Pendukung & Folder Sekolah Utama
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === 'FOLDER_PENDUKUNG_ID') folderId = data[i][1];
+    if (data[i][0] === 'FOLDER_SEKOLAH_ID') sekolahFolderId = data[i][1];
+  }
+
+  // Jika Folder Pendukung belum ada
+  if (!folderId || folderId === "") {
+    if (!sekolahFolderId) throw new Error("Folder Sekolah Induk tidak ditemukan.");
+    
+    const parentFolder = DriveApp.getFolderById(sekolahFolderId);
+    const newFolder = parentFolder.createFolder("File Generate Tambahan");
+    folderId = newFolder.getId();
+
+    // Simpan ID Folder Baru ke Database
+    sheet.appendRow(['FOLDER_PENDUKUNG_ID', folderId]);
+  }
+
+  return folderId;
+}
+
+/* --- [UPDATE] GENERATE DOKUMEN PENDUKUNG (SIMPAN KE FOLDER KHUSUS & HAPUS LAMA) --- */
 function generateDokumenPendukung(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Sekolah (Sama)
+    // 1. Ambil Data Sekolah (Sama seperti sebelumnya)
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
@@ -3213,132 +3244,85 @@ function generateDokumenPendukung(token, tipe, formData) {
       };
     }
 
-    // 2. Logika Pemilihan Template ID
-    let templateId = '';
-    let coverLogoId = null;
-    let kopSuratId = null;
-
-    // Ambil User Settings
+    // 2. Persiapan Folder & ID File Lama
+    const folderId = ensureFolderPendukung(token);
+    const folder = DriveApp.getFolderById(folderId);
+    
+    // Key untuk menyimpan ID file hasil generate di DataPengaturan
+    const outputKey = 'OUTPUT_ID_' + tipe; // Contoh: OUTPUT_ID_COVER
+    
+    // Ambil Data Pengaturan
     const sheetSet = ss.getSheetByName('DataPengaturan');
     let settingsMap = {};
-    if (sheetSet) {
-      const dataSet = sheetSet.getDataRange().getValues();
-      dataSet.forEach(row => settingsMap[row[0]] = row[1]);
+    let rowIdxOutput = -1;
+    const dataSet = sheetSet.getDataRange().getValues();
+    
+    dataSet.forEach((row, index) => {
+      settingsMap[row[0]] = row[1];
+      if (row[0] === outputKey) rowIdxOutput = index + 1;
+    });
+
+    // --- HAPUS FILE LAMA JIKA ADA ---
+    const oldFileId = settingsMap[outputKey];
+    if (oldFileId && oldFileId !== "") {
+      try {
+        DriveApp.getFileById(oldFileId).setTrashed(true);
+      } catch (e) {
+        // Abaikan jika file sudah tidak ada
+      }
     }
+
+    // 3. Tentukan Template ID (Logika Sama)
+    let templateId = '';
+    let coverLogoId = settingsMap['COVER_LOGO_ID'];
+    let kopSuratId = settingsMap['KOP_SURAT_ID'];
 
     if (tipe === 'COVER') {
-      coverLogoId = settingsMap['COVER_LOGO_ID'];
-      
-      if (formData.desain === 'CUSTOM') {
-        templateId = settingsMap['TEMPLATE_ID_COVER_CUSTOM'];
-        if (!templateId) return { status: 'error', message: 'ID Template Custom belum diisi di menu Pengaturan.' };
-      } else {
-        // ID dikirim langsung dari value dropdown (ID System)
-        templateId = formData.desain;
-      }
-
+      if (formData.desain === 'CUSTOM') templateId = settingsMap['TEMPLATE_ID_COVER_CUSTOM'];
+      else templateId = formData.desain;
     } else if (tipe === 'SP') {
-      templateId = settingsMap['TEMPLATE_ID_SP'];
-      kopSuratId = settingsMap['KOP_SURAT_ID'];
-
-      // --- LOGIKA FALLBACK SP ---
-      if (!templateId || templateId.trim() === "") {
-         // Ambil Default dari Master DB jika user kosong
-         templateId = getMasterDefaultId('SP'); 
-      }
-
+      templateId = settingsMap['TEMPLATE_ID_SP'] || getMasterDefaultId('SP');
     } else if (tipe === 'VERIFIKASI') {
-      templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'];
-
-      // --- LOGIKA FALLBACK VERIFIKASI ---
-      if (!templateId || templateId.trim() === "") {
-         // Ambil Default dari Master DB jika user kosong
-         templateId = getMasterDefaultId('VERIF');
-      }
+      templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'] || getMasterDefaultId('VERIF');
     }
 
-    // Validasi Akhir
-    if (!templateId) {
-       return { status: 'error', message: 'Template tidak ditemukan. Harap isi ID di pengaturan atau hubungi admin untuk set default.' };
-    }
+    if (!templateId) return { status: 'error', message: 'Template tidak ditemukan.' };
 
-    // 3. Proses Template (SAMA SEPERTI SEBELUMNYA)
+    // 4. Proses Dokumen (Replace Text & Image - SAMA SEPERTI SEBELUMNYA)
+    // ... (Bagian replace text disingkat karena sama persis dengan kode lama Anda) ...
     const templateFile = DriveApp.getFileById(templateId);
-    const tempDocFile = templateFile.makeCopy('TEMP_' + tipe + '_' + new Date().getTime());
+    const tempDocFile = templateFile.makeCopy('TEMP_PROC_' + new Date().getTime());
     const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
-    
-    // --- HELPER UTILS ---
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
-    
-    // Helper Format NIP
-    const formatNipLengkap = (val) => {
-        if (val && String(val).trim() !== "" && String(val).trim() !== "-") {
-            return "NIP. " + String(val).trim();
-        }
-        return "NIP.";
-    };
+    const formatNipLengkap = (val) => (val && String(val).trim() !== "" && String(val).trim() !== "-") ? "NIP. " + String(val).trim() : "NIP.";
 
-    // Helper Replace Gambar (UPDATE: Beda Ukuran Logo & Kop)
+    // Helper Replace Gambar (Sama)
     const replaceWithImage = (placeholder, imageId) => {
       if (imageId && imageId.trim() !== "") {
         try {
           const imgFile = DriveApp.getFileById(imageId);
           const imgBlob = imgFile.getBlob();
-          
           let searchResult = body.findText(placeholder);
-          if (!searchResult) {
-             const header = doc.getHeader();
-             if(header) searchResult = header.findText(placeholder);
-          }
-          
+          if (!searchResult) { const header = doc.getHeader(); if(header) searchResult = header.findText(placeholder); }
           if (searchResult) {
             const textElement = searchResult.getElement();
             const parent = textElement.getParent();
-            
             textElement.removeFromParent();
             const img = parent.asParagraph().insertInlineImage(0, imgBlob);
-            
-            const width = img.getWidth();
-            const height = img.getHeight();
-            
-            // --- LOGIKA PEMBEDAAN UKURAN ---
-            
-            // KASUS A: LOGO (Dibatasi 200x200 agar tidak raksasa)
+            const width = img.getWidth(); const height = img.getHeight();
             if (placeholder.includes('LOGO')) {
-                const MAX_W = 200; 
-                const MAX_H = 200; 
-                
-                // Hitung skala agar muat di kotak 200x200 tanpa gepeng
-                const scale = Math.min(MAX_W / width, MAX_H / height, 1);
-                
-                if (scale < 1) {
-                   img.setWidth(Math.round(width * scale));
-                   img.setHeight(Math.round(height * scale));
-                }
-
-            // KASUS B: KOP SURAT (Dibatasi Lebar 600 agar memenuhi halaman)
+                const MAX = 200; const scale = Math.min(MAX/width, MAX/height, 1);
+                if (scale < 1) { img.setWidth(Math.round(width*scale)); img.setHeight(Math.round(height*scale)); }
             } else {
-                // Logika asli: Jika lebar > 600, kecilkan jadi 600. Tinggi menyesuaikan.
-                if (width > 600) {
-                   const ratio = height / width;
-                   img.setWidth(600);
-                   img.setHeight(Math.round(600 * ratio));
-                }
-                // Jika lebar < 600, biarkan ukuran asli (agar tidak pecah jika diperbesar)
+                if (width > 600) { const ratio = height/width; img.setWidth(600); img.setHeight(Math.round(600*ratio)); }
             }
-            // -------------------------------
           }
-        } catch(err) { 
-          console.error("Gagal replace image: " + err);
-          body.replaceText(placeholder, ''); 
-        }
-      } else { 
-        body.replaceText(placeholder, ''); 
-      }
+        } catch(err) { body.replaceText(placeholder, ''); }
+      } else { body.replaceText(placeholder, ''); }
     };
 
-    // --- REPLACE DATA UMUM ---
+    // Replace Data
     safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
     safeReplace('<<NSM>>', ds.nsm);
     safeReplace('<<NPSN>>', ds.npsn);
@@ -3353,21 +3337,17 @@ function generateDokumenPendukung(token, tipe, formData) {
     safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
     safeReplace('<<NIP Kepala Sekolah>>', formatNipLengkap(ds.nipKepala)); 
 
-    // --- LOGIKA KHUSUS ---
     if (tipe === 'COVER') {
         safeReplace('<<Header>>', formData.header);
         safeReplace('<<Judul>>', formData.judul);
         safeReplace('<<Keterangan Periode>>', formData.periode);
         replaceWithImage('<<LOGO>>', coverLogoId);
         replaceWithImage('<<KOP SURAT>>', coverLogoId);
-    
     } else if (tipe === 'SP') {
         safeReplace('<<Nomor Surat>>', formData.nomor);
         safeReplace('<<Tempat TTD>>', formData.tempat);
-        const tglIndo = formatTanggalIndo(formData.tanggal);
-        safeReplace('<<Tanggal Surat>>', tglIndo);
+        safeReplace('<<Tanggal Surat>>', formatTanggalIndo(formData.tanggal));
         replaceWithImage('<<KOP SURAT>>', kopSuratId);
-
     } else if (tipe === 'VERIFIKASI') {
         const fmtNama = (val) => (val && val.trim() !== "") ? val : "_______________________";
         safeReplace('<<Nama Verifikator 1>>', fmtNama(formData.verifikator1.nama));
@@ -3382,9 +3362,7 @@ function generateDokumenPendukung(token, tipe, formData) {
         tables.forEach(table => {
           let rowIndexTemplate = -1;
           for (let r = 0; r < table.getNumRows(); r++) {
-            if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) {
-              rowIndexTemplate = r; break; 
-            }
+            if (table.getRow(r).getText().includes('<<TABLE_ROW>>')) { rowIndexTemplate = r; break; }
           }
           if (rowIndexTemplate !== -1) {
             const templateRow = table.getRow(rowIndexTemplate);
@@ -3401,15 +3379,60 @@ function generateDokumenPendukung(token, tipe, formData) {
 
     doc.saveAndClose();
 
+    // 5. Simpan PDF ke Folder Khusus
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
-    const pdfName = 'Dokumen_' + tipe + '_' + ds.namaSekolah + '.pdf';
-    const pdfFile = DriveApp.createFile(pdfBlob).setName(pdfName);
+    const pdfName = tipe + '_' + ds.namaSekolah + '.pdf';
+    const pdfFile = folder.createFile(pdfBlob).setName(pdfName);
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Hapus Temp Doc
     tempDocFile.setTrashed(true);
 
-    return { status: 'success', url: pdfFile.getUrl() };
+    const newFileId = pdfFile.getId();
+
+    // 6. Update ID File Baru ke Database
+    if (rowIdxOutput !== -1) {
+      sheetSet.getRange(rowIdxOutput, 2).setValue(newFileId);
+    } else {
+      sheetSet.appendRow([outputKey, newFileId]);
+    }
+
+    return { 
+      status: 'success', 
+      url: pdfFile.getUrl(),
+      fileId: newFileId 
+    };
 
   } catch (e) {
-    return { status: 'error', message: 'Gagal generate PDF: ' + e.toString() };
+    return { status: 'error', message: 'Gagal generate: ' + e.toString() };
+  }
+}
+
+/* --- [BARU] CEK STATUS FILE HASIL GENERATE --- */
+function getDokumenPendukungStatus(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let result = { 
+      COVER: null, 
+      SP: null, 
+      VERIF: null 
+    };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        const key = data[i][0];
+        const val = data[i][1];
+        
+        if (key === 'OUTPUT_ID_COVER') result.COVER = val;
+        if (key === 'OUTPUT_ID_SP') result.SP = val;
+        if (key === 'OUTPUT_ID_VERIF') result.VERIF = val;
+      }
+    }
+    return { status: 'success', data: result };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
   }
 }
