@@ -3225,12 +3225,12 @@ function ensureFolderPendukung(token) {
   return folderId;
 }
 
-/* --- [UPDATE] GENERATE DOKUMEN PENDUKUNG (SIMPAN KE FOLDER KHUSUS & HAPUS LAMA) --- */
+/* --- [UPDATE] GENERATE DOKUMEN PENDUKUNG (DENGAN ERROR HANDLING TEMPLATE) --- */
 function generateDokumenPendukung(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Sekolah (Sama seperti sebelumnya)
+    // 1. Ambil Data Sekolah
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
@@ -3272,7 +3272,7 @@ function generateDokumenPendukung(token, tipe, formData) {
       }
     }
 
-    // 3. Tentukan Template ID (Logika Sama)
+    // 3. Tentukan Template ID
     let templateId = '';
     let coverLogoId = settingsMap['COVER_LOGO_ID'];
     let kopSuratId = settingsMap['KOP_SURAT_ID'];
@@ -3286,18 +3286,30 @@ function generateDokumenPendukung(token, tipe, formData) {
       templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'] || getMasterDefaultId('VERIF');
     }
 
-    if (!templateId) return { status: 'error', message: 'Template tidak ditemukan.' };
+    if (!templateId || templateId.trim() === "") {
+       return { status: 'error', message: 'ID Template belum disetting. Silakan pilih desain atau masukkan ID di menu Pengaturan Template.' };
+    }
 
-    // 4. Proses Dokumen (Replace Text & Image - SAMA SEPERTI SEBELUMNYA)
-    // ... (Bagian replace text disingkat karena sama persis dengan kode lama Anda) ...
-    const templateFile = DriveApp.getFileById(templateId);
+    // 4. Proses File Template (DENGAN PENGECEKAN ID VALID)
+    let templateFile;
+    try {
+      templateFile = DriveApp.getFileById(templateId);
+    } catch (e) {
+      // INI BAGIAN PENTING: Tangkap error jika ID salah
+      return { 
+        status: 'error_template', 
+        message: 'Kode ID Template Salah / File Tidak Ditemukan',
+        detail: 'Sistem gagal mengambil file Google Doc dengan ID: <b>' + templateId + '</b>. <br>Pastikan ID benar dan akses file diatur ke "Siapa saja yang memiliki link dapat melihat".'
+      };
+    }
+
     const tempDocFile = templateFile.makeCopy('TEMP_PROC_' + new Date().getTime());
     const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
     const formatNipLengkap = (val) => (val && String(val).trim() !== "" && String(val).trim() !== "-") ? "NIP. " + String(val).trim() : "NIP.";
 
-    // Helper Replace Gambar (Sama)
+    // Helper Replace Gambar
     const replaceWithImage = (placeholder, imageId) => {
       if (imageId && imageId.trim() !== "") {
         try {
@@ -3322,7 +3334,7 @@ function generateDokumenPendukung(token, tipe, formData) {
       } else { body.replaceText(placeholder, ''); }
     };
 
-    // Replace Data
+    // Replace Data Umum
     safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
     safeReplace('<<NSM>>', ds.nsm);
     safeReplace('<<NPSN>>', ds.npsn);
@@ -3404,6 +3416,7 @@ function generateDokumenPendukung(token, tipe, formData) {
     };
 
   } catch (e) {
+    // Tangkap error umum lainnya
     return { status: 'error', message: 'Gagal generate: ' + e.toString() };
   }
 }
