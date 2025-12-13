@@ -3441,7 +3441,11 @@ function getDokumenPendukungStatus(token) {
         
         if (key === 'OUTPUT_ID_COVER') result.COVER = val;
         if (key === 'OUTPUT_ID_SP') result.SP = val;
-        if (key === 'OUTPUT_ID_VERIF') result.VERIF = val;
+        
+        // --- PERBAIKAN DI SINI ---
+        // Sebelumnya: if (key === 'OUTPUT_ID_VERIF') ...
+        // Ubah Menjadi:
+        if (key === 'OUTPUT_ID_VERIFIKASI') result.VERIF = val; 
       }
     }
     return { status: 'success', data: result };
