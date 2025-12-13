@@ -2991,6 +2991,9 @@
                           <i class="fas fa-save me-1"></i> Simpan Teks & Logo
                         </button>
                         
+                        <button class="btn btn-info text-white" onclick="exportToWord('print-area', 'Cover_LPJ.doc', 'A4')">
+                          <i class="fas fa-file-word me-2"></i> Simpan Word
+                        </button>
                         <button class="btn btn-primary" onclick="cetakHalamanIni()">
                           <i class="fas fa-print me-2"></i> Cetak / Simpan PDF
                         </button>
@@ -3058,6 +3061,9 @@
                           <i class="fas fa-cloud-upload-alt me-2"></i> Simpan Data
                         </button>
                         
+                        <button class="btn btn-info text-white" onclick="exportToWord('print-area-sp', 'Surat_Pengantar.doc', 'A4')">
+                          <i class="fas fa-file-word me-2"></i> Simpan Word
+                        </button>
                         <button class="btn btn-primary" onclick="cetakHalamanIni()">
                           <i class="fas fa-print me-2"></i> Cetak PDF
                         </button>
@@ -3195,10 +3201,15 @@
                           <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetTabelVerifikasi()">
                             <i class="fas fa-sync me-1"></i> Reset Tabel ke Default
                           </button>
+                          
+                          <button class="btn btn-info text-white" onclick="exportToWord('print-area-verif', 'Lembar_Verifikasi.doc', 'F4')">
+                            <i class="fas fa-file-word me-2"></i> Simpan Word
+                          </button>
                           <button type="button" class="btn btn-primary" onclick="window.print()">
                             <i class="fas fa-print me-1"></i> Cetak PDF
                           </button>
                         </div>
+
                       </form>
                     </div>
                   </div>
@@ -9769,7 +9780,162 @@
           })
           .simpanDataVerifikasi(token, payload);
       }
-      
+
+      /* --- FUNGSI EXPORT KE WORD (VERSI PRO - HIGH FIDELITY) --- */
+      function exportToWord(elementId, filename, pageSize = 'A4') {
+        var element = document.getElementById(elementId);
+        if (!element) {
+          Swal.fire('Error', 'Area dokumen tidak ditemukan.', 'error');
+          return;
+        }
+
+        // 1. CLONE NODE (Agar tidak merusak tampilan asli)
+        var clone = element.cloneNode(true);
+
+        // 2. PRE-PROCESSING (Ubah Input jadi Teks)
+        var inputs = clone.querySelectorAll('input');
+        inputs.forEach(function(inp) {
+          var val = inp.value;
+          var span = document.createElement('span');
+          span.innerText = val;
+          span.style.fontFamily = 'Times New Roman'; // Paksa font standar surat
+          if (inp.parentNode) inp.parentNode.replaceChild(span, inp);
+        });
+
+        // 3. KONVERSI FLEXBOX KE TABEL (Khusus Cover agar Layout Atas-Tengah-Bawah Rapi di Word)
+        // Word tidak paham 'justify-content: space-between', jadi kita ubah strukturnya.
+        var flexWrapper = clone.querySelector('.cover-layout-wrapper');
+        if (flexWrapper) {
+          var top = flexWrapper.querySelector('.section-top');
+          var mid = flexWrapper.querySelector('.section-middle');
+          var bot = flexWrapper.querySelector('.section-bottom');
+
+          if (top && mid && bot) {
+            // Buat Tabel Pengganti Layout
+            var newTable = document.createElement('table');
+            newTable.style.width = '100%';
+            newTable.style.height = '100%'; // Full Height kertas
+            newTable.style.border = 'none';
+            newTable.style.textAlign = 'center';
+
+            // Baris Atas
+            var trTop = newTable.insertRow();
+            var tdTop = trTop.insertCell();
+            tdTop.style.verticalAlign = 'top';
+            tdTop.style.height = '20%'; // Proporsi area atas
+            tdTop.appendChild(top);
+
+            // Baris Tengah (Logo)
+            var trMid = newTable.insertRow();
+            var tdMid = trMid.insertCell();
+            tdMid.style.verticalAlign = 'middle';
+            tdMid.appendChild(mid);
+
+            // Baris Bawah
+            var trBot = newTable.insertRow();
+            var tdBot = trBot.insertCell();
+            tdBot.style.verticalAlign = 'bottom';
+            tdBot.style.height = '20%'; // Proporsi area bawah
+            tdBot.appendChild(bot);
+
+            // Ganti div wrapper dengan tabel baru ini
+            flexWrapper.innerHTML = '';
+            flexWrapper.appendChild(newTable);
+          }
+        }
+
+        // 4. ATUR UKURAN KERTAS & MARGIN (@page)
+        // Word membaca CSS @page untuk menentukan ukuran fisik kertas
+        var cssPageSize = "";
+        if (pageSize === 'F4' || pageSize === 'LEGAL') {
+          // Ukuran F4/Folio (21.59cm x 33cm)
+          cssPageSize = "@page { size: 21.59cm 33cm; margin: 1.5cm 2cm 1.5cm 2cm; mso-page-orientation: portrait; }";
+        } else {
+          // Ukuran A4 (21cm x 29.7cm)
+          cssPageSize = "@page { size: 21cm 29.7cm; margin: 2cm 2cm 2cm 2cm; mso-page-orientation: portrait; }";
+        }
+
+        // 5. DEFINISI CSS LENGKAP (Agar Desain Terbawa)
+        // Kita masukkan style yang sama persis dengan 'media print' di CSS asli
+        var cssStyles = `
+          <style>
+            ${cssPageSize}
+            body { font-family: 'Times New Roman', serif; color: #000; }
+            
+            /* Reset Tabel agar garisnya muncul di Word */
+            table { border-collapse: collapse; width: 100%; }
+            
+            /* Style Khusus Cover */
+            .sheet { width: 100%; text-align: center; }
+            .txt-instansi { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+            .txt-title { font-size: 26pt; font-weight: bold; text-transform: uppercase; line-height: 1.2; margin: 20px 0; }
+            .txt-period { font-size: 16pt; margin-bottom: 20px; }
+            .txt-school { font-size: 20pt; font-weight: bold; text-transform: uppercase; margin-top: 10px; }
+            .txt-year { font-size: 16pt; font-weight: bold; margin-top: 5px; }
+            .txt-city { font-size: 14pt; font-weight: bold; text-transform: uppercase; margin-top: 15px; }
+            .img-logo { width: 200px; height: auto; }
+
+            /* Desain Border Sampul (V1) */
+            .design-v1 .cover-layout-wrapper {
+              border: 5px double #000; 
+              padding: 20px;
+              height: 95%; /* Agar border tidak terpotong */
+            }
+
+            /* Style Khusus Verifikasi */
+            .verif-title-top { text-align: center; font-size: 14pt; font-weight: bold; text-decoration: underline; margin-bottom: 20px; text-transform: uppercase; }
+            .verif-subtitle { text-align: center; font-weight: bold; text-decoration: underline; margin: 10px 0; text-transform: uppercase; }
+            .verif-header-table td { border: none; padding: 2px; font-size: 12pt; }
+            
+            .verif-main-table th { border: 1px solid #000; background-color: #f0f0f0; font-weight: bold; padding: 5px; text-align: center; }
+            .verif-main-table td { border: 1px solid #000; padding: 4px; vertical-align: middle; }
+            
+            /* Tanda Tangan */
+            .verif-signature-grid { width: 100%; margin-top: 30px; }
+            .sig-row { width: 100%; display: flex; justify-content: space-between; }
+            /* Fallback tabel untuk layout TTD jika flex gagal di Word versi lama */
+            .sig-table { width: 100%; border: none; margin-top: 20px; }
+            .sig-table td { border: none; text-align: center; vertical-align: top; padding-top: 20px; }
+            .verif-sig-name { font-weight: bold; text-decoration: underline; margin-top: 60px; }
+          </style>
+        `;
+
+        // 6. WRAPPER KHUSUS WORD (XML Namespace)
+        var preHtml = `
+          <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                xmlns:w='urn:schemas-microsoft-com:office:word' 
+                xmlns='http://www.w3.org/TR/REC-html40'>
+          <head>
+            <meta charset='utf-8'>
+            <title>${filename}</title>
+            ${cssStyles}
+          </head>
+          <body>
+            <div class="Section1">
+        `;
+        
+        var postHtml = "</div></body></html>";
+        var html = preHtml + clone.innerHTML + postHtml;
+
+        // 7. DOWNLOAD FILE
+        var blob = new Blob(['\ufeff', html], {
+            type: 'application/msword'
+        });
+        
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        document.body.appendChild(link);
+        
+        if (navigator.msSaveOrOpenBlob) {
+            navigator.msSaveOrOpenBlob(blob, filename); // Untuk IE/Edge lama
+        } else {
+            link.href = url;
+            link.download = filename;
+            link.click();
+        }
+        
+        document.body.removeChild(link);
+      }
 
     </script>
   </body>
