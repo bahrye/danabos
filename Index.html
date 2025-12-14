@@ -10073,45 +10073,95 @@
         if(tabName === 'pks') loadPksData();
       }
 
-      /* --- LOAD DATA PKS (PERBAIKAN NULL CHECK) --- */
+      /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
+
+      // Variabel Global untuk melacak perubahan data
+      let isPksDirty = false;
+
+      // 1. Fungsi Menandai Ada Perubahan
+      function markPksDirty() {
+        isPksDirty = true;
+        // Opsional: Ubah warna tombol simpan jadi kuning agar user sadar
+        const btn = document.getElementById('btnSimpanPks');
+        if(btn) {
+          btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Perubahan*';
+          btn.classList.remove('btn-outline-primary');
+          btn.classList.add('btn-warning');
+        }
+      }
+
+      // 2. Fungsi Menandai Data Sudah Bersih/Disimpan
+      function markPksClean() {
+        isPksDirty = false;
+        const btn = document.getElementById('btnSimpanPks');
+        if(btn) {
+          btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Data';
+          btn.classList.add('btn-outline-primary');
+          btn.classList.remove('btn-warning');
+        }
+      }
+
+      // 3. Pasang Listener ke Semua Input PKS
+      function attachPksListeners() {
+        const inputs = document.querySelectorAll('#formPks input, #formPks textarea');
+        inputs.forEach(input => {
+          // Hapus listener lama biar gak dobel (re-clone node trick)
+          // Atau cukup set oninput langsung
+          input.oninput = function() {
+             markPksDirty();
+          };
+        });
+      }
+
+      /* --- LOAD DATA PKS (FIXED: Prioritas Data Tersimpan) --- */
       function loadPksData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         
+        // Kunci Tombol saat Loading
         const btnSimpan = document.getElementById('btnSimpanPks');
         const btnGen = document.getElementById('btnGenPks');
         
         if(btnSimpan) btnSimpan.disabled = true;
         if(btnGen) {
           btnGen.disabled = true;
-          btnGen.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memuat Data...';
-          btnGen.className = 'btn btn-secondary flex-grow-1';
+          btnGen.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sinkronisasi...';
         }
 
+        // Reset UI Tombol Hasil
         resetTombolPks();
 
-        const unlockButtons = (savedData) => {
-          Swal.close(); 
-          if(btnSimpan) btnSimpan.disabled = false;
-          if(btnGen) {
-            btnGen.disabled = false;
-            if (savedData && savedData.pdfId) {
-              tampilkanTombolHasilPks(savedData.pdfId, savedData.docId);
+        // Callback sukses load data
+        const onDataLoaded = (savedData, sekolahData) => {
+            // Gabungkan data: Saved > Sekolah > Default
+            applyPksData(savedData, sekolahData);
+            
+            // Restore status tombol hasil file jika ada ID nya
+            if (savedData.pdfId && savedData.pdfId !== "") {
+               tampilkanTombolHasilPks(savedData.pdfId, savedData.docId);
             } else {
-              btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
-              btnGen.className = 'btn btn-success flex-grow-1';
+               // Kembalikan tombol generate ke default
+               if(btnGen) {
+                 btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
+                 btnGen.className = 'btn btn-success flex-grow-1';
+               }
             }
-          }
+
+            // Unlock tombol
+            if(btnSimpan) btnSimpan.disabled = false;
+            if(btnGen) btnGen.disabled = false;
+            
+            // Set status bersih karena baru diload dari server
+            markPksClean();
+            
+            // Pasang listener untuk mendeteksi ketikan user setelah data dimuat
+            attachPksListeners();
+            
+            Swal.close();
         };
 
+        // CEK CACHE DULU
         if (!forceRefresh && DATA_CACHE.pks && DATA_CACHE.sekolah) {
-            applyPksData(DATA_CACHE.pks, DATA_CACHE.sekolah);
-            // Manual unlock
-            if(btnSimpan) btnSimpan.disabled = false;
-            if(btnGen) {
-              btnGen.disabled = false;
-              if (DATA_CACHE.pks.pdfId) tampilkanTombolHasilPks(DATA_CACHE.pks.pdfId, DATA_CACHE.pks.docId);
-              else { btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF'; btnGen.className = 'btn btn-success flex-grow-1'; }
-            }
+            onDataLoaded(DATA_CACHE.pks, DATA_CACHE.sekolah);
             return;
         }
 
@@ -10120,6 +10170,7 @@
           title: 'Sinkronisasi Data...', didOpen: () => Swal.showLoading()
         });
 
+        // FETCH KE SERVER
         google.script.run
           .withFailureHandler((err) => {
              Swal.close();
@@ -10128,91 +10179,44 @@
              if(btnGen) { btnGen.disabled = false; btnGen.innerHTML = 'Generate PDF'; }
           })
           .withSuccessHandler(function(resPks){
-            // [FIX] Validasi resPks
             const saved = (resPks && resPks.status === 'success') ? resPks.data : {};
             DATA_CACHE.pks = saved;
 
+            // Cek Data Sekolah di Cache
             if(DATA_CACHE.sekolah) {
-              applyPksData(saved, DATA_CACHE.sekolah);
-              unlockButtons(saved);
+              onDataLoaded(saved, DATA_CACHE.sekolah);
             } else {
+              // Jika data sekolah belum ada, fetch juga
               google.script.run.withSuccessHandler(function(resSekolah){
-                // [FIX] Validasi resSekolah
                 if(resSekolah && resSekolah.status === 'success') {
                   DATA_CACHE.sekolah = resSekolah.data; 
-                  applyPksData(saved, resSekolah.data);
+                  onDataLoaded(saved, resSekolah.data);
                 }
-                unlockButtons(saved);
               }).getDataSekolah(token);
             }
           })
           .getDataPKS(token);
       }
 
-      /* --- HELPER: UPDATE STATUS TOMBOL PKS --- */
-      function resetTombolPks() {
-        document.getElementById('btnLihatPksPdf').classList.add('hidden');
-        document.getElementById('btnUnduhPksWord').classList.add('hidden');
-        document.getElementById('valPksPdfId').value = "";
-        document.getElementById('valPksDocId').value = "";
-        
-        // Reset Text Generate
-        document.getElementById('btnGenPks').innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
-        document.getElementById('btnGenPks').className = 'btn btn-success flex-grow-1';
-      }
-
-      function tampilkanTombolHasilPks(pdfId, docId) {
-        // Simpan ID
-        document.getElementById('valPksPdfId').value = pdfId;
-        document.getElementById('valPksDocId').value = docId;
-
-        // Munculkan Tombol
-        document.getElementById('btnLihatPksPdf').classList.remove('hidden');
-        document.getElementById('btnUnduhPksWord').classList.remove('hidden');
-
-        // Ubah Tombol Generate jadi "Generate Ulang" (Warna Warning)
-        const btnGen = document.getElementById('btnGenPks');
-        btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
-        btnGen.className = 'btn btn-warning flex-grow-1';
-      }
-
-      /* --- HELPER: BUKA FILE PKS --- */
-      function bukaFilePks(tipe) {
-        let url = "";
-        if (tipe === 'PDF') {
-          const id = document.getElementById('valPksPdfId').value;
-          if(id) url = "https://drive.google.com/file/d/" + id + "/view?usp=sharing";
-        } else {
-          // Download Word (Docx)
-          const id = document.getElementById('valPksDocId').value;
-          if(id) url = "https://docs.google.com/feeds/download/documents/export/Export?id=" + id + "&exportFormat=docx";
-        }
-
-        if (url) window.open(url, '_blank');
-        else Swal.fire('Error', 'File belum tersedia. Silakan generate ulang.', 'error');
-      }
-
-      // [BARU] Fungsi Helper Penggabungan Data
+      // --- HELPER: MAPPING DATA KE INPUT FORM ---
       function applyPksData(saved, defaults) {
+        // Logika: Gunakan data tersimpan (saved). Jika kosong, gunakan data master sekolah (defaults).
         
-        // A. DATA EDITABLE (Logika: Pakai Saved jika ada, jika tidak pakai Default)
+        // 1. Data Editable (Bisa diedit user)
+        const valNama = (saved.namaLengkap && saved.namaLengkap !== "") ? saved.namaLengkap : (defaults.namaSekolah || "");
+        document.getElementById('pksNamaLengkap').value = valNama;
         
-        // 1. Nama Sekolah Lengkap
-        document.getElementById('pksNamaLengkap').value = saved.namaLengkap || defaults.namaSekolah || '';
+        const valBos = (saved.danaBos && saved.danaBos !== "") ? saved.danaBos : (defaults.danaBOS || "");
+        document.getElementById('pksDanaBos').value = valBos;
         
-        // 2. Dana BOS
-        document.getElementById('pksDanaBos').value = saved.danaBos || defaults.danaBOS || '';
-        
-        // 3. Alamat Lengkap
-        // Buat format alamat default yang rapi (bersihkan koma ganda jika ada data kosong)
+        // Alamat: Susun default jika saved kosong
         let defaultAlamat = `${defaults.alamat || ''}, ${defaults.kelurahan || ''}, ${defaults.kecamatan || ''}, ${defaults.kabupaten || ''}, ${defaults.provinsi || ''}`;
-        // Regex untuk membersihkan ", , ," menjadi ","
         defaultAlamat = defaultAlamat.replace(/^, |, $/g, '').replace(/, ,/g, ',').replace(/, ,/g, ',');
         
-        document.getElementById('pksAlamat').value = saved.alamat || defaultAlamat;
+        const valAlamat = (saved.alamat && saved.alamat !== "") ? saved.alamat : defaultAlamat;
+        document.getElementById('pksAlamat').value = valAlamat;
 
-
-        // B. DATA MANUAL PKS (Murni dari saved)
+        // 2. Data Manual PKS (Murni dari inputan PKS)
         document.getElementById('pksNamaSingkat').value = saved.namaSingkat || '';
         document.getElementById('pksNomorPks').value = saved.nomorPks || '';
         document.getElementById('pksNomorSurat').value = saved.nomorSurat || '';
@@ -10220,71 +10224,92 @@
         document.getElementById('pksNoRek').value = saved.noRek || '';
         document.getElementById('pksNamaRek').value = saved.namaRek || '';
         
-        // C. DATA READONLY (Selalu dari Master Data Sekolah, tidak disimpan di PKS)
+        // 3. Data Readonly (Hanya tampil, sumber dari Master Data Sekolah)
         document.getElementById('pksKamad').value = defaults.namaKepala || '';
         document.getElementById('pksTahun').value = defaults.tahunAnggaran || '';
-        
-        const jml = defaults.jumlahAnggaran || 0;
-        document.getElementById('pksJumlah').value = formatRupiahJS(jml);
+        document.getElementById('pksJumlah').value = formatRupiahJS(defaults.jumlahAnggaran || 0);
       }
 
-      // Helper Render Data Sekolah ke Form PKS
-      function renderDataSekolahToPks(d) {
-        document.getElementById('pksNamaLengkap').value = d.namaSekolah || '';
-        document.getElementById('pksKamad').value = d.namaKepala || '';
-        document.getElementById('pksDanaBos').value = d.danaBOS || '';
-        document.getElementById('pksTahun').value = d.tahunAnggaran || '';
-        
-        // Format Rupiah
-        const jml = d.jumlahAnggaran || 0;
-        document.getElementById('pksJumlah').value = formatRupiahJS(jml);
-
-        // Alamat Lengkap Komposit
-        const alamatFull = `${d.alamat || '-'}, ${d.kelurahan || '-'}, ${d.kecamatan || '-'}, ${d.kabupaten || '-'}, ${d.provinsi || '-'}`;
-        document.getElementById('pksAlamat').value = alamatFull;
-      }
-
-      /* --- UPDATE: Simpan Data PKS & Update Cache --- */
-      function simpanDataPksSaja() {
+      /* --- UPDATE: SIMPAN DATA PKS --- */
+      function simpanDataPksSaja(callbackSuccess = null) {
         const token = localStorage.getItem('userToken');
-        const form = ambilFormPks(); // Ambil value input terbaru
+        const form = ambilFormPks(); // Helper ambil value input
 
-        // Kunci tombol agar tidak spam klik
+        // Validasi Sederhana
+        if(!form.namaSingkat) { Swal.fire('Gagal', 'Nama Singkat Sekolah wajib diisi!', 'warning'); return; }
+
         const btn = document.getElementById('btnSimpanPks');
         const txtAsli = btn.innerHTML;
-        btn.innerHTML = 'Menyimpan...'; 
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...'; 
         btn.disabled = true;
         
-        google.script.run.withSuccessHandler(function(res){
+        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res){
           btn.innerHTML = txtAsli; 
           btn.disabled = false;
 
           if(res.status === 'success') {
-            // === UPDATE CACHE ===
-            // Gabungkan data lama (misal ID File) dengan data baru form
+            // Update Cache Lokal
             if (DATA_CACHE.pks) {
+                // Merge data baru dengan data lama (agar ID file tidak hilang)
                 DATA_CACHE.pks = { ...DATA_CACHE.pks, ...form };
             } else {
                 DATA_CACHE.pks = form;
             }
 
-            Swal.fire({
-              toast: true, position: 'top-end', icon: 'success', 
-              title: 'Data PKS Disimpan & Cache Diperbarui', showConfirmButton: false, timer: 1500
-            });
+            // Tandai data sudah bersih (disimpan)
+            markPksClean();
+
+            // Jika ada callback (misal dari tombol Generate), jalankan
+            if (callbackSuccess && typeof callbackSuccess === 'function') {
+                callbackSuccess();
+            } else {
+                Swal.fire({
+                  toast: true, position: 'top-end', icon: 'success', 
+                  title: 'Data Tersimpan', showConfirmButton: false, timer: 1500
+                });
+            }
           } else {
             Swal.fire('Gagal', res.message, 'error');
           }
         }).simpanDataPKS(token, form);
       }
 
-      /* --- UPDATE: Generate PKS & Update Cache File ID --- */
+      /* --- UPDATE: GENERATE PKS (LOGIKA SIMPAN & GENERATE) --- */
       function generatePks(e) {
-        e.preventDefault();
+        if(e) e.preventDefault();
+        
         const token = localStorage.getItem('userToken');
         const form = ambilFormPks();
 
-        // Cek ID File lama dari Hidden Input (karena tombol belum tentu render)
+        // 1. CEK APAKAH ADA PERUBAHAN YANG BELUM DISIMPAN?
+        if (isPksDirty) {
+            Swal.fire({
+              title: 'Data Belum Disimpan!',
+              text: "Ada perubahan data yang belum disimpan ke database. Apakah Anda ingin menyimpan lalu generate?",
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#3085d6',
+              cancelButtonColor: '#d33',
+              confirmButtonText: 'Simpan & Generate',
+              cancelButtonText: 'Batal'
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // Panggil Simpan dulu, lalu Generate lewat callback
+                simpanDataPksSaja(() => {
+                   jalankanProsesGenerate(token, form);
+                });
+              }
+            });
+            return; // Berhenti disini, tunggu konfirmasi user
+        }
+
+        // 2. Jika data sudah bersih (Saved), lanjut proses generate normal
+        jalankanProsesGenerate(token, form);
+      }
+
+      // Helper: Proses Inti Generate ke Server
+      function jalankanProsesGenerate(token, form) {
+        // Cek ID File lama
         const fileLamaAda = document.getElementById('valPksPdfId').value !== "";
         
         let judul = 'Generate PKS?';
@@ -10298,9 +10323,6 @@
           warna = '#ffc107'; 
           teksTombol = 'Ya, Ganti File';
         }
-
-        // Simpan ke DB dulu (background)
-        google.script.run.simpanDataPKS(token, form);
 
         Swal.fire({
           title: judul,
@@ -10324,12 +10346,11 @@
                 toggleLoading(false);
                 if(res.status === 'success') {
                   
-                  // === UPDATE CACHE DENGAN ID FILE BARU ===
+                  // Update Cache Lokal dengan ID File Baru
                   if (!DATA_CACHE.pks) DATA_CACHE.pks = {};
-                  // Update isi form + ID file baru
                   DATA_CACHE.pks = { ...DATA_CACHE.pks, ...form, pdfId: res.pdfId, docId: res.docId };
 
-                  // Update UI Tombol
+                  // Update Tampilan Tombol
                   tampilkanTombolHasilPks(res.pdfId, res.docId);
 
                   Swal.fire({
@@ -10351,21 +10372,46 @@
         });
       }
 
+      /* --- UTILS --- */
       function ambilFormPks() {
         return {
           namaLengkap: document.getElementById('pksNamaLengkap').value,
           danaBos: document.getElementById('pksDanaBos').value,
           alamat: document.getElementById('pksAlamat').value,
-          
           namaSingkat: document.getElementById('pksNamaSingkat').value,
           nomorPks: document.getElementById('pksNomorPks').value,
           nomorSurat: document.getElementById('pksNomorSurat').value,
-          // TAMBAHAN BARU
           tanggalPks: document.getElementById('pksTanggal').value, 
-          
           noRek: document.getElementById('pksNoRek').value,
           namaRek: document.getElementById('pksNamaRek').value
         };
+      }
+
+      function resetTombolPks() {
+        document.getElementById('btnLihatPksPdf').classList.add('hidden');
+        document.getElementById('btnUnduhPksWord').classList.add('hidden');
+        document.getElementById('valPksPdfId').value = "";
+        document.getElementById('valPksDocId').value = "";
+        
+        const btnGen = document.getElementById('btnGenPks');
+        if(btnGen) {
+            btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
+            btnGen.className = 'btn btn-success flex-grow-1';
+        }
+      }
+
+      function tampilkanTombolHasilPks(pdfId, docId) {
+        document.getElementById('valPksPdfId').value = pdfId;
+        document.getElementById('valPksDocId').value = docId;
+
+        document.getElementById('btnLihatPksPdf').classList.remove('hidden');
+        document.getElementById('btnUnduhPksWord').classList.remove('hidden');
+
+        const btnGen = document.getElementById('btnGenPks');
+        if(btnGen) {
+            btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+            btnGen.className = 'btn btn-warning flex-grow-1';
+        }
       }
 
     </script>
