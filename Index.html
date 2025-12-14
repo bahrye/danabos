@@ -2934,155 +2934,7 @@
                   <i class="fas fa-check-double me-2"></i> Lembar Verifikasi
                 </button>
               </li>
-              <li class="nav-item">
-                <button class="nav-link fw-bold text-danger" id="tab-sub-setting-doc" onclick="bukaSubTab('setting-doc')">
-                  <i class="fas fa-cog me-2"></i> Setting Template
-                </button>
-              </li>
             </ul>
-
-            <div id="view-sub-setting-doc" class="sub-view-section hidden">
-              <div class="row">
-                <div class="col-lg-5 mb-4">
-                  <div class="card shadow-sm border-0">
-                    <div class="card-header bg-danger text-white fw-bold">
-                      <i class="fas fa-cogs me-2"></i> Konfigurasi Template (Docs)
-                    </div>
-                    <div class="card-body">
-                      <div class="alert alert-warning small">
-                        <i class="fas fa-info-circle me-1"></i> Masukkan ID File Google Docs. Pastikan akses file adalah "Anyone with link can view".
-                      </div>
-                      
-                      <form id="formSettingDocPendukung" onsubmit="simpanSettingDocPendukung(event)">
-                        
-                        <div class="mb-3">
-                          <label class="form-label fw-bold small text-primary">Template Cover (Desain Custom)</label>
-                          <input type="text" class="form-control font-monospace" id="tplCoverCustom" placeholder="ID Doc Cover Milik Sendiri...">
-                          <div class="form-text" style="font-size:0.75rem;">ID ini akan muncul sebagai opsi "Desain Custom" di menu cetak Cover.</div>
-                        </div>
-
-                        <hr class="opacity-25">
-
-                        <div class="mb-3">
-                          <label class="form-label fw-bold small">ID Template Surat Pengantar</label>
-                          <input type="text" class="form-control font-monospace" id="tplSp" placeholder="ID Doc Surat Pengantar...">
-                        </div>
-                        <div class="mb-3">
-                          <label class="form-label fw-bold small">ID Template Lembar Verifikasi</label>
-                          <input type="text" class="form-control font-monospace" id="tplVerif" placeholder="ID Doc Verifikasi...">
-                        </div>
-
-                        <div class="d-grid mt-4">
-                          <button type="submit" id="btnSimpanSetDoc" class="btn btn-primary"><i class="fas fa-save me-1"></i> Simpan ID Template</button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-lg-7">
-                  <div class="card shadow-sm border-0">
-                    <div class="card-body">
-                      <h5 class="mb-3"><i class="fas fa-book-reader text-success me-2"></i> Panduan Template Pendukung</h5>
-                      
-                      <div class="accordion" id="accordionPanduanPendukung">
-                        
-                        <div class="accordion-item">
-                          <h2 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#colP1">
-                              1. Cara Mendapatkan ID Google Doc
-                            </button>
-                          </h2>
-                          <div id="colP1" class="accordion-collapse collapse show" data-bs-parent="#accordionPanduanPendukung">
-                            <div class="accordion-body bg-light">
-                              <ol class="small mb-0 ps-3">
-                                <li>Buka file Google Doc template Anda.</li>
-                                <li>Lihat pada Address Bar browser.</li>
-                                <li>Link: <code>docs.google.com/document/d/<strong>ID_ADALAH_DISINI</strong>/edit</code></li>
-                                <li>Copy kode acak tersebut ke form di samping.</li>
-                              </ol>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="accordion-item">
-                          <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colP2">
-                              2. Kode Placeholder Cover (Sampul)
-                            </button>
-                          </h2>
-                          <div id="colP2" class="accordion-collapse collapse" data-bs-parent="#accordionPanduanPendukung">
-                            <div class="accordion-body p-0">
-                              <table class="table table-sm table-striped mb-0 small">
-                                <thead class="table-dark"><tr><th>Kode</th><th>Keterangan</th></tr></thead>
-                                <tbody>
-                                  <tr><td class="font-monospace text-danger">&lt;&lt;LOGO&gt;&gt;</td><td>Logo Sekolah (Otomatis)</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Header&gt;&gt;</td><td>Header (Yayasan/Kemenag)</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Judul&gt;&gt;</td><td>Judul Laporan</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Keterangan Periode&gt;&gt;</td><td>Periode (Jan - Jun)</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Sekolah&gt;&gt;</td><td>Nama Sekolah</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Alamat Lengkap Sekolah&gt;&gt;</td><td>Alamat Lengkap</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Tahun Anggaran&gt;&gt;</td><td>Tahun Anggaran</td></tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="accordion-item">
-                          <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colP3">
-                              3. Kode Placeholder Surat Pengantar
-                            </button>
-                          </h2>
-                          <div id="colP3" class="accordion-collapse collapse" data-bs-parent="#accordionPanduanPendukung">
-                            <div class="accordion-body p-0">
-                              <table class="table table-sm table-striped mb-0 small">
-                                <thead class="table-dark"><tr><th>Kode</th><th>Keterangan</th></tr></thead>
-                                <tbody>
-                                  <tr><td class="font-monospace text-danger">&lt;&lt;KOP SURAT&gt;&gt;</td><td>Kop Surat (Otomatis)</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nomor Surat&gt;&gt;</td><td>Nomor Surat</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Tempat TTD&gt;&gt;</td><td>Kota Tanda Tangan</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Tanggal Surat&gt;&gt;</td><td>Tanggal (Format Indo)</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Kepala Sekolah&gt;&gt;</td><td>Nama Kepala</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;NIP Kepala Sekolah&gt;&gt;</td><td>NIP Kepala</td></tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="accordion-item">
-                          <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colP4">
-                              4. Kode Placeholder Lembar Verifikasi
-                            </button>
-                          </h2>
-                          <div id="colP4" class="accordion-collapse collapse" data-bs-parent="#accordionPanduanPendukung">
-                            <div class="accordion-body p-0">
-                              <table class="table table-sm table-striped mb-0 small">
-                                <thead class="table-dark"><tr><th>Kode</th><th>Keterangan</th></tr></thead>
-                                <tbody>
-                                  <tr><td class="font-monospace text-danger">&lt;&lt;TABLE_ROW&gt;&gt;</td><td><b>Wajib:</b> Baris Tabel Item</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Verifikator 1&gt;&gt;</td><td>Nama Verifikator 1</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;NIP Verifikator 1&gt;&gt;</td><td>NIP Verifikator 1</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Verifikator 2&gt;&gt;</td><td>Nama Verifikator 2</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;NIP Verifikator 2&gt;&gt;</td><td>NIP Verifikator 2</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Pengawas&gt;&gt;</td><td>Nama Pengawas</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;NIP Pengawas&gt;&gt;</td><td>NIP Pengawas</td></tr>
-                                  <tr><td class="font-monospace">&lt;&lt;Nama Kepala Sekolah&gt;&gt;</td><td>Nama Kepala</td></tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <div id="view-sub-sampul" class="sub-view-section">
               <div class="row">
@@ -9541,15 +9393,15 @@
       // --- UPDATE: FUNGSI RESET VERIFIKASI DENGAN SWEETALERT ---
       function resetVerifList() {
         Swal.fire({
-          title: 'Reset ke Default?',
-          text: "Daftar item verifikasi akan dikembalikan ke pengaturan awal sistem. Item tambahan yang Anda buat akan hilang.",
+          title: 'Kembalikan ke Default?',
+          text: "Daftar item verifikasi akan dikembalikan ke pengaturan awal sistem. Item tambahan manual akan hilang.",
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonColor: '#d33', // Merah untuk peringatan
+          confirmButtonColor: '#d33',   // Merah untuk peringatan
           cancelButtonColor: '#6c757d', // Abu-abu untuk batal
           confirmButtonText: '<i class="fas fa-sync-alt me-1"></i> Ya, Reset',
           cancelButtonText: 'Batal',
-          reverseButtons: true // Posisi tombol batal di kiri (opsional, agar tidak salah klik)
+          reverseButtons: true
         }).then((result) => {
           if (result.isConfirmed) {
             // Logika Reset Data
@@ -9559,8 +9411,8 @@
             // Pesan Sukses Kecil (Toast)
             Swal.fire({
               icon: 'success',
-              title: 'Daftar Direset',
-              text: 'Item verifikasi telah kembali ke default.',
+              title: 'Berhasil Direset',
+              text: 'Daftar verifikasi kembali ke pengaturan awal.',
               timer: 1500,
               showConfirmButton: false,
               toast: true,
@@ -9770,7 +9622,7 @@
         });
       }
 
-      // Fungsi Load Pilihan Desain Cover
+      // Fungsi Load Pilihan Desain Cover (UPDATE: Hapus Custom)
       function loadCoverOptions(token) {
         const select = document.getElementById('coverDesignSelect');
         select.innerHTML = '<option value="" disabled selected>Memuat...</option>';
@@ -9782,7 +9634,6 @@
 
           if (res.status === 'success') {
             // 1. Render System Templates (Dari Sheet Cetak_Lainnya)
-            // Value diisi ID File langsung untuk sistem template
             if (res.system && res.system.length > 0) {
                 res.system.forEach(tpl => {
                     const opt = document.createElement('option');
@@ -9797,23 +9648,13 @@
                 select.add(opt);
             }
 
-            // 2. Render Opsi Custom (Jika User Punya)
-            const optCustom = document.createElement('option');
-            optCustom.value = 'CUSTOM';
-            optCustom.text = 'Desain Custom (Milik Sendiri)';
-            optCustom.style.fontWeight = 'bold';
-            optCustom.style.color = '#0d6efd';
-            
-            // Jika ID Custom belum diset di pengaturan, kita kasih tanda
-            if (!res.userCustomId) {
-                optCustom.text += ' [Belum Diatur]';
-                optCustom.disabled = true; // Disable jika belum ada ID
-            }
-            
-            select.add(optCustom);
+            // [HAPUS BAGIAN LOGIKA CUSTOM DISINI]
+            // Dropdown sekarang hanya menampilkan template sistem.
             
             // Select default: item pertama
-            select.selectedIndex = 0;
+            if (select.options.length > 0) {
+                select.selectedIndex = 0;
+            }
 
           } else {
             select.innerHTML = '<option>Gagal memuat opsi</option>';
