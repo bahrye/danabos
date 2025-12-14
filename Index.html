@@ -4019,33 +4019,33 @@
 
       /* --- LOGIC DATA SEKOLAH --- */
 
-      // --- LOAD DATA SEKOLAH (WITH CACHE) ---
+      // --- LOAD DATA SEKOLAH (WITH CACHE & NULL CHECK) ---
       function loadDataSekolah(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         const schoolName = localStorage.getItem('userName');
         
-        // Set Nama Sekolah dari LocalStorage sebagai tampilan awal (fallback)
-        document.getElementById('dsNamaSekolah').value = schoolName;
+        document.getElementById('dsNamaSekolah').value = schoolName || '';
 
-        // 1. CEK CACHE
-        // Jika data ada di memori dan tidak dipaksa refresh, isi form langsung!
         if (!forceRefresh && DATA_CACHE.sekolah) {
-          console.log("Data sekolah loaded from Cache.");
           renderDataSekolah(DATA_CACHE.sekolah);
           return;
         }
 
-        // 2. FETCH SERVER
         toggleLoading(true);
         
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-          toggleLoading(false);
-          if (res.status === 'success') {
-            // SIMPAN KE CACHE
-            DATA_CACHE.sekolah = res.data;
-            renderDataSekolah(res.data);
-          } 
-        }).getDataSekolah(token);
+        google.script.run
+          .withFailureHandler(handleServerError)
+          .withSuccessHandler(function(res) {
+            toggleLoading(false);
+            // [FIX] Cek apakah res ada isinya sebelum baca .status
+            if (res && res.status === 'success') {
+              DATA_CACHE.sekolah = res.data;
+              renderDataSekolah(res.data);
+            } else {
+              // Jika null atau error
+              console.warn("Gagal load data sekolah:", res);
+            }
+          }).getDataSekolah(token);
       }
 
       // --- RENDER FORM DATA SEKOLAH (DIPISAH) ---
@@ -9220,48 +9220,43 @@
         });
       }
 
-      /* --- LOAD & SIMPAN DATA COVER (PERIODE TERKUNCI TOTAL SEJAK AWAL) --- */
+      /* --- LOAD & SIMPAN DATA COVER (PERBAIKAN NULL CHECK) --- */
       function loadCoverData(token) {
-        // Visual loading state
         document.getElementById('logoPreviewCover').style.opacity = '0.5';
         document.getElementById('inpHeaderCover').placeholder = "Memuat...";
         
-        // 1. KUNCI INPUT PERIODE SEJAK AWAL (Bahkan saat Loading)
         const inputPeriode = document.getElementById('inpPeriodeCover');
-        inputPeriode.value = ""; // Kosongkan nilai lama
+        inputPeriode.value = ""; 
         inputPeriode.placeholder = "Memuat otomatis...";
-        inputPeriode.readOnly = true; // Langsung kunci agar tidak bisa diklik/edit
-        inputPeriode.classList.add('bg-light'); // Beri warna abu-abu (visual disabled)
+        inputPeriode.readOnly = true; 
+        inputPeriode.classList.add('bg-light');
 
-        // 2. AMBIL DATA SEKOLAH TERLEBIH DAHULU (Untuk Dapatkan Periode)
+        // 1. AMBIL DATA SEKOLAH
         google.script.run.withSuccessHandler(function(resSekolah) {
           
-          // Ambil Periode dari Data Sekolah
-          const dataSekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+          // [FIX] Validasi resSekolah agar tidak crash jika null
+          const dataSekolah = (resSekolah && resSekolah.status === 'success') ? resSekolah.data : {};
           const periodeOtomatis = dataSekolah.periodeAnggaran || "";
 
-          // 3. SETELAH ITU BARU AMBIL PENGATURAN COVER (Untuk Logo & Judul)
+          // 2. SETELAH ITU BARU AMBIL PENGATURAN COVER
           google.script.run.withSuccessHandler(function(res) {
             document.getElementById('logoPreviewCover').style.opacity = '1';
             document.getElementById('inpHeaderCover').placeholder = "Contoh: YAYASAN...";
 
-            if (res.status === 'success') {
+            // [FIX] Validasi res
+            if (res && res.status === 'success') {
               const d = res.data;
               
-              // A. Load Logo
               if (d.logoId) {
                 const url = "https://drive.google.com/thumbnail?id=" + d.logoId + "&sz=w400";
                 document.getElementById('logoPreviewCover').src = url;
               }
 
-              // B. Load Teks Header & Judul (Masih Bisa Diedit)
               if (d.headerText) document.getElementById('inpHeaderCover').value = d.headerText;
               if (d.titleText) document.getElementById('inpJudulCover').value = d.titleText;
 
-              // C. ISI NILAI PERIODE (TETAP TERKUNCI)
               inputPeriode.value = periodeOtomatis;
               
-              // Jika data sekolah belum disetting
               if (!periodeOtomatis) {
                   inputPeriode.placeholder = "Periode belum disetting di Menu Data Sekolah";
               }
@@ -9724,47 +9719,34 @@
         else Swal.fire('Error', 'Link PDF tidak ditemukan. Silakan generate ulang.', 'error');
       }
 
-      /* --- LOAD & SIMPAN DATA SURAT PENGANTAR (TEMPAT TTD TERKUNCI TOTAL SEJAK AWAL) --- */
+      /* --- LOAD DATA SURAT PENGANTAR (PERBAIKAN NULL CHECK) --- */
       function loadDataSP(token) {
-        // 1. KUNCI INPUT TEMPAT TTD SEJAK AWAL (Bahkan saat Loading)
         const inputNomor = document.getElementById('spNomor');
         const inputTempat = document.getElementById('spTempat');
 
         inputNomor.placeholder = "Memuat...";
-        
-        // Reset & Kunci Tempat TTD
         inputTempat.value = ""; 
         inputTempat.placeholder = "Memuat otomatis...";
-        inputTempat.readOnly = true; // Langsung kunci
-        inputTempat.classList.add('bg-light'); // Beri warna abu-abu
+        inputTempat.readOnly = true; 
+        inputTempat.classList.add('bg-light');
 
-        // 2. AMBIL DATA SEKOLAH TERLEBIH DAHULU (Untuk Dapatkan Tempat Default)
         google.script.run.withSuccessHandler(function(resSekolah) {
           
-          // Ambil Tempat TTD dari Data Sekolah
-          const dataSekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+          // [FIX] Validasi resSekolah
+          const dataSekolah = (resSekolah && resSekolah.status === 'success') ? resSekolah.data : {};
           const tempatDefault = dataSekolah.tempatTTD || "";
 
-          // Isi nilai Tempat TTD (Tetap Terkunci)
           inputTempat.value = tempatDefault;
-          
-          if (!tempatDefault) {
-              inputTempat.placeholder = "Tempat TTD belum disetting di Data Sekolah";
-          }
+          if (!tempatDefault) inputTempat.placeholder = "Belum disetting di Data Sekolah";
 
-          // 3. AMBIL DATA SURAT PENGANTAR (Untuk Nomor & Tanggal)
           google.script.run.withSuccessHandler(function(res) {
-            if (res.status === 'success') {
+            // [FIX] Validasi res
+            if (res && res.status === 'success') {
               const d = res.data;
-              
-              // Isi Nomor Surat (Bisa diedit)
               if (d.nomor) inputNomor.value = d.nomor;
-              
-              // Isi Tanggal
               if (d.tanggal) {
                 document.getElementById('spTanggal').value = d.tanggal;
               } else {
-                // Default hari ini jika kosong
                 document.getElementById('spTanggal').valueAsDate = new Date();
               }
             }
@@ -9887,25 +9869,16 @@
       /* --- GANTI FUNGSI loadAllPendukungData DENGAN INI --- */
 
       function loadAllPendukungData(forceRefresh = false, targetTab = 'sampul') {
-        // A. CEK CACHE
         if (!forceRefresh && DATA_CACHE.pendukung) {
-          console.log("Data Pendukung loaded from Cache.");
           bukaSubTab(targetTab);
           return;
         }
 
-        // 1. DISABLE TOMBOL SEBELUM REQUEST DIMULAI
         setGenerateButtonsLoading(true);
 
-        // B. TAMPILKAN LOADING ALA TOAST
         Swal.fire({
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          title: 'Sinkronisasi Data...',
-          didOpen: () => {
-            Swal.showLoading();
-          }
+          toast: true, position: 'top-end', showConfirmButton: false,
+          title: 'Sinkronisasi Data...', didOpen: () => Swal.showLoading()
         });
 
         const token = localStorage.getItem('userToken');
@@ -9914,21 +9887,16 @@
           .withFailureHandler((err) => {
             Swal.close();
             handleServerError(err);
-            
-            // 2. RE-ENABLE TOMBOL JIKA GAGAL (PENTING AGAR TIDAK MACET)
             setGenerateButtonsLoading(false);
           })
           .withSuccessHandler(function(res) {
-            // 3. RE-ENABLE TOMBOL SETELAH SELESAI
             setGenerateButtonsLoading(false);
 
-            if (res.status === 'success') {
-              // SIMPAN DATA KE CACHE
+            // [FIX] Validasi res sebelum akses .status
+            if (res && res.status === 'success') {
               DATA_CACHE.pendukung = res.data;
-              
-              // Render data
               bukaSubTab(targetTab);
-
+              
               const Toast = Swal.mixin({
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
               });
@@ -9936,7 +9904,10 @@
 
             } else {
               Swal.close();
-              Swal.fire('Gagal', 'Gagal memuat data pendukung: ' + res.message, 'error');
+              // Handle jika res null atau error
+              const errMsg = (res && res.message) ? res.message : "Data tidak valid/kosong dari server.";
+              console.error("Error loadAllPendukungData:", res);
+              // Jangan tampilkan popup error mengganggu jika hanya masalah koneksi sesaat
             }
           })
           .getAllPendukungData(token);
@@ -10102,11 +10073,10 @@
         if(tabName === 'pks') loadPksData();
       }
 
-      /* --- UPDATE: Load Data PKS dengan Cache & Loading Screen --- */
+      /* --- LOAD DATA PKS (PERBAIKAN NULL CHECK) --- */
       function loadPksData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         
-        // 1. AMBIL ELEMEN TOMBOL & KUNCI SEMENTARA
         const btnSimpan = document.getElementById('btnSimpanPks');
         const btnGen = document.getElementById('btnGenPks');
         
@@ -10117,22 +10087,10 @@
           btnGen.className = 'btn btn-secondary flex-grow-1';
         }
 
-        // Sembunyikan tombol hasil sementara
         resetTombolPks();
 
-        // Helper untuk membuka kunci tombol & MENUTUP LOADING
         const unlockButtons = (savedData) => {
-          // --- TUTUP LOADING POPUP ---
           Swal.close(); 
-          
-          // Opsional: Tampilkan notifikasi kecil bahwa data siap
-          /*
-          const Toast = Swal.mixin({
-            toast: true, position: 'top-end', showConfirmButton: false, timer: 1000
-          });
-          Toast.fire({ icon: 'success', title: 'Data Siap' });
-          */
-
           if(btnSimpan) btnSimpan.disabled = false;
           if(btnGen) {
             btnGen.disabled = false;
@@ -10145,60 +10103,46 @@
           }
         };
 
-        // === STRATEGI CACHE: CEK MEMORI DULU ===
         if (!forceRefresh && DATA_CACHE.pks && DATA_CACHE.sekolah) {
-            console.log("Data PKS dimuat dari Cache.");
             applyPksData(DATA_CACHE.pks, DATA_CACHE.sekolah);
-            
-            // Manual unlock karena tidak memanggil helper unlockButtons
+            // Manual unlock
             if(btnSimpan) btnSimpan.disabled = false;
             if(btnGen) {
               btnGen.disabled = false;
               if (DATA_CACHE.pks.pdfId) tampilkanTombolHasilPks(DATA_CACHE.pks.pdfId, DATA_CACHE.pks.docId);
               else { btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF'; btnGen.className = 'btn btn-success flex-grow-1'; }
             }
-            return; // Stop, tidak perlu panggil server
+            return;
         }
 
-        // --- [BARU] TAMPILKAN LOADING POPUP / TOAST ---
         Swal.fire({
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          title: 'Sinkronisasi Data...',
-          didOpen: () => {
-            Swal.showLoading();
-          }
+          toast: true, position: 'top-end', showConfirmButton: false,
+          title: 'Sinkronisasi Data...', didOpen: () => Swal.showLoading()
         });
 
-        // === JIKA CACHE KOSONG, PANGGIL SERVER ===
         google.script.run
           .withFailureHandler((err) => {
-             Swal.close(); // Tutup loading jika error
+             Swal.close();
              handleServerError(err);
-             // Buka kunci tombol agar tidak macet
              if(btnSimpan) btnSimpan.disabled = false;
              if(btnGen) { btnGen.disabled = false; btnGen.innerHTML = 'Generate PDF'; }
           })
           .withSuccessHandler(function(resPks){
-            const saved = (resPks.status === 'success') ? resPks.data : {};
-            
-            // Simpan ke Cache PKS
+            // [FIX] Validasi resPks
+            const saved = (resPks && resPks.status === 'success') ? resPks.data : {};
             DATA_CACHE.pks = saved;
 
-            // Skenario A: Data Sekolah sudah ada di Cache
             if(DATA_CACHE.sekolah) {
               applyPksData(saved, DATA_CACHE.sekolah);
-              unlockButtons(saved); // Loading ditutup di sini
-            } 
-            // Skenario B: Cache Sekolah kosong, ambil dulu
-            else {
+              unlockButtons(saved);
+            } else {
               google.script.run.withSuccessHandler(function(resSekolah){
-                if(resSekolah.status === 'success') {
-                  DATA_CACHE.sekolah = resSekolah.data; // Simpan ke Cache Sekolah
+                // [FIX] Validasi resSekolah
+                if(resSekolah && resSekolah.status === 'success') {
+                  DATA_CACHE.sekolah = resSekolah.data; 
                   applyPksData(saved, resSekolah.data);
                 }
-                unlockButtons(saved); // Loading ditutup di sini (setelah data ke-2 selesai)
+                unlockButtons(saved);
               }).getDataSekolah(token);
             }
           })
