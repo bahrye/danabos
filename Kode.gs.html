@@ -3569,6 +3569,7 @@ function simpanDataPKS(token, form) {
     upsert('PKS_NAMA_SINGKAT', String(form.namaSingkat).toUpperCase());
     upsert('PKS_NOMOR_PKS', form.nomorPks);
     upsert('PKS_NOMOR_SURAT', form.nomorSurat);
+    upsert('PKS_TANGGAL', form.tanggalPks);
     upsert('PKS_NO_REK', form.noRek);
     upsert('PKS_NAMA_REK', form.namaRek);
     
@@ -3592,7 +3593,7 @@ function getDataPKS(token) {
     const sheet = ss.getSheetByName('DataPengaturan');
     
     let res = { 
-      namaSingkat: '', nomorPks: '', nomorSurat: '', 
+      namaSingkat: '', nomorPks: '', nomorSurat: '', tanggalPks: '',
       noRek: '', namaRek: '', templateId: '',
       namaLengkap: '', danaBos: '', alamat: '',
       // Field untuk status file output
@@ -3608,6 +3609,7 @@ function getDataPKS(token) {
         if (key === 'PKS_NAMA_SINGKAT') res.namaSingkat = val;
         if (key === 'PKS_NOMOR_PKS') res.nomorPks = val;
         if (key === 'PKS_NOMOR_SURAT') res.nomorSurat = val;
+        if (key === 'PKS_TANGGAL') res.tanggalPks = val;
         if (key === 'PKS_NO_REK') res.noRek = val;
         if (key === 'PKS_NAMA_REK') res.namaRek = val;
         
@@ -3727,6 +3729,54 @@ function generateBerkasPencairan(token, tipe, formData) {
       
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
       safeReplace('<<Nomor Surat Madrasah>>', formData.nomorSurat);
+
+      // === LOGIKA BARU: TANGGAL TERBILANG PKS ===
+      const tglInput = formData.tanggalPks; // Format: YYYY-MM-DD
+      
+      if (tglInput) {
+        const d = new Date(tglInput);
+        const hariArr = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        
+        // 1. Hari (Minggu)
+        // Apps Script getDay() mengembalikan 0=Minggu, 1=Senin
+        // Pastikan Timezone sesuai (GMT+7)
+        const hariIndex = parseInt(Utilities.formatDate(d, "GMT+7", "u")); // u = 1(Mon)-7(Sun)
+        // Array kita 0=Minggu, jadi perlu penyesuaian jika pakai 'u'
+        // Lebih aman pakai 'e' (1=Mon..7=Sun) atau hitung manual dari timestamp
+        // Cara paling aman di Apps Script:
+        const dayOfWeek = parseInt(Utilities.formatDate(d, "GMT+7", "u")); // 1=Senin, 7=Minggu
+        const namaHari = (dayOfWeek === 7) ? "Minggu" : hariArr[dayOfWeek]; 
+
+        // 2. Tanggal Angka & Teks
+        const tglAngka = parseInt(Utilities.formatDate(d, "GMT+7", "d"));
+        const tglTeks = terbilang(tglAngka); // Fungsi 'terbilang' sudah ada di kode Anda
+
+        // 3. Bulan Angka & Teks
+        const blnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "M"));
+        const blnTeks = terbilang(blnAngka); 
+
+        // 4. Tahun Angka & Teks
+        const thnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "yyyy"));
+        const thnTeks = terbilang(thnAngka);
+
+        // LAKUKAN REPLACE KE GOOGLE DOC
+        safeReplace('<<Hari PKS>>', namaHari);           // Contoh: Minggu
+        safeReplace('<<Tanggal PKS>>', toTitleCase(tglTeks)); // Contoh: Empat Belas
+        safeReplace('<<Bulan PKS>>', toTitleCase(blnTeks));   // Contoh: Dua Belas
+        safeReplace('<<Tahun PKS>>', toTitleCase(thnTeks));   // Contoh: Dua Ribu Dua Puluh Lima
+        
+        // Bonus: Tanggal Format Biasa (14 Desember 2025)
+        safeReplace('<<Tanggal PKS Lengkap>>', formatTanggalIndo(tglInput)); 
+
+      } else {
+        // Jika kosong, replace dengan titik-titik
+        safeReplace('<<Hari PKS>>', '................');
+        safeReplace('<<Tanggal PKS>>', '................');
+        safeReplace('<<Bulan PKS>>', '................');
+        safeReplace('<<Tahun PKS>>', '................');
+      }
+      // ==========================================
+
       safeReplace('<<Nomor Rekening>>', formData.noRek);
       safeReplace('<<Nama Rekening>>', formData.namaRek);
 
