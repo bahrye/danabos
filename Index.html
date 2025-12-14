@@ -3140,7 +3140,7 @@
                         <button class="btn btn-primary flex-grow-1" onclick="simpanDataCover()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
-                        <button class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('COVER')">
+                        <button id="btnGenCover" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('COVER')">
                           <i class="fas fa-cog me-2"></i> Generate Cover
                         </button>
                         <button id="btnViewCover" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('COVER')">
@@ -3182,7 +3182,7 @@
                         <button class="btn btn-primary flex-grow-1" onclick="simpanDataSP()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
-                        <button class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('SP')">
+                        <button id="btnGenSP" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('SP')">
                           <i class="fas fa-cog me-2"></i> Generate Surat
                         </button>
                         <button id="btnViewSp" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('SP')">
@@ -3253,7 +3253,7 @@
                         <button class="btn btn-primary flex-grow-1" onclick="simpanDataVerif()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
-                        <button class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('VERIFIKASI')">
+                        <button id="btnGenVerif" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('VERIFIKASI')">
                           <i class="fas fa-cog me-2"></i> Generate Verifikasi
                         </button>
                         <button id="btnViewVerif" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('VERIFIKASI')">
@@ -9977,6 +9977,34 @@
 
       /* --- GANTI FUNGSI loadAllPendukungData DENGAN INI --- */
 
+      // Fungsi Helper untuk Disable/Enable tombol Generate
+      function setGenerateButtonsLoading(isLoading) {
+        const ids = ['btnGenCover', 'btnGenSP', 'btnGenVerif'];
+        
+        ids.forEach(id => {
+          const btn = document.getElementById(id);
+          if (btn) {
+            btn.disabled = isLoading; // True = mati, False = hidup
+            
+            if (isLoading) {
+              // Simpan teks asli jika belum disimpan
+              if (!btn.dataset.originalText) {
+                btn.dataset.originalText = btn.innerHTML;
+              }
+              // Ubah teks jadi loading
+              btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sync...';
+            } else {
+              // Kembalikan teks asli
+              if (btn.dataset.originalText) {
+                btn.innerHTML = btn.dataset.originalText;
+              }
+            }
+          }
+        });
+      }
+
+      /* --- GANTI FUNGSI loadAllPendukungData DENGAN INI --- */
+
       function loadAllPendukungData(forceRefresh = false, targetTab = 'sampul') {
         // A. CEK CACHE
         if (!forceRefresh && DATA_CACHE.pendukung) {
@@ -9985,28 +10013,34 @@
           return;
         }
 
-        // B. TAMPILKAN LOADING ALA TOAST (PERSIS SEPERTI GAMBAR)
-        // Kita simpan referensi loading agar bisa ditutup nanti
+        // 1. DISABLE TOMBOL SEBELUM REQUEST DIMULAI
+        setGenerateButtonsLoading(true);
+
+        // B. TAMPILKAN LOADING ALA TOAST
         Swal.fire({
-          toast: true,             // Mode Toast (kotak kecil melayang)
-          position: 'top-end',     // Posisi pojok kanan atas
-          showConfirmButton: false,// Hilangkan tombol OK
-          title: 'Sinkronisasi Data...', // Teks loading
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          title: 'Sinkronisasi Data...',
           didOpen: () => {
-            Swal.showLoading();    // Munculkan animasi putaran (spinner) bawaan
+            Swal.showLoading();
           }
-          // Note: Tidak ada timer, jadi dia akan terus muncul sampai kita tutup manual
         });
 
         const token = localStorage.getItem('userToken');
 
         google.script.run
           .withFailureHandler((err) => {
-            Swal.close(); // Tutup loading jika error
+            Swal.close();
             handleServerError(err);
+            
+            // 2. RE-ENABLE TOMBOL JIKA GAGAL (PENTING AGAR TIDAK MACET)
+            setGenerateButtonsLoading(false);
           })
           .withSuccessHandler(function(res) {
-            
+            // 3. RE-ENABLE TOMBOL SETELAH SELESAI
+            setGenerateButtonsLoading(false);
+
             if (res.status === 'success') {
               // SIMPAN DATA KE CACHE
               DATA_CACHE.pendukung = res.data;
@@ -10014,15 +10048,13 @@
               // Render data
               bukaSubTab(targetTab);
 
-              // Ganti Loading dengan pesan Sukses (Hijau)
-              // Ini akan otomatis menutup loading sebelumnya
               const Toast = Swal.mixin({
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
               });
               Toast.fire({ icon: 'success', title: 'Data berhasil dimuat' });
 
             } else {
-              Swal.close(); // Tutup loading
+              Swal.close();
               Swal.fire('Gagal', 'Gagal memuat data pendukung: ' + res.message, 'error');
             }
           })
