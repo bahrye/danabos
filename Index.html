@@ -3169,10 +3169,10 @@
                         <div class="row mb-3">
                           <div class="col-md-6">
                             <label class="form-label small text-muted">Nama Sekolah Lengkap</label>
-                            <input type="text" class="form-control" id="pksNamaLengkap" required>
+                            <input type="text" class="form-control" id="pksNamaLengkap" placeholder="Contoh : Madrasah Ibtidaiyah ...." required>
                           </div>
                           <div class="col-md-6">
-                            <label class="form-label small text-muted">Nama Kamad (Dari Database)</label>
+                            <label class="form-label small text-muted">Nama Kamad</label>
                             <input type="text" class="form-control bg-light" id="pksKamad" readonly>
                           </div>
                         </div>
@@ -3180,7 +3180,7 @@
                         <div class="row mb-3">
                           <div class="col-md-6">
                             <label class="form-label small text-muted">Nama Dana BOS</label>
-                            <input type="text" class="form-control" id="pksDanaBos">
+                            <input type="text" class="form-control" id="pksDanaBos" placeholder="Contoh : Tahap 1">
                           </div>
                           <div class="col-md-3">
                             <label class="form-label small text-muted">Tahun</label>
@@ -3194,7 +3194,7 @@
 
                         <div class="mb-4">
                           <label class="form-label small text-muted">Alamat Lengkap Madrasah</label>
-                          <textarea class="form-control" id="pksAlamat" rows="2"></textarea>
+                          <textarea class="form-control" id="pksAlamat" rows="2" placeholder="Alamat Lengkap, Kel/Desa, Kec, Kab/Kota, Provinsi"></textarea>
                         </div>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">Input Data PKS</h6>
@@ -3202,27 +3202,31 @@
                         <div class="mb-3">
                           <label class="form-label fw-bold">Nama Sekolah Singkat</label>
                           <input type="text" class="form-control" id="pksNamaSingkat" 
-                                 placeholder="Contoh: MTS TANUNTUNG" 
-                                 style="text-transform: uppercase;"
-                                 oninput="this.value = this.value.toUpperCase()" 
-                                 required>
+                                placeholder="Contoh : MTS .... / MIS ...." 
+                                style="text-transform: uppercase;"
+                                oninput="this.value = this.value.toUpperCase()" 
+                                required>
                         </div>
 
                         <div class="row mb-3">
-                          <div class="col-md-6">
+                          <div class="col-md-4">
                             <label class="form-label fw-bold">Nomor PKS</label>
                             <input type="text" class="form-control" id="pksNomorPks" placeholder="Nomor Perjanjian..." required>
                           </div>
-                          <div class="col-md-6">
+                          <div class="col-md-4">
                             <label class="form-label fw-bold">Nomor Surat Madrasah</label>
                             <input type="text" class="form-control" id="pksNomorSurat" placeholder="Nomor Surat Keluar..." required>
+                          </div>
+                          <div class="col-md-4">
+                            <label class="form-label fw-bold">Tanggal PKS</label>
+                            <input type="date" class="form-control" id="pksTanggal" required>
                           </div>
                         </div>
 
                         <div class="row mb-3">
                           <div class="col-md-6">
                             <label class="form-label fw-bold">Nomor Rekening</label>
-                            <input type="text" class="form-control font-monospace" id="pksNoRek" placeholder="0000-00-..." required>
+                            <input type="text" class="form-control font-monospace" id="pksNoRek" placeholder="1234567890..." required>
                           </div>
                           <div class="col-md-6">
                             <label class="form-label fw-bold">Atas Nama Rekening</label>
@@ -9984,18 +9988,12 @@
           select.add(new Option("-- Tidak ada template sistem --", ""));
         }
 
-        // Opsi Custom
-        const optCustom = document.createElement('option');
-        optCustom.value = 'CUSTOM';
-        optCustom.text = 'Desain Custom (Milik Sendiri)';
-        optCustom.style.fontWeight = 'bold';
-        optCustom.style.color = '#0d6efd';
-        if (!d.desain.userCustomId) {
-          optCustom.text += ' [Belum Diatur]';
-          optCustom.disabled = true;
+        // --- KODE CUSTOM SUDAH DIHAPUS DISINI ---
+
+        // Select default: item pertama
+        if (select.options.length > 0) {
+            select.selectedIndex = 0;
         }
-        select.add(optCustom);
-        select.selectedIndex = 0; // Default
 
         // C. Input Form
         document.getElementById('inpHeaderCover').value = d.cover.headerText || 'KEMENTERIAN AGAMA';
@@ -10096,7 +10094,6 @@
       /* --- UPDATE: Load Data PKS dengan Cache & Loading Screen --- */
       function loadPksData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
-        document.getElementById('pksNamaSingkat').placeholder = "Memuat...";
         
         // 1. AMBIL ELEMEN TOMBOL & KUNCI SEMENTARA
         const btnSimpan = document.getElementById('btnSimpanPks');
@@ -10264,6 +10261,7 @@
         document.getElementById('pksNamaSingkat').value = saved.namaSingkat || '';
         document.getElementById('pksNomorPks').value = saved.nomorPks || '';
         document.getElementById('pksNomorSurat').value = saved.nomorSurat || '';
+        document.getElementById('pksTanggal').value = saved.tanggalPks || '';
         document.getElementById('pksNoRek').value = saved.noRek || '';
         document.getElementById('pksNamaRek').value = saved.namaRek || '';
         
@@ -10398,7 +10396,6 @@
         });
       }
 
-      // Helper Ambil Value Form PKS (UPDATE: Hapus templateId)
       function ambilFormPks() {
         return {
           namaLengkap: document.getElementById('pksNamaLengkap').value,
@@ -10408,9 +10405,11 @@
           namaSingkat: document.getElementById('pksNamaSingkat').value,
           nomorPks: document.getElementById('pksNomorPks').value,
           nomorSurat: document.getElementById('pksNomorSurat').value,
+          // TAMBAHAN BARU
+          tanggalPks: document.getElementById('pksTanggal').value, 
+          
           noRek: document.getElementById('pksNoRek').value,
           namaRek: document.getElementById('pksNamaRek').value
-          // templateId DIHAPUS
         };
       }
 
