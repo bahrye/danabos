@@ -3544,7 +3544,7 @@ function hapusLogoSampul(token) {
 
 /* --- FITUR BERKAS PENCAIRAN (NEW) --- */
 
-/* --- UPDATE: SIMPAN DATA PKS (Hapus Penyimpanan Template ID) --- */
+/* --- UPDATE: SIMPAN DATA PKS (FIX NOMOR REKENING) --- */
 function simpanDataPKS(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3553,40 +3553,45 @@ function simpanDataPKS(token, form) {
 
     const data = sheet.getDataRange().getValues();
     
-    const upsert = (key, val) => {
-      let found = false;
-      for (let i = 0; i < data.length; i++) {
-        if (data[i][0] === key) {
-          sheet.getRange(i + 1, 2).setValue(val);
-          found = true;
-          break;
-        }
+    // Mapping Key ke Baris untuk pencarian cepat
+    let keyMap = new Map();
+    for (let i = 0; i < data.length; i++) {
+      keyMap.set(data[i][0], i + 1); // Simpan KEY dan Index Baris (1-based)
+    }
+
+    const setVal = (key, val) => {
+      const valStr = (val === null || val === undefined) ? "" : String(val);
+      if (keyMap.has(key)) {
+        sheet.getRange(keyMap.get(key), 2).setValue(valStr);
+      } else {
+        sheet.appendRow([key, valStr]);
+        keyMap.set(key, sheet.getLastRow()); 
       }
-      if (!found) sheet.appendRow([key, val]);
     };
 
     // Simpan Data User
-    upsert('PKS_NAMA_SINGKAT', String(form.namaSingkat).toUpperCase());
-    upsert('PKS_NOMOR_PKS', form.nomorPks);
-    upsert('PKS_NOMOR_SURAT', form.nomorSurat);
-    upsert('PKS_TANGGAL', form.tanggalPks);
-    upsert('PKS_NO_REK', form.noRek);
-    upsert('PKS_NAMA_REK', form.namaRek);
+    setVal('PKS_NAMA_SINGKAT', String(form.namaSingkat).toUpperCase());
+    setVal('PKS_NOMOR_PKS', form.nomorPks);
+    setVal('PKS_NOMOR_SURAT', form.nomorSurat);
+    setVal('PKS_TANGGAL', form.tanggalPks);
+    
+    // [PERBAIKAN] Tambahkan tanda kutip satu (') agar angka 0 di depan tidak hilang
+    setVal('PKS_NO_REK', "'" + form.noRek);
+    
+    setVal('PKS_NAMA_REK', form.namaRek);
     
     // Simpan Data Override
-    upsert('PKS_OVERRIDE_NAMA', form.namaLengkap);
-    upsert('PKS_OVERRIDE_BOS', form.danaBos);
-    upsert('PKS_OVERRIDE_ALAMAT', form.alamat);
+    setVal('PKS_OVERRIDE_NAMA', form.namaLengkap);
+    setVal('PKS_OVERRIDE_BOS', form.danaBos);
+    setVal('PKS_OVERRIDE_ALAMAT', form.alamat);
 
-    // HAPUS BAGIAN SIMPAN TEMPLATE ID DISINI
-
-    return { status: 'success', message: 'Data PKS berhasil disimpan!' };
+    return { status: 'success', message: 'Data PKS berhasil disimpan ke database!' };
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
 }
 
-/* --- UPDATE: AMBIL DATA PKS (TERMASUK STATUS FILE OUTPUT) --- */
+/* --- UPDATE: AMBIL DATA PKS (FORMAT TEXT) --- */
 function getDataPKS(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3594,9 +3599,8 @@ function getDataPKS(token) {
     
     let res = { 
       namaSingkat: '', nomorPks: '', nomorSurat: '', tanggalPks: '',
-      noRek: '', namaRek: '', templateId: '',
+      noRek: '', namaRek: '', 
       namaLengkap: '', danaBos: '', alamat: '',
-      // Field untuk status file output
       pdfId: null, docId: null 
     };
 
@@ -3609,16 +3613,21 @@ function getDataPKS(token) {
         if (key === 'PKS_NAMA_SINGKAT') res.namaSingkat = val;
         if (key === 'PKS_NOMOR_PKS') res.nomorPks = val;
         if (key === 'PKS_NOMOR_SURAT') res.nomorSurat = val;
-        if (key === 'PKS_TANGGAL') res.tanggalPks = val;
-        if (key === 'PKS_NO_REK') res.noRek = val;
+        
+        if (key === 'PKS_TANGGAL' && val) {
+           try { res.tanggalPks = Utilities.formatDate(new Date(val), "GMT+7", "yyyy-MM-dd"); } 
+           catch(e) { res.tanggalPks = ""; }
+        }
+
+        // [PERBAIKAN] Pastikan dibaca sebagai String untuk menjaga angka 0
+        if (key === 'PKS_NO_REK') res.noRek = String(val);
+        
         if (key === 'PKS_NAMA_REK') res.namaRek = val;
         
-        // Data Override
         if (key === 'PKS_OVERRIDE_NAMA') res.namaLengkap = val;
         if (key === 'PKS_OVERRIDE_BOS') res.danaBos = val;
         if (key === 'PKS_OVERRIDE_ALAMAT') res.alamat = val;
 
-        // Ambil ID File Hasil Generate
         if (key === 'OUTPUT_ID_PKS_PDF') res.pdfId = val;
         if (key === 'OUTPUT_ID_PKS_DOC') res.docId = val;
       }
