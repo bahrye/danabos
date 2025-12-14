@@ -9538,11 +9538,36 @@
         verifItems[index] = val;
       }
 
+      // --- UPDATE: FUNGSI RESET VERIFIKASI DENGAN SWEETALERT ---
       function resetVerifList() {
-        if(confirm('Kembalikan ke daftar default?')) {
-          verifItems = [...DEFAULT_VERIF_ITEMS];
-          renderVerifList();
-        }
+        Swal.fire({
+          title: 'Reset ke Default?',
+          text: "Daftar item verifikasi akan dikembalikan ke pengaturan awal sistem. Item tambahan yang Anda buat akan hilang.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33', // Merah untuk peringatan
+          cancelButtonColor: '#6c757d', // Abu-abu untuk batal
+          confirmButtonText: '<i class="fas fa-sync-alt me-1"></i> Ya, Reset',
+          cancelButtonText: 'Batal',
+          reverseButtons: true // Posisi tombol batal di kiri (opsional, agar tidak salah klik)
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Logika Reset Data
+            verifItems = [...DEFAULT_VERIF_ITEMS];
+            renderVerifList();
+
+            // Pesan Sukses Kecil (Toast)
+            Swal.fire({
+              icon: 'success',
+              title: 'Daftar Direset',
+              text: 'Item verifikasi telah kembali ke default.',
+              timer: 1500,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+          }
+        });
       }
       
       // Load Pejabat Verifikasi (Reuse function dari kode lama atau buat baru)
