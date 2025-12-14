@@ -9975,35 +9975,54 @@
         }).simpanDataVerifikasi(token, formData);
       }
 
-      /* --- LOGIKA BARU: CETAK DOKUMEN PENDUKUNG (BATCH LOADING) --- */
-
-      /* --- GANTI FUNGSI loadAllPendukungData DI Index.html --- */
+      /* --- GANTI FUNGSI loadAllPendukungData DENGAN INI --- */
 
       function loadAllPendukungData(forceRefresh = false, targetTab = 'sampul') {
         // A. CEK CACHE
         if (!forceRefresh && DATA_CACHE.pendukung) {
           console.log("Data Pendukung loaded from Cache.");
-          bukaSubTab(targetTab); // Buka tab sesuai parameter (default: sampul)
+          bukaSubTab(targetTab);
           return;
         }
 
-        // B. FETCH SERVER
-        toggleLoading(true, "Memuat data...");
+        // B. TAMPILKAN LOADING ALA TOAST (PERSIS SEPERTI GAMBAR)
+        // Kita simpan referensi loading agar bisa ditutup nanti
+        Swal.fire({
+          toast: true,             // Mode Toast (kotak kecil melayang)
+          position: 'top-end',     // Posisi pojok kanan atas
+          showConfirmButton: false,// Hilangkan tombol OK
+          title: 'Sinkronisasi Data...', // Teks loading
+          didOpen: () => {
+            Swal.showLoading();    // Munculkan animasi putaran (spinner) bawaan
+          }
+          // Note: Tidak ada timer, jadi dia akan terus muncul sampai kita tutup manual
+        });
 
         const token = localStorage.getItem('userToken');
 
         google.script.run
-          .withFailureHandler(handleServerError)
+          .withFailureHandler((err) => {
+            Swal.close(); // Tutup loading jika error
+            handleServerError(err);
+          })
           .withSuccessHandler(function(res) {
-            toggleLoading(false);
-
+            
             if (res.status === 'success') {
               // SIMPAN DATA KE CACHE
               DATA_CACHE.pendukung = res.data;
               
-              // Buka tab yang diminta
+              // Render data
               bukaSubTab(targetTab);
+
+              // Ganti Loading dengan pesan Sukses (Hijau)
+              // Ini akan otomatis menutup loading sebelumnya
+              const Toast = Swal.mixin({
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+              });
+              Toast.fire({ icon: 'success', title: 'Data berhasil dimuat' });
+
             } else {
+              Swal.close(); // Tutup loading
               Swal.fire('Gagal', 'Gagal memuat data pendukung: ' + res.message, 'error');
             }
           })
