@@ -2989,7 +2989,7 @@
                       </div>
 
                       <div class="d-flex gap-2 mt-4">
-                        <button class="btn btn-primary flex-grow-1" onclick="simpanDataCover()">
+                        <button id="btnSimpanCover" class="btn btn-primary flex-grow-1" onclick="simpanDataCover()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
                         <button id="btnGenCover" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('COVER')">
@@ -3031,7 +3031,7 @@
                       </div>
 
                       <div class="d-flex gap-2 mt-4">
-                        <button class="btn btn-primary flex-grow-1" onclick="simpanDataSP()">
+                        <button id="btnSimpanSP" class="btn btn-primary flex-grow-1" onclick="simpanDataSP()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
                         <button id="btnGenSP" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('SP')">
@@ -3102,7 +3102,7 @@
                       </div>
 
                       <div class="d-grid mt-4 gap-2 d-md-flex">
-                        <button class="btn btn-primary flex-grow-1" onclick="simpanDataVerif()">
+                        <button id="btnSimpanVerif" class="btn btn-primary flex-grow-1" onclick="simpanDataVerif()">
                           <i class="fas fa-save me-2"></i> Simpan Data
                         </button>
                         <button id="btnGenVerif" class="btn btn-warning flex-grow-1" onclick="generatePdfPendukung('VERIFIKASI')">
@@ -3623,6 +3623,57 @@
       // Variabel untuk menyimpan input mana yang sedang diketik user
       let activeSatuanInput = null;
 
+      let dirtyPendukung = {
+        COVER: false,
+        SP: false,
+        VERIFIKASI: false
+      };
+
+      // Helper: Menandai data berubah (Dirty)
+      function setDirtyPendukung(tipe, isDirty) {
+        dirtyPendukung[tipe] = isDirty;
+        
+        // Opsional: Ubah warna tombol simpan jadi kuning jika ada perubahan
+        let btnId = '';
+        if (tipe === 'COVER') btnId = 'btnSimpanCover'; // Pastikan ID button di HTML sesuai (lihat langkah 4)
+        else if (tipe === 'SP') btnId = 'btnSimpanSP';
+        else if (tipe === 'VERIFIKASI') btnId = 'btnSimpanVerif';
+
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          if (isDirty) {
+            if (!btn.innerHTML.includes('*')) btn.innerHTML += '*'; // Tambah tanda bintang
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-warning');
+          } else {
+            btn.innerHTML = btn.innerHTML.replace('*', ''); // Hapus bintang
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-warning');
+          }
+        }
+      }
+
+      // Helper: Pasang Listener ke Input (Dijalankan setelah data diload)
+      function monitorInputPendukung(tipe) {
+        let containerId = '';
+        if (tipe === 'COVER') containerId = 'view-sub-sampul';
+        else if (tipe === 'SP') containerId = 'view-sub-pengantar';
+        else if (tipe === 'VERIFIKASI') containerId = 'view-sub-verifikasi';
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const inputs = container.querySelectorAll('input, select, textarea');
+        inputs.forEach(el => {
+          // Hindari duplikasi listener dengan menimpa oninput
+          el.oninput = function() {
+            setDirtyPendukung(tipe, true);
+          };
+          el.onchange = function() { // Untuk select/date
+            setDirtyPendukung(tipe, true);
+          };
+        });
+      }
 
       /* --- LOGIKA NAVIGASI UTAMA (SPA) --- */
       
@@ -9268,7 +9319,8 @@
 
       /* --- UPDATE FUNGSI simpanDataCover --- */
 
-      function simpanDataCover() {
+      /* --- UPDATE FUNGSI simpanDataCover (Support Callback) --- */
+      function simpanDataCover(callbackSuccess = null) {
         const token = localStorage.getItem('userToken');
         const config = {
           header: document.getElementById('inpHeaderCover').value,
@@ -9276,25 +9328,34 @@
           period: document.getElementById('inpPeriodeCover').value
         };
 
-        const btn = event.target.closest('button');
-        const oriText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
+        // Cari tombol (bisa dipanggil dari event click atau generate)
+        let btn = document.getElementById('btnSimpanCover'); 
+        // Fallback jika dipanggil via kode (bukan klik langsung)
+        if(!btn && event && event.target) btn = event.target.closest('button');
+        
+        const oriText = btn ? btn.innerHTML : 'Simpan Data';
+        if(btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...'; btn.disabled = true; }
 
         google.script.run.withSuccessHandler(function(res) {
-          btn.innerHTML = oriText;
-          btn.disabled = false;
+          if(btn) { btn.innerHTML = oriText; btn.disabled = false; }
           
           if(res.status === 'success') {
-            // [PERUBAHAN] UPDATE CACHE LOKAL (JANGAN NULL-KAN)
+            // Update Cache Lokal
             if(DATA_CACHE.pendukung && DATA_CACHE.pendukung.cover) {
                 DATA_CACHE.pendukung.cover.headerText = config.header;
                 DATA_CACHE.pendukung.cover.titleText = config.title;
-                // Periode biasanya read-only dari data sekolah, tapi kita update saja biar sinkron
                 DATA_CACHE.pendukung.cover.periodText = config.period;
             }
             
-            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Cover Disimpan', showConfirmButton:false, timer:1500});
+            // [PENTING] Set status jadi BERSIH
+            setDirtyPendukung('COVER', false);
+
+            // Jalankan Callback (Generate) jika ada
+            if (typeof callbackSuccess === 'function') {
+                callbackSuccess();
+            } else {
+                Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Cover Disimpan', showConfirmButton:false, timer:1500});
+            }
           }
           else Swal.fire('Gagal', res.message, 'error');
         }).simpanDetailSampul(token, config);
@@ -9459,171 +9520,123 @@
          }).getDataVerifikasi(token);
       }
 
-      /* --- FUNGSI UPDATE: GENERATE PDF DOKUMEN PENDUKUNG --- */
+      /* --- FUNGSI UPDATE: GENERATE PDF DENGAN CEK STATUS SIMPAN --- */
       function generatePdfPendukung(tipe) {
         const token = localStorage.getItem('userToken');
         let formData = {};
 
-        // === [1] VALIDASI: CEK APAKAH ADA LOGO YANG BELUM DIUPLOAD (KHUSUS COVER) ===
+        // === [A] CEK PERUBAHAN DATA (DIRTY CHECK) ===
+        if (dirtyPendukung[tipe] === true) {
+          Swal.fire({
+            title: 'Data Belum Disimpan!',
+            text: 'Ada perubahan data yang belum disimpan ke database. Sebaiknya simpan dulu agar data terbaru masuk ke PDF.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: '<i class="fas fa-save me-1"></i> Simpan & Generate',
+            cancelButtonText: 'Batal'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Panggil fungsi simpan yang sesuai, lalu callback ke fungsi ini lagi (executeGenerateCore)
+              if (tipe === 'COVER') simpanDataCover(() => executeGenerateCore(tipe));
+              else if (tipe === 'SP') simpanDataSP(() => executeGenerateCore(tipe));
+              else if (tipe === 'VERIFIKASI') simpanDataVerif(() => executeGenerateCore(tipe));
+            }
+          });
+          return; // Berhenti disini, jangan lanjut generate dulu
+        }
+
+        // Jika bersih, lanjut langsung
+        executeGenerateCore(tipe);
+      }
+
+      // --- FUNGSI INTI GENERATE (DIPISAH AGAR BISA DIPANGGIL CALLBACK) ---
+      function executeGenerateCore(tipe) {
+        const token = localStorage.getItem('userToken');
+        let formData = {};
+
+        // === 1. VALIDASI KHUSUS COVER (LOGO) ===
         if (tipe === 'COVER') {
           const inputLogo = document.getElementById('fileLogoCover');
-          // Jika input value tidak kosong, berarti user sudah pilih file tapi belum klik tombol Upload
           if (inputLogo && inputLogo.value !== "") {
             Swal.fire({
-              icon: 'warning',
-              title: 'Logo Belum Diupload!',
-              html: 'Anda telah memilih gambar baru tetapi <b>belum menekan tombol Upload</b>.<br><br>Mohon klik tombol <b>Upload</b> (Warna Biru) terlebih dahulu agar logo tersimpan di server sebelum melakukan Generate.',
-              confirmButtonText: 'Oke, Mengerti',
-              confirmButtonColor: '#0d6efd'
+              icon: 'warning', title: 'Logo Belum Diupload!',
+              html: 'Klik tombol <b>Upload</b> terlebih dahulu.',
+              confirmButtonText: 'Oke'
             });
-            return; // HENTIKAN PROSES GENERATE
+            return;
           }
         }
 
-        // === [2] PERSIAPAN DATA FORM SESUAI TIPE ===
+        // === 2. PERSIAPAN DATA FORM ===
+        // (Data diambil dari elemen HTML karena sudah dianggap tersimpan/bersih)
         if (tipe === 'COVER') {
           formData.desain = document.getElementById('coverDesignSelect').value;
           formData.header = document.getElementById('inpHeaderCover').value;
           formData.judul = document.getElementById('inpJudulCover').value;
           formData.periode = document.getElementById('inpPeriodeCover').value;
-          
-          // Auto-save konfigurasi cover ke database (background process)
-          const configSave = {
-            header: formData.header,
-            title: formData.judul,
-            period: formData.periode
-          };
-          google.script.run.simpanDetailSampul(token, configSave);
-
         } else if (tipe === 'SP') {
           formData.nomor = document.getElementById('spNomor').value;
           formData.tempat = document.getElementById('spTempat').value;
           formData.tanggal = document.getElementById('spTanggal').value;
-          
           if (!formData.nomor) return Swal.fire('Error', 'Nomor Surat wajib diisi', 'warning');
-          
-          // Auto-save surat pengantar
-          google.script.run.simpanDataSuratPengantar(token, formData);
-
         } else if (tipe === 'VERIFIKASI') {
-          formData.verifikator1 = {
-            nama: document.getElementById('vfNama1').value,
-            nip: document.getElementById('vfNip1').value
-          };
-          formData.verifikator2 = {
-            nama: document.getElementById('vfNama2').value,
-            nip: document.getElementById('vfNip2').value
-          };
-          formData.pengawas = {
-            nama: document.getElementById('vfNamaPengawas').value,
-            nip: document.getElementById('vfNipPengawas').value
-          };
+          formData.verifikator1 = { nama: document.getElementById('vfNama1').value, nip: document.getElementById('vfNip1').value };
+          formData.verifikator2 = { nama: document.getElementById('vfNama2').value, nip: document.getElementById('vfNip2').value };
+          formData.pengawas = { nama: document.getElementById('vfNamaPengawas').value, nip: document.getElementById('vfNipPengawas').value };
           formData.rows = verifItems;
-          
-          // Auto-save verifikasi
-          google.script.run.simpanDataVerifikasi(token, formData);
         }
 
-        // === [3] CEK APAKAH FILE LAMA SUDAH ADA? (UNTUK KONFIRMASI) ===
+        // === 3. CEK FILE LAMA (KONFIRMASI TIMPA) ===
         let fileAda = false;
-        // Cek keberadaan tombol "Lihat PDF" yang tidak hidden
         if (tipe === 'COVER' && !document.getElementById('btnViewCover').classList.contains('hidden')) fileAda = true;
         if (tipe === 'SP' && !document.getElementById('btnViewSp').classList.contains('hidden')) fileAda = true;
         if (tipe === 'VERIFIKASI' && !document.getElementById('btnViewVerif').classList.contains('hidden')) fileAda = true;
 
         let confirmMsg = "Sistem akan membuat dokumen PDF baru.";
         let confirmBtn = "Generate";
-        let confirmColor = "#0d6efd"; // Biru Default
+        let confirmColor = "#0d6efd";
 
         if (fileAda) {
-          confirmMsg = "File lama akan <b>DIHAPUS</b> dan digantikan dengan file baru. Lanjutkan?";
+          confirmMsg = "File lama akan <b>DIHAPUS</b> dan diganti baru. Lanjutkan?";
           confirmBtn = "Ya, Ganti File";
-          confirmColor = "#dc3545"; // Merah Warning
+          confirmColor = "#dc3545";
         }
 
-        // === [4] KONFIRMASI & EKSEKUSI ===
         Swal.fire({
-          title: 'Generate PDF?',
-          html: confirmMsg,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: confirmColor,
-          cancelButtonColor: '#6c757d',
-          confirmButtonText: confirmBtn,
-          cancelButtonText: 'Batal'
+          title: 'Generate PDF?', html: confirmMsg, icon: 'warning',
+          showCancelButton: true, confirmButtonColor: confirmColor, cancelButtonColor: '#6c757d',
+          confirmButtonText: confirmBtn, cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
-
-            // Tampilkan Loading
             Swal.fire({
-              title: 'Memproses...',
-              html: 'Menyimpan data & Membuat PDF...',
-              allowOutsideClick: false,
+              title: 'Memproses...', html: 'Mohon tunggu...', allowOutsideClick: false,
               didOpen: () => Swal.showLoading()
             });
 
-            // Panggil Backend
             google.script.run
-              .withFailureHandler(function(err) {
-                Swal.fire({
-                  icon: 'error',
-                  title: 'Terputus',
-                  text: 'Gagal menghubungi server: ' + err.message,
-                  confirmButtonColor: '#d33'
-                });
-              })
-              .withSuccessHandler(function(res) {
+              .withFailureHandler((err) => { Swal.fire('Gagal', err.message, 'error'); })
+              .withSuccessHandler((res) => {
                 if (res.status === 'success') {
-                  
-                  // === [5] UPDATE CACHE LOKAL (AGAR TIDAK PERLU RELOAD TAB) ===
                   if (DATA_CACHE.pendukung) {
                       if (!DATA_CACHE.pendukung.fileStatus) DATA_CACHE.pendukung.fileStatus = {};
-                      
-                      // Simpan ID file baru ke memori cache
                       DATA_CACHE.pendukung.fileStatus[tipe] = res.fileId;
                   }
 
-                  // === [6] UPDATE TAMPILAN TOMBOL SECARA LANGSUNG ===
                   if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
                   if (tipe === 'SP') updateBtnView('btnViewSp', 'urlPdfSp', res.fileId);
                   if (tipe === 'VERIFIKASI') updateBtnView('btnViewVerif', 'urlPdfVerif', res.fileId);
 
-                  // Tampilkan Pesan Sukses
                   Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil',
-                    text: 'Data disimpan & Dokumen PDF berhasil dibuat.',
-                    confirmButtonText: 'Buka PDF',
-                    showCancelButton: true,
-                    cancelButtonText: 'Tutup'
-                  }).then((r) => {
-                    if (r.isConfirmed) window.open(res.url, '_blank');
-                  });
+                    icon: 'success', title: 'Berhasil', text: 'PDF berhasil dibuat.',
+                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
+                  }).then((r) => { if (r.isConfirmed) window.open(res.url, '_blank'); });
 
                 } else if (res.status === 'error_template') {
-                  // === ERROR KHUSUS JIKA TEMPLATE BERMASALAH ===
-                  Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal Generate!',
-                    html: `
-                      <div style="text-align: left; font-size: 0.9rem; color: #333;">
-                        <div style="background: #fff5f5; border-left: 4px solid #dc3545; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
-                          <strong style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Masalah:</strong><br> ${res.message}
-                        </div>
-                        <p class="mb-2" style="font-size: 0.85rem;">${res.detail}</p>
-                      </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-cog me-1"></i> Perbaiki Template',
-                    cancelButtonText: 'Tutup',
-                    confirmButtonColor: '#ffc107',
-                    cancelButtonColor: '#6c757d'
-                  }).then((resultErr) => {
-                    if (resultErr.isConfirmed) bukaSubTab('setting-doc');
-                  });
-
+                  // ... handle error template ...
+                  Swal.fire('Error Template', res.message, 'error');
                 } else {
-                  // Error Umum Lainnya
                   Swal.fire({ icon: 'error', title: 'Gagal', text: res.message });
                 }
               })
@@ -9759,7 +9772,8 @@
 
       /* --- UPDATE FUNGSI simpanDataSP --- */
 
-      function simpanDataSP() {
+      /* --- UPDATE FUNGSI simpanDataSP (FIX LOADING) --- */
+      function simpanDataSP(callbackSuccess = null) {
         const token = localStorage.getItem('userToken');
         const form = {
           nomor: document.getElementById('spNomor').value,
@@ -9767,74 +9781,68 @@
           tanggal: document.getElementById('spTanggal').value
         };
 
-        const btn = event.target.closest('button');
-        const oriText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
+        let btn = document.getElementById('btnSimpanSP');
+        const oriText = btn ? btn.innerHTML : 'Simpan Data';
+        
+        // PERBAIKAN DISINI: Menambahkan Spinner dan Teks "Menyimpan..."
+        if(btn) { 
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'; 
+          btn.disabled = true; 
+        }
 
         google.script.run.withSuccessHandler(function(res) {
-          btn.innerHTML = oriText;
-          btn.disabled = false;
+          if(btn) { btn.innerHTML = oriText; btn.disabled = false; }
           
           if(res.status === 'success') {
-            // [PERUBAHAN] UPDATE CACHE LOKAL SP
             if(DATA_CACHE.pendukung && DATA_CACHE.pendukung.sp) {
                 DATA_CACHE.pendukung.sp.nomor = form.nomor;
                 DATA_CACHE.pendukung.sp.tempat = form.tempat;
                 DATA_CACHE.pendukung.sp.tanggal = form.tanggal;
             }
+            
+            setDirtyPendukung('SP', false);
 
-            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Surat Disimpan', showConfirmButton:false, timer:1500});
-          }
-          else Swal.fire('Gagal', res.message, 'error');
+            if (typeof callbackSuccess === 'function') callbackSuccess();
+            else Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Surat Disimpan', showConfirmButton:false, timer:1500});
+          } else Swal.fire('Gagal', res.message, 'error');
         }).simpanDataSuratPengantar(token, form);
       }
 
       /* --- UPDATE FUNGSI simpanDataVerif --- */
 
-      function simpanDataVerif() {
+      /* --- UPDATE FUNGSI simpanDataVerif (FIX LOADING) --- */
+      function simpanDataVerif(callbackSuccess = null) {
         const token = localStorage.getItem('userToken');
-        // Ambil value dari form
         const formData = {
-          verifikator1: { 
-            nama: document.getElementById('vfNama1').value, 
-            nip: document.getElementById('vfNip1').value 
-          },
-          verifikator2: { 
-            nama: document.getElementById('vfNama2').value, 
-            nip: document.getElementById('vfNip2').value 
-          },
-          pengawas: { 
-            nama: document.getElementById('vfNamaPengawas').value, 
-            nip: document.getElementById('vfNipPengawas').value 
-          },
-          rows: verifItems // List item global variable
+          verifikator1: { nama: document.getElementById('vfNama1').value, nip: document.getElementById('vfNip1').value },
+          verifikator2: { nama: document.getElementById('vfNama2').value, nip: document.getElementById('vfNip2').value },
+          pengawas: { nama: document.getElementById('vfNamaPengawas').value, nip: document.getElementById('vfNipPengawas').value },
+          rows: verifItems
         };
 
-        const btn = event.target.closest('button');
-        const oriText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-        btn.disabled = true;
+        let btn = document.getElementById('btnSimpanVerif');
+        const oriText = btn ? btn.innerHTML : 'Simpan Data';
+        
+        // PERBAIKAN DISINI: Menambahkan Spinner dan Teks "Menyimpan..."
+        if(btn) { 
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'; 
+          btn.disabled = true; 
+        }
 
         google.script.run.withSuccessHandler(function(res) {
-          btn.innerHTML = oriText;
-          btn.disabled = false;
+          if(btn) { btn.innerHTML = oriText; btn.disabled = false; }
           
           if(res.status === 'success') {
-            // [PERUBAHAN] UPDATE CACHE LOKAL VERIFIKASI
             if(DATA_CACHE.pendukung) {
-                // Buat objek verif jika belum ada
                 if(!DATA_CACHE.pendukung.verif) DATA_CACHE.pendukung.verif = {};
-                
-                DATA_CACHE.pendukung.verif.verifikator1 = formData.verifikator1;
-                DATA_CACHE.pendukung.verif.verifikator2 = formData.verifikator2;
-                DATA_CACHE.pendukung.verif.pengawas = formData.pengawas;
-                DATA_CACHE.pendukung.verif.rows = formData.rows;
+                DATA_CACHE.pendukung.verif = formData;
             }
 
-            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Verifikasi Disimpan', showConfirmButton:false, timer:1500});
-          }
-          else Swal.fire('Gagal', res.message, 'error');
+            setDirtyPendukung('VERIFIKASI', false);
+
+            if (typeof callbackSuccess === 'function') callbackSuccess();
+            else Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Verifikasi Disimpan', showConfirmButton:false, timer:1500});
+          } else Swal.fire('Gagal', res.message, 'error');
         }).simpanDataVerifikasi(token, formData);
       }
 
@@ -9988,6 +9996,11 @@
         inputPeriode.readOnly = true;
         inputPeriode.classList.add('bg-light');
         if(!periodeSekolah) inputPeriode.placeholder = "Periode belum disetting di Data Sekolah";
+
+        // [BARU] Reset status ke Bersih (Clean) setelah data server masuk
+        setDirtyPendukung('COVER', false);
+        // [BARU] Pasang monitor untuk mendeteksi ketikan user setelah ini
+        monitorInputPendukung('COVER');
       }
 
       // 4. Render Tab SP
@@ -10012,6 +10025,10 @@
         } else {
           inputTanggal.valueAsDate = new Date();
         }
+
+        // [BARU]
+        setDirtyPendukung('SP', false);
+        monitorInputPendukung('SP');
       }
 
       // 5. Render Tab Verifikasi
@@ -10042,6 +10059,10 @@
           verifItems = [...DEFAULT_VERIF_ITEMS];
         }
         renderVerifList(); // Panggil fungsi render tabel list yang sudah ada
+
+        // [BARU]
+        setDirtyPendukung('VERIFIKASI', false);
+        monitorInputPendukung('VERIFIKASI');
       }
 
       // 6. Render Tab Setting
