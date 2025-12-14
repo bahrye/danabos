@@ -10227,7 +10227,7 @@
         if(tabName === 'pks') loadPksData();
       }
 
-      /* --- UPDATE: Load Data PKS dengan Cache & Locking --- */
+      /* --- UPDATE: Load Data PKS dengan Cache & Loading Screen --- */
       function loadPksData(forceRefresh = false) {
         const token = localStorage.getItem('userToken');
         document.getElementById('pksNamaSingkat').placeholder = "Memuat...";
@@ -10246,8 +10246,19 @@
         // Sembunyikan tombol hasil sementara
         resetTombolPks();
 
-        // Helper untuk membuka kunci tombol
+        // Helper untuk membuka kunci tombol & MENUTUP LOADING
         const unlockButtons = (savedData) => {
+          // --- TUTUP LOADING POPUP ---
+          Swal.close(); 
+          
+          // Opsional: Tampilkan notifikasi kecil bahwa data siap
+          /*
+          const Toast = Swal.mixin({
+            toast: true, position: 'top-end', showConfirmButton: false, timer: 1000
+          });
+          Toast.fire({ icon: 'success', title: 'Data Siap' });
+          */
+
           if(btnSimpan) btnSimpan.disabled = false;
           if(btnGen) {
             btnGen.disabled = false;
@@ -10264,33 +10275,60 @@
         if (!forceRefresh && DATA_CACHE.pks && DATA_CACHE.sekolah) {
             console.log("Data PKS dimuat dari Cache.");
             applyPksData(DATA_CACHE.pks, DATA_CACHE.sekolah);
-            unlockButtons(DATA_CACHE.pks);
+            
+            // Manual unlock karena tidak memanggil helper unlockButtons
+            if(btnSimpan) btnSimpan.disabled = false;
+            if(btnGen) {
+              btnGen.disabled = false;
+              if (DATA_CACHE.pks.pdfId) tampilkanTombolHasilPks(DATA_CACHE.pks.pdfId, DATA_CACHE.pks.docId);
+              else { btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF'; btnGen.className = 'btn btn-success flex-grow-1'; }
+            }
             return; // Stop, tidak perlu panggil server
         }
 
-        // === JIKA CACHE KOSONG, PANGGIL SERVER ===
-        google.script.run.withSuccessHandler(function(resPks){
-          const saved = (resPks.status === 'success') ? resPks.data : {};
-          
-          // Simpan ke Cache PKS
-          DATA_CACHE.pks = saved;
-
-          // Skenario A: Data Sekolah sudah ada di Cache
-          if(DATA_CACHE.sekolah) {
-            applyPksData(saved, DATA_CACHE.sekolah);
-            unlockButtons(saved);
-          } 
-          // Skenario B: Cache Sekolah kosong, ambil dulu
-          else {
-            google.script.run.withSuccessHandler(function(resSekolah){
-              if(resSekolah.status === 'success') {
-                DATA_CACHE.sekolah = resSekolah.data; // Simpan ke Cache Sekolah
-                applyPksData(saved, resSekolah.data);
-              }
-              unlockButtons(saved);
-            }).getDataSekolah(token);
+        // --- [BARU] TAMPILKAN LOADING POPUP / TOAST ---
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          title: 'Sinkronisasi Data...',
+          didOpen: () => {
+            Swal.showLoading();
           }
-        }).getDataPKS(token);
+        });
+
+        // === JIKA CACHE KOSONG, PANGGIL SERVER ===
+        google.script.run
+          .withFailureHandler((err) => {
+             Swal.close(); // Tutup loading jika error
+             handleServerError(err);
+             // Buka kunci tombol agar tidak macet
+             if(btnSimpan) btnSimpan.disabled = false;
+             if(btnGen) { btnGen.disabled = false; btnGen.innerHTML = 'Generate PDF'; }
+          })
+          .withSuccessHandler(function(resPks){
+            const saved = (resPks.status === 'success') ? resPks.data : {};
+            
+            // Simpan ke Cache PKS
+            DATA_CACHE.pks = saved;
+
+            // Skenario A: Data Sekolah sudah ada di Cache
+            if(DATA_CACHE.sekolah) {
+              applyPksData(saved, DATA_CACHE.sekolah);
+              unlockButtons(saved); // Loading ditutup di sini
+            } 
+            // Skenario B: Cache Sekolah kosong, ambil dulu
+            else {
+              google.script.run.withSuccessHandler(function(resSekolah){
+                if(resSekolah.status === 'success') {
+                  DATA_CACHE.sekolah = resSekolah.data; // Simpan ke Cache Sekolah
+                  applyPksData(saved, resSekolah.data);
+                }
+                unlockButtons(saved); // Loading ditutup di sini (setelah data ke-2 selesai)
+              }).getDataSekolah(token);
+            }
+          })
+          .getDataPKS(token);
       }
 
       /* --- HELPER: UPDATE STATUS TOMBOL PKS --- */
