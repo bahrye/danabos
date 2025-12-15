@@ -1040,7 +1040,11 @@
         <form id="formRegister" onsubmit="handleRegister(event)">
           <div class="mb-3">
             <label class="form-label">Nama Sekolah</label>
-            <input type="text" class="form-control" id="regNama" placeholder="Contoh: MTS Negeri 1..." required>
+            
+            <input type="text" class="form-control" id="regNama" placeholder="Contoh: MTS NEGERI 1..." required 
+              style="text-transform: uppercase;"
+              oninput="this.value = this.value.toUpperCase()">
+              
             <div class="form-text text-muted" style="font-size: 0.8rem;">Gunakan nama resmi sekolah.</div>
           </div>
           <div class="mb-3">
