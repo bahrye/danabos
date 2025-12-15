@@ -3934,69 +3934,70 @@
           .registerSchool(form);
       }
 
-      /* --- LOGIKA SESI HEMAT KUOTA (BURST MODE - OPTIMIZED FOR 100 USERS) --- */
+      /* --- LOGIKA SESI OTOMATIS (DIPERBAIKI) --- */
       let sessionInterval = null;
-      let sessionCheckCount = 0;
-      
-      // [UBAH 1] Naikkan batas limit agar durasi monitoring total lebih panjang
-      // Lama: 6 kali (total 30 detik). 
-      // Baru: 30 kali (total 10 menit). Setelah 10 menit idle, script berhenti ping server.
-      const SESSION_CHECK_LIMIT = 30; 
 
       function startSessionMonitor() {
         // Hapus interval lama jika ada
         if(sessionInterval) clearInterval(sessionInterval);
         
-        // Reset penghitung
-        sessionCheckCount = 0;
+        console.log("Monitoring sesi aktif...");
 
-        console.log("Mulai monitoring sesi (Mode: Optimasi 100 User)...");
-
-        // [UBAH 2] Ganti Interval dari 5000 (5 detik) menjadi 20000 (20 Detik)
-        // Matematika: 100 user / 20 detik = 5 request/detik (Sangat Aman untuk Google)
+        // Jalankan pengecekan setiap 60 detik (1 Menit)
+        // Interval ini cukup untuk mendeteksi timeout 30 menit tanpa membebani server
         sessionInterval = setInterval(() => {
           const email = localStorage.getItem('userEmail');
           const token = localStorage.getItem('sessionToken');
           
-          // Tambah counter
-          sessionCheckCount++;
-
-          // HENTIKAN OTOMATIS JIKA SUDAH MENCAPAI LIMIT
-          if (sessionCheckCount > SESSION_CHECK_LIMIT) {
-            clearInterval(sessionInterval);
-            console.log("Monitoring sesi latar belakang dihentikan untuk hemat kuota.");
-            return;
-          }
-          
           if(email && token) {
               google.script.run
                 .withSuccessHandler(function(res){
-                  // Jika Token di server berbeda dengan yang dipegang browser ini
+                  // Jika Server merespon bahwa sesi TIDAK VALID (karena timeout 30 menit)
                   if(!res.valid) {
-                    handleSessionInvalid();
+                    handleSessionInvalid(); // Logout otomatis
                   }
                 })
-                // Menggunakan fungsi heartbeat yang ringan
+                .withFailureHandler(function(err){
+                   console.log("Gagal cek sesi (koneksi buruk):", err);
+                   // Jangan logout dulu jika hanya error koneksi sesaat
+                })
                 .updateUserActivity(email, token);
+          } else {
+            // Jika tidak ada token di localstorage, hentikan monitor
+            clearInterval(sessionInterval);
           }
-        }, 20000); // <--- GANTI DISINI JADI 20000 (20 Detik)
+        }, 60000); // Cek setiap 60.000 ms (1 Menit)
       }
 
-      // Fungsi terpisah untuk menangani sesi tidak valid (biar rapi)
+      // Fungsi Logout Paksa karena Sesi Habis
       function handleSessionInvalid() {
         clearInterval(sessionInterval); // Stop interval segera
         
+        // Hapus Data Lokal
+        localStorage.clear();
+        clearLocalCache();
+        
+        // Reset Cache Variable Global
+        DATA_CACHE = {
+            toko: null, tukang: null, guru: null, uraian: null, satuan: null,
+            transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null,
+            sekolah: null, template_settings: null, dashboard: null
+        };
+
+        // Reset UI
+        document.getElementById('formLogin').reset();
+        document.getElementById('schoolNameDisplay').innerText = "";
+        
+        // Pindah ke Login
+        switchView('view-login');
+
+        // Tampilkan Pesan
         Swal.fire({
           icon: 'warning',
           title: 'Sesi Berakhir',
-          text: 'Akun ini telah login di perangkat/browser lain. Anda akan dikeluarkan.',
+          text: 'Anda telah tidak aktif selama lebih dari 30 menit. Silakan login kembali.',
           allowOutsideClick: false,
           confirmButtonText: 'OK'
-        }).then(() => {
-          // Bersihkan lokal & reset
-          localStorage.clear();
-          document.getElementById('formLogin').reset();
-          switchView('view-login');
         });
       }
 
