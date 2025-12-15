@@ -407,19 +407,20 @@ function loginUser(form) {
   }
 }
 
-/* --- 2. HEARTBEAT (Update Waktu Aktif) --- */
+/* --- 2. HEARTBEAT (Update Waktu Aktif & Auto Logout DB) --- */
 function updateUserActivity(email, clientToken) {
   const cachedSession = getSessionCache(email);
   const now = new Date().getTime();
   
-  // 1. Jika di server tidak ada sesi (mungkin server restart/cache hilang)
+  // 1. Jika di server tidak ada sesi di Cache (mungkin server restart/cache expired)
+  // Kita cek juga ke Database untuk memastikan apakah user harus dilogout
   if (!cachedSession) {
+    // Coba hapus sesi di DB untuk kebersihan data
+    hapusSesiDiDatabase(email); 
     return { valid: false }; 
   }
 
   // 2. VALIDASI TOKEN (Kunci Anti-Ganda)
-  // Jika Token yang dikirim browser BEDA dengan yang ada di Cache Server,
-  // Berarti akun ini sudah diambil alih oleh login baru.
   if (cachedSession.token !== clientToken) {
     return { valid: false }; // Kirim sinyal logout ke client
   }
@@ -428,18 +429,38 @@ function updateUserActivity(email, clientToken) {
   const lastPing = cachedSession.lastPing || 0;
   const diffMin = (now - lastPing) / 1000 / 60;
 
+  // JIKA SUDAH LEBIH DARI 30 MENIT TIDAK AKTIF
   if (diffMin > MAX_IDLE_TIME_MINUTES) {
-    clearSessionCache(email);
+    clearSessionCache(email); // Hapus dari memori Server
+    hapusSesiDiDatabase(email); // HAPUS DARI DATABASE SPREADSHEET (Baru)
     return { valid: false }; 
   }
 
-  // 4. Update Waktu Ping Terakhir
-  // Inilah penanda "Login 1" atau "Login 2" yang Anda maksud.
-  // Selama fungsi ini dipanggil terus, timestamp akan selalu baru (Aktif).
+  // 4. Update Waktu Ping Terakhir (User Masih Aktif)
   cachedSession.lastPing = now;
   setSessionCache(email, cachedSession);
   
   return { valid: true };
+}
+
+/* --- HELPER BARU: HAPUS SESI DI SPREADSHEET --- */
+function hapusSesiDiDatabase(email) {
+  try {
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+    const data = ssMaster.getDataRange().getValues();
+    
+    // Loop cari email dan hapus kolom Session ID (Kolom F / Index 5)
+    for (let i = 1; i < data.length; i++) {
+      // Bandingkan email (Kolom C / Index 2)
+      if (String(data[i][2]).toLowerCase() === String(email).toLowerCase()) {
+        // Hapus token di Kolom F (Baris i+1, Kolom 6)
+        ssMaster.getRange(i + 1, 6).setValue("");
+        break;
+      }
+    }
+  } catch (e) {
+    console.error("Gagal menghapus sesi DB: " + e.toString());
+  }
 }
 
 /* --- 3. LOGOUT (HAPUS CACHE) --- */
