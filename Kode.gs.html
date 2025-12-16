@@ -3246,7 +3246,7 @@ function ensureFolderPendukung(token) {
   return folderId;
 }
 
-/* --- [UPDATE] GENERATE DOKUMEN PENDUKUNG (DENGAN ERROR HANDLING TEMPLATE) --- */
+/* --- [UPDATE] GENERATE DOKUMEN PENDUKUNG (DENGAN PERMOHONAN) --- */
 function generateDokumenPendukung(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3261,7 +3261,7 @@ function generateDokumenPendukung(token, tipe, formData) {
         alamat: d[3], provinsi: d[4], kabupaten: d[5], kecamatan: d[6], kelurahan: d[7], tempatTTD: d[8],
         namaKepala: d[9], nipKepala: String(d[10]).replace(/'/g,''), 
         namaBendahara: d[11], nipBendahara: String(d[12]).replace(/'/g,''),
-        danaBOS: d[15], tahunAnggaran: d[17], periodeAnggaran: d[18]
+        danaBOS: d[15], jumlahAnggaran: d[16] || 0, tahunAnggaran: d[17], periodeAnggaran: d[18]
       };
     }
 
@@ -3270,7 +3270,7 @@ function generateDokumenPendukung(token, tipe, formData) {
     const folder = DriveApp.getFolderById(folderId);
     
     // Key untuk menyimpan ID file hasil generate di DataPengaturan
-    const outputKey = 'OUTPUT_ID_' + tipe; // Contoh: OUTPUT_ID_COVER
+    const outputKey = 'OUTPUT_ID_' + tipe; // Contoh: OUTPUT_ID_PERMOHONAN
     
     // Ambil Data Pengaturan
     const sheetSet = ss.getSheetByName('DataPengaturan');
@@ -3305,10 +3305,13 @@ function generateDokumenPendukung(token, tipe, formData) {
       templateId = settingsMap['TEMPLATE_ID_SP'] || getMasterDefaultId('SP');
     } else if (tipe === 'VERIFIKASI') {
       templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'] || getMasterDefaultId('VERIF');
+    } else if (tipe === 'PERMOHONAN') {
+      // Pastikan Anda menyimpan ID Template di DataPengaturan dengan key TEMPLATE_ID_PERMOHONAN
+      templateId = settingsMap['TEMPLATE_ID_PERMOHONAN']; 
     }
 
     if (!templateId || templateId.trim() === "") {
-       return { status: 'error', message: 'ID Template belum disetting. Silakan pilih desain atau masukkan ID di menu Pengaturan Template.' };
+       return { status: 'error', message: 'ID Template ('+tipe+') belum disetting di Data Pengaturan.' };
     }
 
     // 4. Proses File Template (DENGAN PENGECEKAN ID VALID)
@@ -3316,11 +3319,10 @@ function generateDokumenPendukung(token, tipe, formData) {
     try {
       templateFile = DriveApp.getFileById(templateId);
     } catch (e) {
-      // INI BAGIAN PENTING: Tangkap error jika ID salah
       return { 
         status: 'error_template', 
         message: 'Kode ID Template Salah / File Tidak Ditemukan',
-        detail: 'Sistem gagal mengambil file Google Doc dengan ID: <b>' + templateId + '</b>. <br>Pastikan ID benar dan akses file diatur ke "Siapa saja yang memiliki link dapat melihat".'
+        detail: 'Sistem gagal mengambil file Google Doc dengan ID: <b>' + templateId + '</b>.'
       };
     }
 
@@ -3344,10 +3346,13 @@ function generateDokumenPendukung(token, tipe, formData) {
             textElement.removeFromParent();
             const img = parent.asParagraph().insertInlineImage(0, imgBlob);
             const width = img.getWidth(); const height = img.getHeight();
+            
+            // Logika Resize
             if (placeholder.includes('LOGO')) {
                 const MAX = 200; const scale = Math.min(MAX/width, MAX/height, 1);
                 if (scale < 1) { img.setWidth(Math.round(width*scale)); img.setHeight(Math.round(height*scale)); }
             } else {
+                // Untuk Kop Surat
                 if (width > 600) { const ratio = height/width; img.setWidth(600); img.setHeight(Math.round(600*ratio)); }
             }
           }
@@ -3355,7 +3360,7 @@ function generateDokumenPendukung(token, tipe, formData) {
       } else { body.replaceText(placeholder, ''); }
     };
 
-    // Replace Data Umum
+    // Replace Data Umum (Default untuk semua tipe)
     safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
     safeReplace('<<NSM>>', ds.nsm);
     safeReplace('<<NPSN>>', ds.npsn);
@@ -3370,17 +3375,44 @@ function generateDokumenPendukung(token, tipe, formData) {
     safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
     safeReplace('<<NIP Kepala Sekolah>>', formatNipLengkap(ds.nipKepala)); 
 
+    // --- LOGIKA PER TIPE ---
+
     if (tipe === 'COVER') {
         safeReplace('<<Header>>', formData.header);
         safeReplace('<<Judul>>', formData.judul);
         safeReplace('<<Keterangan Periode>>', formData.periode);
         replaceWithImage('<<LOGO>>', coverLogoId);
-        replaceWithImage('<<KOP SURAT>>', coverLogoId);
+        replaceWithImage('<<KOP SURAT>>', coverLogoId); // Kadang user pakai kop sebagai logo
+        
     } else if (tipe === 'SP') {
         safeReplace('<<Nomor Surat>>', formData.nomor);
         safeReplace('<<Tempat TTD>>', formData.tempat);
         safeReplace('<<Tanggal Surat>>', formatTanggalIndo(formData.tanggal));
         replaceWithImage('<<KOP SURAT>>', kopSuratId);
+        
+    } else if (tipe === 'PERMOHONAN') {
+        // --- LOGIKA BARU UNTUK PERMOHONAN ---
+        
+        // 1. Data dari Form Input
+        safeReplace('<<Nomor Surat Permohonan>>', formData.nomorSurat);
+        safeReplace('<<Nomor PKS>>', formData.nomorPks);
+        safeReplace('<<Tempat TTD>>', formData.tempat);
+        safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
+
+        // 2. Data Sekolah (Format Khusus)
+        // Fungsi toTitleCase membuat huruf kapital di awal kata (Contoh: MIS Nurul Huda)
+        safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(ds.namaSekolah)); 
+        safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+        safeReplace('<<Nama Dana BOS>>', ds.danaBOS);
+        
+        // 3. Format Keuangan
+        safeReplace('<<Jumlah Dana>>', formatRupiah(ds.jumlahAnggaran));
+        // Menggunakan fungsi terbilang yang sudah ada di script Anda
+        safeReplace('<<Jumlah Dana Terbilang>>', terbilang(ds.jumlahAnggaran) + ' Rupiah');
+        
+        // 4. Gambar Kop Surat
+        replaceWithImage('<<KOP SURAT>>', kopSuratId);
+
     } else if (tipe === 'VERIFIKASI') {
         const fmtNama = (val) => (val && val.trim() !== "") ? val : "_______________________";
         safeReplace('<<Nama Verifikator 1>>', fmtNama(formData.verifikator1.nama));
