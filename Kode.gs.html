@@ -3667,7 +3667,7 @@ function toTitleCase(str) {
   });
 }
 
-/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (ID DIAMBIL DARI MASTER DB) --- */
+/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (LENGKAP: PKS, PERMOHONAN, KUITANSI) --- */
 function generateBerkasPencairan(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3724,11 +3724,14 @@ function generateBerkasPencairan(token, tipe, formData) {
     let templateId = '';
     
     if (tipe === 'PKS') {
-       // Mengambil ID dari Sheet 'Cetak_Lainnya' di Database Master dengan kode 'PKS'
        templateId = getMasterDefaultId('PKS'); 
-    } 
+    } else if (tipe === 'PERMOHONAN') {
+       templateId = getMasterDefaultId('PERMOHONAN');
+    } else if (tipe === 'KUITANSI') {
+       templateId = getMasterDefaultId('KUITANSI');
+    }
 
-    if (!templateId) return { status: 'error', message: 'ID Template PKS belum disetting di Database Master (Sheet Cetak_Lainnya).' };
+    if (!templateId) return { status: 'error', message: 'ID Template ' + tipe + ' belum disetting di Database Master (Sheet Cetak_Lainnya).' };
 
     // 4. Proses Copy Template
     let templateFile;
@@ -3743,8 +3746,10 @@ function generateBerkasPencairan(token, tipe, formData) {
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // --- LOGIKA REPLACE KHUSUS PKS ---
+    // ================== LOGIKA REPLACE BERDASARKAN TIPE ==================
+
     if (tipe === 'PKS') {
+      // === LOGIKA PKS ===
       const namaSekolahRaw = formData.namaLengkap || "";
       safeReplace('<<Nama Sekolah Lengkap.B>>', namaSekolahRaw.toUpperCase());
       safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(namaSekolahRaw));
@@ -3756,56 +3761,99 @@ function generateBerkasPencairan(token, tipe, formData) {
       safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
 
       safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
-      safeReplace('<<Nama Dana BOS>>', formData.danaBOS);
+      // Gunakan OR (||) untuk mengantisipasi perbedaan nama variabel (danaBos vs danaBOS)
+      safeReplace('<<Nama Dana BOS>>', formData.danaBos || formData.danaBOS);
       safeReplace('<<Alamat Lengkap Madrasah>>', formData.alamat);
       
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
       safeReplace('<<Nomor Surat Madrasah>>', formData.nomorSurat);
 
-      // === LOGIKA BARU: TANGGAL TERBILANG PKS ===
-      const tglInput = formData.tanggalPks; // Format: YYYY-MM-DD
-      
+      // Tanggal PKS Logic (Terbilang)
+      const tglInput = formData.tanggalPks; 
       if (tglInput) {
         const d = new Date(tglInput);
         const hariArr = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-        
-        const dayOfWeek = parseInt(Utilities.formatDate(d, "GMT+7", "u")); // 1=Senin, 7=Minggu
+        const dayOfWeek = parseInt(Utilities.formatDate(d, "GMT+7", "u"));
         const namaHari = (dayOfWeek === 7) ? "Minggu" : hariArr[dayOfWeek]; 
+        const tglTeks = terbilang(parseInt(Utilities.formatDate(d, "GMT+7", "d")));
+        const blnTeks = terbilang(parseInt(Utilities.formatDate(d, "GMT+7", "M"))); 
+        const thnTeks = terbilang(parseInt(Utilities.formatDate(d, "GMT+7", "yyyy")));
 
-        const tglAngka = parseInt(Utilities.formatDate(d, "GMT+7", "d"));
-        const tglTeks = terbilang(tglAngka);
-
-        const blnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "M"));
-        const blnTeks = terbilang(blnAngka); 
-
-        const thnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "yyyy"));
-        const thnTeks = terbilang(thnAngka);
-
-        // LAKUKAN REPLACE KE GOOGLE DOC
         safeReplace('<<Hari PKS>>', namaHari);           
         safeReplace('<<Tanggal PKS>>', toTitleCase(tglTeks)); 
         safeReplace('<<Bulan PKS>>', toTitleCase(blnTeks));   
         safeReplace('<<Tahun PKS>>', toTitleCase(thnTeks));   
-        
         safeReplace('<<Tanggal PKS Lengkap>>', formatTanggalIndo(tglInput)); 
-
       } else {
-        safeReplace('<<Hari PKS>>', '................');
-        safeReplace('<<Tanggal PKS>>', '................');
-        safeReplace('<<Bulan PKS>>', '................');
-        safeReplace('<<Tahun PKS>>', '................');
+        safeReplace('<<Hari PKS>>', '................'); safeReplace('<<Tanggal PKS>>', '................');
+        safeReplace('<<Bulan PKS>>', '................'); safeReplace('<<Tahun PKS>>', '................');
       }
-      // ==========================================
 
       safeReplace('<<Nomor Rekening>>', formData.noRek);
       safeReplace('<<Nama Rekening>>', formData.namaRek);
-
       safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
-      
       const jml = ds.jumlahAnggaran || 0;
       safeReplace('<<Jumlah Dana>>', formatRupiah(jml));
       safeReplace('<<Jumlah Dana Terbilang>>', terbilang(jml) + ' Rupiah');
+
+    } else if (tipe === 'PERMOHONAN') {
+      // === LOGIKA PERMOHONAN ===
+      
+      // 0. Auto-Save Data Inputan
+      simpanDataPermohonan(token, {
+         nomorSurat: formData.nomorSurat,
+         tempat: formData.tempat,
+         tanggal: formData.tanggal
+      });
+      
+      // 1. Data Auto dari PKS
+      safeReplace('<<Nomor PKS>>', formData.nomorPks);
+      safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(formData.namaSekolah));
+      safeReplace('<<Nama Kamad.B>>', (ds.namaKepala || "").toUpperCase());
+      safeReplace('<<Tahun Anggaran>>', formData.tahun);
+      safeReplace('<<Nama Dana BOS>>', formData.danaBos || formData.danaBOS);
+      safeReplace('<<Jumlah Dana>>', formatRupiah(formData.jumlah || 0));
+      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(formData.jumlah || 0) + ' Rupiah');
+
+      // 2. Data Inputan Permohonan
+      safeReplace('<<Nomor Surat Permohonan>>', formData.nomorSurat);
+      safeReplace('<<Tempat TTD>>', formData.tempat);
+      safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
+
+      // 3. Kop Surat (Logic Optimasi Gambar)
+      processKopSurat(doc, body, ss); // Panggil Helper
+
+    } else if (tipe === 'KUITANSI') {
+      // === LOGIKA KUITANSI ===
+      
+      // 0. Auto-Save Data Inputan
+      simpanDataKuitansi(token, {
+         nomorSurat: formData.nomorSurat,
+         tempat: formData.tempat,
+         tanggal: formData.tanggal
+      });
+
+      // 1. Data Auto dari PKS
+      safeReplace('<<Nomor PKS>>', formData.nomorPks);
+      // Tanggal PKS harus diformat ke Bahasa Indonesia (DD MMMM YYYY)
+      safeReplace('<<Tanggal PKS>>', formatTanggalIndo(formData.tanggalPks)); 
+      safeReplace('<<Tahun Anggaran>>', formData.tahun);
+      safeReplace('<<Jumlah Dana>>', formatRupiah(formData.jumlah || 0));
+      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(formData.jumlah || 0) + ' Rupiah');
+      
+      // 2. Data Tambahan (Kamad Kapital)
+      safeReplace('<<Nama Kamad.B>>', (ds.namaKepala || "").toUpperCase());
+
+      // 3. Data Inputan Kuitansi
+      safeReplace('<<Nomor Surat Kuitansi>>', formData.nomorSurat);
+      safeReplace('<<Tempat TTD>>', formData.tempat);
+      safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
+
+      // 4. Kop Surat (Logic Optimasi Gambar)
+      processKopSurat(doc, body, ss); // Panggil Helper
     }
+
+    // =====================================================================
 
     doc.saveAndClose();
 
@@ -3813,11 +3861,9 @@ function generateBerkasPencairan(token, tipe, formData) {
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
     const fileNameBase = tipe + '_' + ds.namaSekolah;
     
-    // A. Simpan File PDF
     const pdfFile = folder.createFile(pdfBlob).setName(fileNameBase + '.pdf');
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    // B. Simpan File Doc (Untuk Unduh Word)
     const docFile = DriveApp.getFileById(tempDocFile.getId());
     docFile.setName(fileNameBase + ' (Master).docx');
     docFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -3828,10 +3874,8 @@ function generateBerkasPencairan(token, tipe, formData) {
     } catch(e) {}
 
     // 6. Simpan ID File ke Database
-    if (tipe === 'PKS') {
-        updateOutputId('OUTPUT_ID_PKS_PDF', pdfFile.getId());
-        updateOutputId('OUTPUT_ID_PKS_DOC', docFile.getId());
-    }
+    updateOutputId('OUTPUT_ID_' + tipe + '_PDF', pdfFile.getId());
+    updateOutputId('OUTPUT_ID_' + tipe + '_DOC', docFile.getId());
 
     return { 
       status: 'success', 
@@ -3840,6 +3884,182 @@ function generateBerkasPencairan(token, tipe, formData) {
       docId: docFile.getId()
     };
 
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- HELPER LOKAL UNTUK INSERT KOP SURAT --- */
+// Fungsi ini diekstrak agar tidak duplikat kode di Permohonan dan Kuitansi
+function processKopSurat(doc, body, ss) {
+  try {
+    const sheetSet = ss.getSheetByName('DataPengaturan');
+    const dataSet = sheetSet.getDataRange().getValues();
+    let kopSuratId = null;
+    for (let i = 0; i < dataSet.length; i++) {
+      if (dataSet[i][0] === 'KOP_SURAT_ID') { kopSuratId = dataSet[i][1]; break; }
+    }
+    
+    if (kopSuratId) {
+        const kopFile = DriveApp.getFileById(kopSuratId);
+        const kopBlob = kopFile.getBlob();
+        
+        const replaceInContainer = (container) => {
+          if(!container) return;
+          let searchResult = container.findText('<<KOP SURAT>>');
+          let safety = 0;
+          while (searchResult && safety < 5) {
+             safety++;
+             const textEl = searchResult.getElement();
+             const parent = textEl.getParent();
+             try {
+               textEl.removeFromParent();
+               const img = parent.asParagraph().insertInlineImage(0, kopBlob);
+               if (img.getWidth() > 600) {
+                   const ratio = img.getHeight() / img.getWidth();
+                   img.setWidth(600); img.setHeight(600 * ratio);
+               }
+             } catch(err) {}
+             searchResult = container.findText('<<KOP SURAT>>');
+          }
+        };
+
+        // Cek Header
+        replaceInContainer(doc.getHeader());
+        // Cek Body
+        replaceInContainer(body);
+
+    } else {
+        // Hapus placeholder jika tidak ada gambar
+        if(doc.getHeader()) doc.getHeader().replaceText('<<KOP SURAT>>', '');
+        body.replaceText('<<KOP SURAT>>', '');
+    }
+  } catch(e) { 
+     // Error handling (Hapus placeholder jika gagal load gambar)
+     if(doc.getHeader()) doc.getHeader().replaceText('<<KOP SURAT>>', '');
+     body.replaceText('<<KOP SURAT>>', ''); 
+  }
+}
+
+/* --- FUNGSI BARU: SIMPAN & AMBIL DATA PERMOHONAN --- */
+function simpanDataPermohonan(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    let keyMap = new Map();
+    for (let i = 0; i < data.length; i++) {
+      keyMap.set(data[i][0], i + 1); 
+    }
+
+    const setVal = (key, val) => {
+      const valStr = (val === null || val === undefined) ? "" : String(val);
+      if (keyMap.has(key)) {
+        sheet.getRange(keyMap.get(key), 2).setValue(valStr);
+      } else {
+        sheet.appendRow([key, valStr]);
+        keyMap.set(key, sheet.getLastRow()); 
+      }
+    };
+
+    setVal('PM_NOMOR_SURAT', form.nomorSurat);
+    setVal('PM_TEMPAT', form.tempat);
+    setVal('PM_TANGGAL', form.tanggal); // Format YYYY-MM-DD
+
+    return { status: 'success', message: 'Data Permohonan berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+function getDataPermohonan(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let res = { nomorSurat: '', tempat: '', tanggal: '' };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        const key = data[i][0];
+        const val = data[i][1];
+        
+        if (key === 'PM_NOMOR_SURAT') res.nomorSurat = val;
+        if (key === 'PM_TEMPAT') res.tempat = val;
+        if (key === 'PM_TANGGAL') {
+           if (val) {
+             try { res.tanggal = Utilities.formatDate(new Date(val), "GMT+7", "yyyy-MM-dd"); }
+             catch(e) { res.tanggal = ""; }
+           }
+        }
+      }
+    }
+    return { status: 'success', data: res };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- FUNGSI BARU: SIMPAN & AMBIL DATA KUITANSI --- */
+function simpanDataKuitansi(token, form) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheet = ss.getSheetByName('DataPengaturan');
+    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
+
+    const data = sheet.getDataRange().getValues();
+    let keyMap = new Map();
+    for (let i = 0; i < data.length; i++) {
+      keyMap.set(data[i][0], i + 1); 
+    }
+
+    const setVal = (key, val) => {
+      const valStr = (val === null || val === undefined) ? "" : String(val);
+      if (keyMap.has(key)) {
+        sheet.getRange(keyMap.get(key), 2).setValue(valStr);
+      } else {
+        sheet.appendRow([key, valStr]);
+        keyMap.set(key, sheet.getLastRow()); 
+      }
+    };
+
+    setVal('KW_NOMOR_SURAT', form.nomorSurat);
+    setVal('KW_TEMPAT', form.tempat);
+    setVal('KW_TANGGAL', form.tanggal);
+
+    return { status: 'success', message: 'Data Kuitansi berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+function getDataKuitansi(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataPengaturan');
+    
+    let res = { nomorSurat: '', tempat: '', tanggal: '' };
+
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 0; i < data.length; i++) {
+        const key = data[i][0];
+        const val = data[i][1];
+        
+        if (key === 'KW_NOMOR_SURAT') res.nomorSurat = val;
+        if (key === 'KW_TEMPAT') res.tempat = val;
+        if (key === 'KW_TANGGAL') {
+           if (val) {
+             try { res.tanggal = Utilities.formatDate(new Date(val), "GMT+7", "yyyy-MM-dd"); }
+             catch(e) { res.tanggal = ""; }
+           }
+        }
+      }
+    }
+    return { status: 'success', data: res };
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
