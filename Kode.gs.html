@@ -3442,16 +3442,23 @@ function generateDokumenPendukung(token, tipe, formData) {
   }
 }
 
-/* --- [BARU] CEK STATUS FILE HASIL GENERATE --- */
+/* --- UPDATE: CEK STATUS FILE HASIL GENERATE (LENGKAP) --- */
 function getDokumenPendukungStatus(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataPengaturan');
     
+    // Default Result Object
     let result = { 
       COVER: null, 
       SP: null, 
-      VERIF: null 
+      VERIF: null,
+      
+      // Tambahan Baru
+      PERMOHONAN_PDF: null,
+      PERMOHONAN_DOC: null,
+      KUITANSI_PDF: null,
+      KUITANSI_DOC: null
     };
 
     if (sheet) {
@@ -3460,13 +3467,18 @@ function getDokumenPendukungStatus(token) {
         const key = data[i][0];
         const val = data[i][1];
         
+        // Mapping Key Database ke Result Object
         if (key === 'OUTPUT_ID_COVER') result.COVER = val;
         if (key === 'OUTPUT_ID_SP') result.SP = val;
+        if (key === 'OUTPUT_ID_VERIFIKASI') result.VERIF = val;
         
-        // --- PERBAIKAN DI SINI ---
-        // Sebelumnya: if (key === 'OUTPUT_ID_VERIF') ...
-        // Ubah Menjadi:
-        if (key === 'OUTPUT_ID_VERIFIKASI') result.VERIF = val; 
+        // Mapping Permohonan
+        if (key === 'OUTPUT_ID_PERMOHONAN_PDF') result.PERMOHONAN_PDF = val;
+        if (key === 'OUTPUT_ID_PERMOHONAN_DOC') result.PERMOHONAN_DOC = val;
+        
+        // Mapping Kuitansi
+        if (key === 'OUTPUT_ID_KUITANSI_PDF') result.KUITANSI_PDF = val;
+        if (key === 'OUTPUT_ID_KUITANSI_DOC') result.KUITANSI_DOC = val;
       }
     }
     return { status: 'success', data: result };
