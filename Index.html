@@ -3343,7 +3343,7 @@
                         <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                           
                           <button type="button" class="btn btn-primary" id="btnSimpanPermohonan" onclick="simpanPermohonan()">
-                            <i class="fas fa-save me-2"></i> Simpan
+                            <i class="fas fa-save me-2"></i> Simpan Data
                           </button>
 
                           <button type="submit" class="btn btn-success flex-grow-1" id="btnGenPermohonan">
@@ -3430,7 +3430,7 @@
                         <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                           
                           <button type="button" class="btn btn-primary" id="btnSimpanKuitansi" onclick="simpanKuitansi()">
-                            <i class="fas fa-save me-2"></i> Simpan
+                            <i class="fas fa-save me-2"></i> Simpan Data
                           </button>
 
                           <button type="submit" class="btn btn-success flex-grow-1" id="btnGenKuitansi">
@@ -10773,21 +10773,43 @@
         });
       }
 
-      // 3. Helper Cek Status File & Buka File (Mirip PKS)
+      /* --- UPDATE: FUNGSI CEK STATUS FILE PERMOHONAN --- */
       function cekStatusFilePermohonan() {
         const token = localStorage.getItem('userToken');
-        // Kita bisa reuse fungsi getDokumenPendukungStatus dengan sedikit modifikasi di server atau
-        // untuk saat ini kita asumsikan ID tersimpan di DataPengaturan dengan key OUTPUT_ID_PERMOHONAN_PDF
-        // Karena struktur DB dinamis, kita bisa pakai getSettingValue helper
+        const btnGen = document.getElementById('btnGenPermohonan');
         
-        // OPSI TERBAIK: Panggil server side khusus untuk cek status ini
-        // Tapi untuk menghemat kuota, kita reuse getDokumenPendukungStatus dan tambahkan key disana?
-        // Atau lebih simpel: Kita buat status tombol hidden dulu, nanti user generate baru muncul.
-        // Untuk persistensi, sebaiknya load data status saat tab dibuka.
+        // Set default state tombol generate (jika loading)
+        // btnGen.disabled = true; 
         
-        // Saya sarankan UPDATE fungsi getDokumenPendukungStatus di Kode.gs untuk menyertakan PERMOHONAN
-        // Tapi karena saya tidak bisa edit Kode.gs secara real-time di semua fungsi,
-        // Kita pakai pendekatan simple: Load Status via getAllPendukungData (jika ada) atau biarkan kosong.
+        google.script.run
+          .withSuccessHandler(function(res) {
+            // btnGen.disabled = false;
+            if (res.status === 'success') {
+              const d = res.data;
+              
+              // Cek apakah PDF Permohonan sudah ada
+              if (d.PERMOHONAN_PDF && d.PERMOHONAN_PDF !== "") {
+                // 1. Simpan ID ke Hidden Input
+                document.getElementById('valPmPdfId').value = d.PERMOHONAN_PDF;
+                document.getElementById('valPmDocId').value = d.PERMOHONAN_DOC; // Opsional
+                
+                // 2. Munculkan Tombol Lihat & Unduh
+                document.getElementById('btnLihatPmPdf').classList.remove('hidden');
+                document.getElementById('btnUnduhPmWord').classList.remove('hidden');
+                
+                // 3. Ubah Tombol Generate menjadi "Generate Ulang" (Kuning)
+                btnGen.className = 'btn btn-warning flex-grow-1';
+                btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+              } else {
+                // Jika belum ada, pastikan tombol hidden & Generate Hijau
+                document.getElementById('btnLihatPmPdf').classList.add('hidden');
+                document.getElementById('btnUnduhPmWord').classList.add('hidden');
+                btnGen.className = 'btn btn-success flex-grow-1';
+                btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
+              }
+            }
+          })
+          .getDokumenPendukungStatus(token);
       }
 
       function bukaFilePermohonan(tipe) {
@@ -10953,10 +10975,39 @@
         else Swal.fire('Error', 'File belum digenerate.', 'error');
       }
 
-      // 5. Cek Status File Kuitansi
+      /* --- UPDATE: FUNGSI CEK STATUS FILE KUITANSI --- */
       function cekStatusFileKuitansi() {
-        // Logic cek status file (bisa diimplementasikan nanti via server call getDokumenPendukungStatus)
-        // Untuk saat ini bisa pakai loadKuitansiData untuk form, tapi ID file belum terload
+        const token = localStorage.getItem('userToken');
+        const btnGen = document.getElementById('btnGenKuitansi');
+        
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res.status === 'success') {
+              const d = res.data;
+              
+              // Cek apakah PDF Kuitansi sudah ada
+              if (d.KUITANSI_PDF && d.KUITANSI_PDF !== "") {
+                // 1. Simpan ID
+                document.getElementById('valKwPdfId').value = d.KUITANSI_PDF;
+                document.getElementById('valKwDocId').value = d.KUITANSI_DOC;
+                
+                // 2. Munculkan Tombol
+                document.getElementById('btnLihatKwPdf').classList.remove('hidden');
+                document.getElementById('btnUnduhKwWord').classList.remove('hidden');
+                
+                // 3. Ubah Style Tombol Generate
+                btnGen.className = 'btn btn-warning flex-grow-1';
+                btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+              } else {
+                // Reset Default
+                document.getElementById('btnLihatKwPdf').classList.add('hidden');
+                document.getElementById('btnUnduhKwWord').classList.add('hidden');
+                btnGen.className = 'btn btn-success flex-grow-1';
+                btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
+              }
+            }
+          })
+          .getDokumenPendukungStatus(token);
       }
 
     </script>
