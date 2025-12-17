@@ -3136,12 +3136,12 @@
                 </button>
               </li>
               <li class="nav-item">
-                <button class="nav-link fw-bold text-muted" disabled>
+                <button class="nav-link fw-bold" id="tab-pencairan-permohonan" onclick="bukaTabPencairan('permohonan')">
                   <i class="fas fa-envelope me-2"></i> Permohonan
                 </button>
               </li>
               <li class="nav-item">
-                <button class="nav-link fw-bold text-muted" disabled>
+                <button class="nav-link fw-bold" id="tab-pencairan-kuitansi" onclick="bukaTabPencairan('kuitansi')">
                   <i class="fas fa-receipt me-2"></i> Kuitansi
                 </button>
               </li>
@@ -3270,6 +3270,183 @@
                           <input type="hidden" id="valPksPdfId">
                           <input type="hidden" id="valPksDocId">
 
+                        </div>
+
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="view-pencairan-permohonan" class="view-pencairan hidden">
+              <div class="row">
+                <div class="col-lg-8 mx-auto">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-success text-white py-3">
+                      <h5 class="mb-0 fw-bold"><i class="fas fa-envelope-open-text me-2"></i> Surat Permohonan Pencairan</h5>
+                    </div>
+                    <div class="card-body p-4">
+                      
+                      <form id="formPermohonan" onsubmit="generatePermohonan(event)">
+                        
+                        <div class="alert alert-light border mb-4">
+                          <h6 class="text-secondary fw-bold border-bottom pb-2 mb-3" style="font-size: 0.85rem;">
+                            <i class="fas fa-link me-1"></i> Data Referensi (Otomatis dari PKS)
+                          </h6>
+                          
+                          <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Nomor PKS</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="pmNomorPks" readonly>
+                            </div>
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Nama Sekolah</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="pmNamaSekolah" readonly>
+                            </div>
+                          </div>
+                          <div class="row g-2">
+                            <div class="col-md-4">
+                              <label class="form-label small text-muted mb-0">Dana BOS</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="pmDanaBos" readonly>
+                            </div>
+                            <div class="col-md-4">
+                              <label class="form-label small text-muted mb-0">Tahun Anggaran</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="pmTahun" readonly>
+                            </div>
+                            <div class="col-md-4">
+                              <label class="form-label small text-muted mb-0">Jumlah Dana</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-success border-0 ps-0" id="pmJumlah" readonly>
+                              <input type="hidden" id="pmJumlahVal"> 
+                            </div>
+                          </div>
+                        </div>
+
+                        <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Input Surat Permohonan</h6>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Nomor Surat Permohonan</label>
+                          <input type="text" class="form-control" id="pmNomorSurat" placeholder="Nomor surat keluar sekolah..." required>
+                        </div>
+
+                        <div class="row mb-4">
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tempat TTD</label>
+                            <input type="text" class="form-control" id="pmTempat" placeholder="Contoh: Bulukumba" required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tanggal Surat</label>
+                            <input type="date" class="form-control" id="pmTanggal" required>
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                          
+                          <button type="button" class="btn btn-primary" id="btnSimpanPermohonan" onclick="simpanPermohonan()">
+                            <i class="fas fa-save me-2"></i> Simpan
+                          </button>
+
+                          <button type="submit" class="btn btn-success flex-grow-1" id="btnGenPermohonan">
+                            <i class="fas fa-cog me-2"></i> Generate PDF
+                          </button>
+
+                          <button type="button" id="btnLihatPmPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFilePermohonan('PDF')">
+                            <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                          </button>
+                          
+                          <button type="button" id="btnUnduhPmWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFilePermohonan('WORD')">
+                            <i class="fas fa-file-word me-2"></i> Unduh Dokumen (Word)
+                          </button>
+
+                          <input type="hidden" id="valPmPdfId">
+                          <input type="hidden" id="valPmDocId">
+                        </div>
+
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="view-pencairan-kuitansi" class="view-pencairan hidden">
+              <div class="row">
+                <div class="col-lg-8 mx-auto">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-success text-white py-3">
+                      <h5 class="mb-0 fw-bold"><i class="fas fa-receipt me-2"></i> Kuitansi Penerimaan</h5>
+                    </div>
+                    <div class="card-body p-4">
+                      
+                      <form id="formKuitansi" onsubmit="generateKuitansi(event)">
+                        
+                        <div class="alert alert-light border mb-4">
+                          <h6 class="text-secondary fw-bold border-bottom pb-2 mb-3" style="font-size: 0.85rem;">
+                            <i class="fas fa-link me-1"></i> Data Referensi PKS
+                          </h6>
+                          
+                          <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Nomor PKS</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="kwNomorPks" readonly>
+                            </div>
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Tanggal PKS</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="kwTanggalPks" readonly>
+                              <input type="hidden" id="kwTanggalPksVal">
+                            </div>
+                          </div>
+                          <div class="row g-2">
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Tahun Anggaran</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-dark border-0 ps-0" id="kwTahun" readonly>
+                            </div>
+                            <div class="col-md-6">
+                              <label class="form-label small text-muted mb-0">Jumlah Dana</label>
+                              <input type="text" class="form-control form-control-sm bg-white fw-bold text-success border-0 ps-0" id="kwJumlah" readonly>
+                              <input type="hidden" id="kwJumlahVal"> 
+                            </div>
+                          </div>
+                        </div>
+
+                        <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Input Kuitansi</h6>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">Nomor Surat Kuitansi</label>
+                          <input type="text" class="form-control" id="kwNomorSurat" placeholder="Nomor kuitansi..." required>
+                        </div>
+
+                        <div class="row mb-4">
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tempat TTD</label>
+                            <input type="text" class="form-control" id="kwTempat" placeholder="Contoh: Bulukumba" required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tanggal TTD</label>
+                            <input type="date" class="form-control" id="kwTanggal" required>
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                          
+                          <button type="button" class="btn btn-primary" id="btnSimpanKuitansi" onclick="simpanKuitansi()">
+                            <i class="fas fa-save me-2"></i> Simpan
+                          </button>
+
+                          <button type="submit" class="btn btn-success flex-grow-1" id="btnGenKuitansi">
+                            <i class="fas fa-cog me-2"></i> Generate PDF
+                          </button>
+
+                          <button type="button" id="btnLihatKwPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFileKuitansi('PDF')">
+                            <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                          </button>
+                          
+                          <button type="button" id="btnUnduhKwWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFileKuitansi('WORD')">
+                            <i class="fas fa-file-word me-2"></i> Unduh Dokumen (Word)
+                          </button>
+
+                          <input type="hidden" id="valKwPdfId">
+                          <input type="hidden" id="valKwDocId">
                         </div>
 
                       </form>
@@ -10079,24 +10256,96 @@
 
       /* --- LOGIKA BERKAS PENCAIRAN --- */
 
-      // 1. Fungsi Navigasi Tab
+      // Fungsi Navigasi Tab Pencairan (LENGKAP: PKS, PERMOHONAN, KUITANSI)
       function bukaTabPencairan(tabName) {
-        // Reset Active State
-        document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.view-pencairan').forEach(el => el.classList.add('hidden'));
+        // 1. Reset State: Non-aktifkan semua tab & Sembunyikan semua view
+        document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => {
+          el.classList.remove('active');
+        });
+        
+        document.querySelectorAll('.view-pencairan').forEach(el => {
+          el.classList.add('hidden');
+        });
 
-        // Activate Selected
+        // 2. Validasi Global: Cek Data PKS (Kecuali sedang membuka tab PKS)
+        if (tabName !== 'pks') {
+          const pksNo = document.getElementById('pksNomorPks').value;
+          
+          // Jika Nomor PKS kosong, paksa user kembali ke tab PKS
+          if (!pksNo || pksNo.trim() === "") {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Data PKS Belum Lengkap',
+              text: 'Anda harus melengkapi data di tab "PKS" terlebih dahulu.',
+              confirmButtonText: 'Ke Tab PKS'
+            }).then(() => {
+              bukaTabPencairan('pks');
+            });
+            return; // Stop eksekusi
+          }
+        }
+
+        // 3. Logika Khusus per Tab
+        if (tabName === 'permohonan') {
+          // === TAB PERMOHONAN ===
+          // Isi Data Read-Only dari PKS
+          document.getElementById('pmNomorPks').value = document.getElementById('pksNomorPks').value;
+          document.getElementById('pmNamaSekolah').value = document.getElementById('pksNamaLengkap').value;
+          document.getElementById('pmDanaBos').value = document.getElementById('pksDanaBos').value;
+          document.getElementById('pmTahun').value = document.getElementById('pksTahun').value;
+          document.getElementById('pmJumlah').value = document.getElementById('pksJumlah').value; 
+          
+          // Ambil value angka murni
+          const jmlStr = document.getElementById('pksJumlah').value;
+          const jmlRaw = (typeof cleanRibuan === 'function') ? cleanRibuan(jmlStr) : jmlStr.replace(/[^0-9]/g, ''); 
+          document.getElementById('pmJumlahVal').value = jmlRaw;
+
+          // Load Data Tersimpan & Cek File
+          loadPermohonanData();
+          cekStatusFilePermohonan();
+
+        } else if (tabName === 'kuitansi') {
+          // === TAB KUITANSI (BARU) ===
+          
+          // Isi Data Read-Only dari PKS
+          document.getElementById('kwNomorPks').value = document.getElementById('pksNomorPks').value;
+          document.getElementById('kwTahun').value = document.getElementById('pksTahun').value;
+          document.getElementById('kwJumlah').value = document.getElementById('pksJumlah').value;
+
+          // Set Tanggal PKS (Untuk Display & Value Hidden)
+          const tglPksVal = document.getElementById('pksTanggal').value; 
+          document.getElementById('kwTanggalPksVal').value = tglPksVal; 
+          document.getElementById('kwTanggalPks').value = tglPksVal; 
+
+          // Ambil value angka murni
+          const jmlStr = document.getElementById('pksJumlah').value;
+          const jmlRaw = (typeof cleanRibuan === 'function') ? cleanRibuan(jmlStr) : jmlStr.replace(/[^0-9]/g, ''); 
+          document.getElementById('kwJumlahVal').value = jmlRaw;
+
+          // Default Tempat TTD (Ambil dari Permohonan jika ada, agar tidak ngetik ulang)
+          if (!document.getElementById('kwTempat').value) {
+            document.getElementById('kwTempat').value = document.getElementById('pmTempat').value || ""; 
+          }
+
+          // Load Data Tersimpan & Cek File
+          loadKuitansiData();
+          cekStatusFileKuitansi();
+        }
+
+        // 4. Aktifkan Tab dan Tampilkan View yang Dipilih
         const btnId = 'tab-pencairan-' + tabName;
         const viewId = 'view-pencairan-' + tabName;
         
         const btn = document.getElementById(btnId);
         const view = document.getElementById(viewId);
 
-        if(btn) btn.classList.add('active');
-        if(view) view.classList.remove('hidden');
+        if (btn) btn.classList.add('active');
+        if (view) view.classList.remove('hidden');
 
-        // Load Data Sesuai Tab
-        if(tabName === 'pks') loadPksData();
+        // 5. Load Data PKS (Jika membuka tab PKS)
+        if (tabName === 'pks') {
+          loadPksData();
+        }
       }
 
       /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
@@ -10438,6 +10687,276 @@
             btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
             btnGen.className = 'btn btn-warning flex-grow-1';
         }
+      }
+
+      // 2. Fungsi Generate Permohonan
+      function generatePermohonan(e) {
+        e.preventDefault();
+        
+        // Data dari Readonly PKS
+        const pksData = {
+          nomorPks: document.getElementById('pmNomorPks').value,
+          namaSekolah: document.getElementById('pmNamaSekolah').value,
+          danaBos: document.getElementById('pmDanaBos').value,
+          tahun: document.getElementById('pmTahun').value,
+          jumlah: document.getElementById('pmJumlahVal').value // Angka Murni
+        };
+
+        // Data Inputan User
+        const formData = {
+          ...pksData, // Spread data PKS
+          nomorSurat: document.getElementById('pmNomorSurat').value,
+          tempat: document.getElementById('pmTempat').value,
+          tanggal: document.getElementById('pmTanggal').value
+        };
+
+        const btn = document.getElementById('btnGenPermohonan');
+        const txtAsli = btn.innerHTML;
+        
+        // Cek File Lama
+        const fileLamaAda = document.getElementById('valPmPdfId').value !== "";
+        let judul = 'Generate Permohonan?';
+        let pesan = "Pastikan data sudah benar.";
+        let warna = '#198754';
+        let teksTombol = 'Ya, Buat PDF';
+
+        if (fileLamaAda) {
+          judul = 'Generate Ulang?';
+          pesan = "File lama akan <b>DIHAPUS</b> dan diganti baru.";
+          warna = '#ffc107'; 
+          teksTombol = 'Ya, Ganti File';
+        }
+
+        Swal.fire({
+          title: judul, html: pesan, icon: 'question',
+          showCancelButton: true, confirmButtonColor: warna, confirmButtonText: teksTombol, cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...'; 
+            btn.disabled = true;
+
+            const token = localStorage.getItem('userToken');
+
+            google.script.run
+              .withFailureHandler(function(err){
+                btn.innerHTML = txtAsli; btn.disabled = false;
+                Swal.fire('Gagal', err.message, 'error');
+              })
+              .withSuccessHandler(function(res){
+                btn.innerHTML = txtAsli; btn.disabled = false;
+                
+                if(res.status === 'success') {
+                  // Update UI
+                  document.getElementById('valPmPdfId').value = res.pdfId;
+                  document.getElementById('valPmDocId').value = res.docId;
+                  
+                  document.getElementById('btnLihatPmPdf').classList.remove('hidden');
+                  document.getElementById('btnUnduhPmWord').classList.remove('hidden');
+                  
+                  // Ubah tombol generate jadi kuning
+                  btn.className = 'btn btn-warning flex-grow-1';
+                  btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+
+                  Swal.fire({
+                    icon: 'success', title: 'Berhasil!',
+                    text: 'Surat Permohonan berhasil dibuat.',
+                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
+                  }).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
+
+                } else {
+                  Swal.fire('Gagal', res.message, 'error');
+                }
+              })
+              .generateBerkasPencairan(token, 'PERMOHONAN', formData);
+          }
+        });
+      }
+
+      // 3. Helper Cek Status File & Buka File (Mirip PKS)
+      function cekStatusFilePermohonan() {
+        const token = localStorage.getItem('userToken');
+        // Kita bisa reuse fungsi getDokumenPendukungStatus dengan sedikit modifikasi di server atau
+        // untuk saat ini kita asumsikan ID tersimpan di DataPengaturan dengan key OUTPUT_ID_PERMOHONAN_PDF
+        // Karena struktur DB dinamis, kita bisa pakai getSettingValue helper
+        
+        // OPSI TERBAIK: Panggil server side khusus untuk cek status ini
+        // Tapi untuk menghemat kuota, kita reuse getDokumenPendukungStatus dan tambahkan key disana?
+        // Atau lebih simpel: Kita buat status tombol hidden dulu, nanti user generate baru muncul.
+        // Untuk persistensi, sebaiknya load data status saat tab dibuka.
+        
+        // Saya sarankan UPDATE fungsi getDokumenPendukungStatus di Kode.gs untuk menyertakan PERMOHONAN
+        // Tapi karena saya tidak bisa edit Kode.gs secara real-time di semua fungsi,
+        // Kita pakai pendekatan simple: Load Status via getAllPendukungData (jika ada) atau biarkan kosong.
+      }
+
+      function bukaFilePermohonan(tipe) {
+        const id = (tipe === 'PDF') ? document.getElementById('valPmPdfId').value : document.getElementById('valPmDocId').value;
+        if(id) {
+          window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
+        } else {
+          Swal.fire('Error', 'File belum digenerate.', 'error');
+        }
+      }
+
+      // 1. Tambahkan Fungsi Simpan Manual
+      function simpanPermohonan() {
+        const btn = document.getElementById('btnSimpanPermohonan');
+        const orgHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const formData = {
+          nomorSurat: document.getElementById('pmNomorSurat').value,
+          tempat: document.getElementById('pmTempat').value,
+          tanggal: document.getElementById('pmTanggal').value
+        };
+
+        const token = localStorage.getItem('userToken');
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            btn.disabled = false;
+            btn.innerHTML = orgHtml;
+            if(res.status === 'success') {
+              Swal.fire({
+                icon: 'success', title: 'Tersimpan',
+                text: 'Data formulir berhasil disimpan.',
+                timer: 1500, showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = orgHtml;
+            Swal.fire('Error', err.message, 'error');
+          })
+          .simpanDataPermohonan(token, formData);
+      }
+
+      // 2. Tambahkan Fungsi Load Data
+      function loadPermohonanData() {
+        const token = localStorage.getItem('userToken');
+        
+        // Set loading state ringan (opsional) atau biarkan silent
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if(res.status === 'success') {
+              const d = res.data;
+              // Hanya isi jika field masih kosong (agar tidak menimpa ketikan user saat refresh cepat)
+              // Atau timpa saja karena ini load awal tab
+              if(d.nomorSurat) document.getElementById('pmNomorSurat').value = d.nomorSurat;
+              if(d.tempat) document.getElementById('pmTempat').value = d.tempat;
+              if(d.tanggal) document.getElementById('pmTanggal').value = d.tanggal;
+            }
+          })
+          .getDataPermohonan(token);
+      }
+
+      /* --- FUNGSI JAVASCRIPT KUITANSI --- */
+
+      // 1. Load Data Tersimpan
+      function loadKuitansiData() {
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') {
+              const d = res.data;
+              if(d.nomorSurat) document.getElementById('kwNomorSurat').value = d.nomorSurat;
+              if(d.tempat) document.getElementById('kwTempat').value = d.tempat;
+              if(d.tanggal) document.getElementById('kwTanggal').value = d.tanggal;
+            }
+          }).getDataKuitansi(token);
+      }
+
+      // 2. Simpan Data Manual
+      function simpanKuitansi() {
+        const btn = document.getElementById('btnSimpanKuitansi');
+        const orgHtml = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const formData = {
+          nomorSurat: document.getElementById('kwNomorSurat').value,
+          tempat: document.getElementById('kwTempat').value,
+          tanggal: document.getElementById('kwTanggal').value
+        };
+
+        const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res) {
+            btn.disabled = false; btn.innerHTML = orgHtml;
+            if(res.status === 'success') Swal.fire({icon: 'success', title: 'Tersimpan', text: 'Data kuitansi disimpan.', timer: 1500, showConfirmButton: false});
+            else Swal.fire('Gagal', res.message, 'error');
+          }).simpanDataKuitansi(token, formData);
+      }
+
+      // 3. Generate Kuitansi
+      function generateKuitansi(e) {
+        e.preventDefault();
+        
+        // Data dari PKS (Hidden / Readonly)
+        const formData = {
+          nomorPks: document.getElementById('kwNomorPks').value,
+          tanggalPks: document.getElementById('kwTanggalPksVal').value, // Ambil Value Date Asli
+          tahun: document.getElementById('kwTahun').value,
+          jumlah: document.getElementById('kwJumlahVal').value, // Angka Murni
+          
+          // Data Inputan Kuitansi
+          nomorSurat: document.getElementById('kwNomorSurat').value,
+          tempat: document.getElementById('kwTempat').value,
+          tanggal: document.getElementById('kwTanggal').value
+        };
+
+        const btn = document.getElementById('btnGenKuitansi');
+        const txtAsli = btn.innerHTML;
+        
+        // Logic Konfirmasi Generate Ulang
+        const fileLamaAda = document.getElementById('valKwPdfId').value !== "";
+        let judul = 'Generate Kuitansi?'; let pesan = "Pastikan data PKS sudah benar.";
+        let warna = '#198754'; let teksTombol = 'Ya, Buat PDF';
+
+        if (fileLamaAda) {
+          judul = 'Generate Ulang?'; pesan = "File lama akan <b>DIHAPUS</b>.";
+          warna = '#ffc107'; teksTombol = 'Ya, Ganti File';
+        }
+
+        Swal.fire({
+          title: judul, html: pesan, icon: 'question',
+          showCancelButton: true, confirmButtonColor: warna, confirmButtonText: teksTombol, cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...'; btn.disabled = true;
+            const token = localStorage.getItem('userToken');
+
+            google.script.run.withSuccessHandler(function(res){
+                btn.innerHTML = txtAsli; btn.disabled = false;
+                if(res.status === 'success') {
+                  document.getElementById('valKwPdfId').value = res.pdfId;
+                  document.getElementById('valKwDocId').value = res.docId;
+                  document.getElementById('btnLihatKwPdf').classList.remove('hidden');
+                  document.getElementById('btnUnduhKwWord').classList.remove('hidden');
+                  
+                  btn.className = 'btn btn-warning flex-grow-1';
+                  btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+                  Swal.fire({icon: 'success', title: 'Berhasil!', text: 'Kuitansi berhasil dibuat.', confirmButtonText: 'Buka PDF'}).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
+                } else { Swal.fire('Gagal', res.message, 'error'); }
+              }).withFailureHandler(function(err){ btn.innerHTML = txtAsli; btn.disabled = false; Swal.fire('Error', err.message, 'error'); })
+              .generateBerkasPencairan(token, 'KUITANSI', formData);
+          }
+        });
+      }
+
+      // 4. Buka File
+      function bukaFileKuitansi(tipe) {
+        const id = (tipe === 'PDF') ? document.getElementById('valKwPdfId').value : document.getElementById('valKwDocId').value;
+        if(id) window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
+        else Swal.fire('Error', 'File belum digenerate.', 'error');
+      }
+
+      // 5. Cek Status File Kuitansi
+      function cekStatusFileKuitansi() {
+        // Logic cek status file (bisa diimplementasikan nanti via server call getDokumenPendukungStatus)
+        // Untuk saat ini bisa pakai loadKuitansiData untuk form, tapi ID file belum terload
       }
 
     </script>
