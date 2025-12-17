@@ -3667,7 +3667,7 @@ function toTitleCase(str) {
   });
 }
 
-/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (SIMPAN ID FILE) --- */
+/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (ID DIAMBIL DARI MASTER DB) --- */
 function generateBerkasPencairan(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -3720,20 +3720,22 @@ function generateBerkasPencairan(token, tipe, formData) {
       }
     };
 
-    // 3. Tentukan Template ID (HARDCODED)
+    // 3. Tentukan Template ID (DINAMIS DARI MASTER DB)
     let templateId = '';
+    
     if (tipe === 'PKS') {
-       templateId = '1eURvpy7nplm6wUlvgEhZJDCI0SaI1EqiURnARaTaDsY'; 
+       // Mengambil ID dari Sheet 'Cetak_Lainnya' di Database Master dengan kode 'PKS'
+       templateId = getMasterDefaultId('PKS'); 
     } 
 
-    if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan dalam sistem.' };
+    if (!templateId) return { status: 'error', message: 'ID Template PKS belum disetting di Database Master (Sheet Cetak_Lainnya).' };
 
     // 4. Proses Copy Template
     let templateFile;
     try { 
       templateFile = DriveApp.getFileById(templateId); 
     } catch(e) { 
-      return { status: 'error', message: 'File Template Master tidak ditemukan. Cek ID Script.' }; 
+      return { status: 'error', message: 'File Template Master tidak ditemukan atau ID salah. Cek Database Master.' }; 
     }
 
     const tempDocFile = templateFile.makeCopy(tipe + '_' + ds.namaSekolah + '_' + new Date().getTime());
@@ -3754,7 +3756,7 @@ function generateBerkasPencairan(token, tipe, formData) {
       safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
 
       safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
-      safeReplace('<<Nama Dana BOS>>', formData.danaBOS); // Typo di form input fix
+      safeReplace('<<Nama Dana BOS>>', formData.danaBOS);
       safeReplace('<<Alamat Lengkap Madrasah>>', formData.alamat);
       
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
@@ -3767,39 +3769,27 @@ function generateBerkasPencairan(token, tipe, formData) {
         const d = new Date(tglInput);
         const hariArr = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         
-        // 1. Hari (Minggu)
-        // Apps Script getDay() mengembalikan 0=Minggu, 1=Senin
-        // Pastikan Timezone sesuai (GMT+7)
-        const hariIndex = parseInt(Utilities.formatDate(d, "GMT+7", "u")); // u = 1(Mon)-7(Sun)
-        // Array kita 0=Minggu, jadi perlu penyesuaian jika pakai 'u'
-        // Lebih aman pakai 'e' (1=Mon..7=Sun) atau hitung manual dari timestamp
-        // Cara paling aman di Apps Script:
         const dayOfWeek = parseInt(Utilities.formatDate(d, "GMT+7", "u")); // 1=Senin, 7=Minggu
         const namaHari = (dayOfWeek === 7) ? "Minggu" : hariArr[dayOfWeek]; 
 
-        // 2. Tanggal Angka & Teks
         const tglAngka = parseInt(Utilities.formatDate(d, "GMT+7", "d"));
-        const tglTeks = terbilang(tglAngka); // Fungsi 'terbilang' sudah ada di kode Anda
+        const tglTeks = terbilang(tglAngka);
 
-        // 3. Bulan Angka & Teks
         const blnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "M"));
         const blnTeks = terbilang(blnAngka); 
 
-        // 4. Tahun Angka & Teks
         const thnAngka = parseInt(Utilities.formatDate(d, "GMT+7", "yyyy"));
         const thnTeks = terbilang(thnAngka);
 
         // LAKUKAN REPLACE KE GOOGLE DOC
-        safeReplace('<<Hari PKS>>', namaHari);           // Contoh: Minggu
-        safeReplace('<<Tanggal PKS>>', toTitleCase(tglTeks)); // Contoh: Empat Belas
-        safeReplace('<<Bulan PKS>>', toTitleCase(blnTeks));   // Contoh: Dua Belas
-        safeReplace('<<Tahun PKS>>', toTitleCase(thnTeks));   // Contoh: Dua Ribu Dua Puluh Lima
+        safeReplace('<<Hari PKS>>', namaHari);           
+        safeReplace('<<Tanggal PKS>>', toTitleCase(tglTeks)); 
+        safeReplace('<<Bulan PKS>>', toTitleCase(blnTeks));   
+        safeReplace('<<Tahun PKS>>', toTitleCase(thnTeks));   
         
-        // Bonus: Tanggal Format Biasa (14 Desember 2025)
         safeReplace('<<Tanggal PKS Lengkap>>', formatTanggalIndo(tglInput)); 
 
       } else {
-        // Jika kosong, replace dengan titik-titik
         safeReplace('<<Hari PKS>>', '................');
         safeReplace('<<Tanggal PKS>>', '................');
         safeReplace('<<Bulan PKS>>', '................');
@@ -3827,12 +3817,11 @@ function generateBerkasPencairan(token, tipe, formData) {
     const pdfFile = folder.createFile(pdfBlob).setName(fileNameBase + '.pdf');
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    // B. Simpan File Doc (Untuk Unduh Word) - Jangan ditrash, tapi pindahkan ke folder
+    // B. Simpan File Doc (Untuk Unduh Word)
     const docFile = DriveApp.getFileById(tempDocFile.getId());
-    docFile.setName(fileNameBase + ' (Master).docx'); // Rename biar jelas
+    docFile.setName(fileNameBase + ' (Master).docx');
     docFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    // Pindahkan Doc ke folder yang sama dengan PDF
     try {
       folder.addFile(docFile);
       DriveApp.getRootFolder().removeFile(docFile);
