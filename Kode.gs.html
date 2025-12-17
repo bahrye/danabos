@@ -3306,12 +3306,12 @@ function generateDokumenPendukung(token, tipe, formData) {
     } else if (tipe === 'VERIFIKASI') {
       templateId = settingsMap['TEMPLATE_ID_VERIFIKASI'] || getMasterDefaultId('VERIF');
     } else if (tipe === 'PERMOHONAN') {
-      // Pastikan Anda menyimpan ID Template di DataPengaturan dengan key TEMPLATE_ID_PERMOHONAN
-      templateId = settingsMap['TEMPLATE_ID_PERMOHONAN']; 
+      // UPDATE: Cek setting user dulu, jika kosong ambil dari Master DB (Sheet Cetak_Lainnya, Key: PERMOHONAN)
+      templateId = settingsMap['TEMPLATE_ID_PERMOHONAN'] || getMasterDefaultId('PERMOHONAN'); 
     }
 
     if (!templateId || templateId.trim() === "") {
-       return { status: 'error', message: 'ID Template ('+tipe+') belum disetting di Data Pengaturan.' };
+       return { status: 'error', message: 'ID Template ('+tipe+') belum disetting di Data Pengaturan atau Master Database.' };
     }
 
     // 4. Proses File Template (DENGAN PENGECEKAN ID VALID)
@@ -3752,13 +3752,14 @@ function generateBerkasPencairan(token, tipe, formData) {
       }
     };
 
-    // 3. Tentukan Template ID (HARDCODED)
+    // 3. Tentukan Template ID (DARI MASTER DB)
     let templateId = '';
     if (tipe === 'PKS') {
-       templateId = '1eURvpy7nplm6wUlvgEhZJDCI0SaI1EqiURnARaTaDsY'; 
+       // UPDATE: Ambil dari Master DB (Sheet Cetak_Lainnya, Key: PKS)
+       templateId = getMasterDefaultId('PKS'); 
     } 
 
-    if (!templateId) return { status: 'error', message: 'ID Template tidak ditemukan dalam sistem.' };
+    if (!templateId) return { status: 'error', message: 'ID Template (' + tipe + ') tidak ditemukan di database Master (Sheet Cetak_Lainnya).' };
 
     // 4. Proses Copy Template
     let templateFile;
