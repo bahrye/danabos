@@ -4076,3 +4076,43 @@ function getDataKuitansi(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- [TAMBAHAN BARU] AGREGATOR DATA PENCAIRAN (PKS, PERMOHONAN, KUITANSI) --- */
+function getAllPencairanData(token) {
+  try {
+    // 1. Ambil Data Sekolah (Untuk Default)
+    const resSekolah = getDataSekolah(token);
+    const sekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
+
+    // 2. Ambil Data PKS
+    const resPks = getDataPKS(token);
+    const pks = (resPks.status === 'success') ? resPks.data : {};
+
+    // 3. Ambil Data Permohonan
+    const resPm = getDataPermohonan(token);
+    const permohonan = (resPm.status === 'success') ? resPm.data : {};
+
+    // 4. Ambil Data Kuitansi
+    const resKw = getDataKuitansi(token);
+    const kuitansi = (resKw.status === 'success') ? resKw.data : {};
+
+    // 5. Ambil Status File (ID PDF/Doc yang sudah digenerate)
+    // Kita reuse fungsi getDokumenPendukungStatus karena ID file disimpan di tabel yang sama
+    const resStatus = getDokumenPendukungStatus(token);
+    const fileStatus = (resStatus.status === 'success') ? resStatus.data : {};
+
+    return {
+      status: 'success',
+      data: {
+        sekolah: sekolah,
+        pks: pks,
+        permohonan: permohonan,
+        kuitansi: kuitansi,
+        fileStatus: fileStatus
+      }
+    };
+
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
