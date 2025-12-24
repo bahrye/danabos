@@ -10352,26 +10352,35 @@
       // Variabel Global untuk melacak perubahan data
       let isPksDirty = false;
 
-      // 1. Fungsi Menandai Ada Perubahan
+      // 1. Fungsi Menandai Ada Perubahan (Mode Edit / Belum Disimpan)
       function markPksDirty() {
         isPksDirty = true;
-        // Opsional: Ubah warna tombol simpan jadi kuning agar user sadar
         const btn = document.getElementById('btnSimpanPks');
         if(btn) {
           btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Perubahan*';
+          
+          // Hapus kelas biru solid dan outline
+          btn.classList.remove('btn-primary'); 
           btn.classList.remove('btn-outline-primary');
+          
+          // Tambahkan warna KUNING (Peringatan belum disimpan)
           btn.classList.add('btn-warning');
         }
       }
 
-      // 2. Fungsi Menandai Data Sudah Bersih/Disimpan
+      // 2. Fungsi Menandai Data Sudah Bersih/Disimpan (Mode Standar)
       function markPksClean() {
         isPksDirty = false;
         const btn = document.getElementById('btnSimpanPks');
         if(btn) {
           btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Data';
-          btn.classList.add('btn-outline-primary');
+          
+          // Hapus kelas kuning dan outline
           btn.classList.remove('btn-warning');
+          btn.classList.remove('btn-outline-primary');
+          
+          // UBAH DI SINI: Gunakan 'btn-primary' agar Biru Penuh (Solid)
+          btn.classList.add('btn-primary');
         }
       }
 
@@ -11007,6 +11016,42 @@
             }
           })
           .getDokumenPendukungStatus(token);
+      }
+
+      /* --- [FIX] PERBAIKAN FUNGSI TOMBOL PKS --- */
+
+      // 1. Fungsi Wrapper untuk Tombol Simpan
+      function simpanPks() {
+        // Memanggil fungsi simpanDataPksSaja yang sudah ada di logika script
+        if (typeof simpanDataPksSaja === 'function') {
+          simpanDataPksSaja();
+        } else {
+          Swal.fire('Error', 'Fungsi penyimpanan data PKS tidak ditemukan (simpanDataPksSaja).', 'error');
+        }
+      }
+
+      // 2. Fungsi untuk Membuka File PDF/Word (Mengatasi ReferenceError)
+      function bukaFilePks(tipe) {
+        let id = "";
+        
+        // Ambil ID dari input hidden sesuai tipe
+        if (tipe === 'PDF') {
+          id = document.getElementById('valPksPdfId').value;
+        } else if (tipe === 'WORD') {
+          id = document.getElementById('valPksDocId').value;
+        }
+
+        // Validasi ID
+        if (id && id.trim() !== "") {
+          // Buka file di tab baru
+          window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'File Tidak Ditemukan',
+            text: 'Dokumen belum dibuat. Silakan klik tombol "Generate PKS" terlebih dahulu.'
+          });
+        }
       }
 
     </script>
