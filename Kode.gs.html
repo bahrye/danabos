@@ -3442,22 +3442,21 @@ function generateDokumenPendukung(token, tipe, formData) {
   }
 }
 
-/* --- UPDATE: CEK STATUS FILE HASIL GENERATE (LENGKAP) --- */
 function getDokumenPendukungStatus(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataPengaturan');
     
-    // Default Result Object
-    let result = { 
+    // Default Result Object (TAMBAHKAN PKS_PDF dan PKS_DOC)
+    let result = {
       COVER: null, 
       SP: null, 
       VERIF: null,
-      
-      // Tambahan Baru
-      PERMOHONAN_PDF: null,
-      PERMOHONAN_DOC: null,
-      KUITANSI_PDF: null,
+      PKS_PDF: null, // <-- Tambahan Baru
+      PKS_DOC: null, // <-- Tambahan Baru
+      PERMOHONAN_PDF: null, 
+      PERMOHONAN_DOC: null, 
+      KUITANSI_PDF: null, 
       KUITANSI_DOC: null
     };
 
@@ -3466,17 +3465,20 @@ function getDokumenPendukungStatus(token) {
       for (let i = 0; i < data.length; i++) {
         const key = data[i][0];
         const val = data[i][1];
-        
+
         // Mapping Key Database ke Result Object
         if (key === 'OUTPUT_ID_COVER') result.COVER = val;
         if (key === 'OUTPUT_ID_SP') result.SP = val;
         if (key === 'OUTPUT_ID_VERIFIKASI') result.VERIF = val;
         
-        // Mapping Permohonan
+        // --- TAMBAHAN LOGIKA PKS ---
+        if (key === 'OUTPUT_ID_PKS_PDF') result.PKS_PDF = val;
+        if (key === 'OUTPUT_ID_PKS_DOC') result.PKS_DOC = val;
+        // ---------------------------
+
         if (key === 'OUTPUT_ID_PERMOHONAN_PDF') result.PERMOHONAN_PDF = val;
         if (key === 'OUTPUT_ID_PERMOHONAN_DOC') result.PERMOHONAN_DOC = val;
         
-        // Mapping Kuitansi
         if (key === 'OUTPUT_ID_KUITANSI_PDF') result.KUITANSI_PDF = val;
         if (key === 'OUTPUT_ID_KUITANSI_DOC') result.KUITANSI_DOC = val;
       }
