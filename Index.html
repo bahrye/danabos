@@ -3986,6 +3986,32 @@
         }
       }
 
+      /**
+       * Mengunci/Membuka semua input & tombol dalam container tertentu
+       * @param {string} containerId - ID div pembungkus (misal: 'panel-berkas-pencairan')
+       * @param {boolean} isLocked - True untuk mengunci, False untuk membuka
+       */
+      function toggleContainerInputs(containerId, isLocked) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Ambil semua elemen interaktif
+        const elements = container.querySelectorAll('input, select, textarea, button');
+        
+        elements.forEach(el => {
+          el.disabled = isLocked;
+        });
+
+        // Efek visual (opsional: sedikit transparan saat dikunci)
+        if (isLocked) {
+          container.style.opacity = '0.6';
+          container.style.pointerEvents = 'none'; // Mencegah klik
+        } else {
+          container.style.opacity = '1';
+          container.style.pointerEvents = 'auto';
+        }
+      }
+
       /* --- UPDATE PADA INDEX.HTML --- */
 
       function handleLogin(e) {
@@ -10058,16 +10084,19 @@
       /* --- GANTI FUNGSI loadAllPendukungData DENGAN INI --- */
 
       function loadAllPendukungData(forceRefresh = false, targetTab = 'sampul') {
+        // Cek Cache
         if (!forceRefresh && DATA_CACHE.pendukung) {
           bukaSubTab(targetTab);
           return;
         }
 
-        setGenerateButtonsLoading(true);
-
+        const containerId = 'panel-cetak-pendukung';
+        
+        // 1. KUNCI UI & Tampilkan Loading
+        toggleContainerInputs(containerId, true); 
         Swal.fire({
           toast: true, position: 'top-end', showConfirmButton: false,
-          title: 'Sinkronisasi Data...', didOpen: () => Swal.showLoading()
+          title: 'Sinkronisasi Data Pendukung...', didOpen: () => Swal.showLoading()
         });
 
         const token = localStorage.getItem('userToken');
@@ -10076,12 +10105,14 @@
           .withFailureHandler((err) => {
             Swal.close();
             handleServerError(err);
-            setGenerateButtonsLoading(false);
+            // BUKA KUNCI JIKA ERROR
+            toggleContainerInputs(containerId, false);
           })
           .withSuccessHandler(function(res) {
-            setGenerateButtonsLoading(false);
+            // 2. BUKA KUNCI UI
+            toggleContainerInputs(containerId, false);
+            Swal.close();
 
-            // [FIX] Validasi res sebelum akses .status
             if (res && res.status === 'success') {
               DATA_CACHE.pendukung = res.data;
               bukaSubTab(targetTab);
@@ -10089,14 +10120,11 @@
               const Toast = Swal.mixin({
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
               });
-              Toast.fire({ icon: 'success', title: 'Data berhasil dimuat' });
+              Toast.fire({ icon: 'success', title: 'Data berhasil disinkronkan' });
 
             } else {
-              Swal.close();
-              // Handle jika res null atau error
-              const errMsg = (res && res.message) ? res.message : "Data tidak valid/kosong dari server.";
-              console.error("Error loadAllPendukungData:", res);
-              // Jangan tampilkan popup error mengganggu jika hanya masalah koneksi sesaat
+              const errMsg = (res && res.message) ? res.message : "Data tidak valid.";
+              Swal.fire('Gagal', errMsg, 'error');
             }
           })
           .getAllPendukungData(token);
@@ -10255,96 +10283,18 @@
 
       /* --- LOGIKA BERKAS PENCAIRAN --- */
 
-      // Fungsi Navigasi Tab Pencairan (LENGKAP: PKS, PERMOHONAN, KUITANSI)
+      // GANTI FUNGSI YANG LAMA DENGAN INI
       function bukaTabPencairan(tabName) {
-        // 1. Reset State: Non-aktifkan semua tab & Sembunyikan semua view
-        document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => {
-          el.classList.remove('active');
-        });
-        
-        document.querySelectorAll('.view-pencairan').forEach(el => {
-          el.classList.add('hidden');
-        });
+        // 1. Reset UI Tab
+        document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.view-pencairan').forEach(el => el.classList.add('hidden'));
 
-        // 2. Validasi Global: Cek Data PKS (Kecuali sedang membuka tab PKS)
-        if (tabName !== 'pks') {
-          const pksNo = document.getElementById('pksNomorPks').value;
-          
-          // Jika Nomor PKS kosong, paksa user kembali ke tab PKS
-          if (!pksNo || pksNo.trim() === "") {
-            Swal.fire({
-              icon: 'warning',
-              title: 'Data PKS Belum Lengkap',
-              text: 'Anda harus melengkapi data di tab "PKS" terlebih dahulu.',
-              confirmButtonText: 'Ke Tab PKS'
-            }).then(() => {
-              bukaTabPencairan('pks');
-            });
-            return; // Stop eksekusi
-          }
-        }
+        // 2. Aktifkan Tab
+        document.getElementById('tab-pencairan-' + tabName).classList.add('active');
+        document.getElementById('view-pencairan-' + tabName).classList.remove('hidden');
 
-        // 3. Logika Khusus per Tab
-        if (tabName === 'permohonan') {
-          // === TAB PERMOHONAN ===
-          // Isi Data Read-Only dari PKS
-          document.getElementById('pmNomorPks').value = document.getElementById('pksNomorPks').value;
-          document.getElementById('pmNamaSekolah').value = document.getElementById('pksNamaLengkap').value;
-          document.getElementById('pmDanaBos').value = document.getElementById('pksDanaBos').value;
-          document.getElementById('pmTahun').value = document.getElementById('pksTahun').value;
-          document.getElementById('pmJumlah').value = document.getElementById('pksJumlah').value; 
-          
-          // Ambil value angka murni
-          const jmlStr = document.getElementById('pksJumlah').value;
-          const jmlRaw = (typeof cleanRibuan === 'function') ? cleanRibuan(jmlStr) : jmlStr.replace(/[^0-9]/g, ''); 
-          document.getElementById('pmJumlahVal').value = jmlRaw;
-
-          // Load Data Tersimpan & Cek File
-          loadPermohonanData();
-          cekStatusFilePermohonan();
-
-        } else if (tabName === 'kuitansi') {
-          // === TAB KUITANSI (BARU) ===
-          
-          // Isi Data Read-Only dari PKS
-          document.getElementById('kwNomorPks').value = document.getElementById('pksNomorPks').value;
-          document.getElementById('kwTahun').value = document.getElementById('pksTahun').value;
-          document.getElementById('kwJumlah').value = document.getElementById('pksJumlah').value;
-
-          // Set Tanggal PKS (Untuk Display & Value Hidden)
-          const tglPksVal = document.getElementById('pksTanggal').value; 
-          document.getElementById('kwTanggalPksVal').value = tglPksVal; 
-          document.getElementById('kwTanggalPks').value = tglPksVal; 
-
-          // Ambil value angka murni
-          const jmlStr = document.getElementById('pksJumlah').value;
-          const jmlRaw = (typeof cleanRibuan === 'function') ? cleanRibuan(jmlStr) : jmlStr.replace(/[^0-9]/g, ''); 
-          document.getElementById('kwJumlahVal').value = jmlRaw;
-
-          // Default Tempat TTD (Ambil dari Permohonan jika ada, agar tidak ngetik ulang)
-          if (!document.getElementById('kwTempat').value) {
-            document.getElementById('kwTempat').value = document.getElementById('pmTempat').value || ""; 
-          }
-
-          // Load Data Tersimpan & Cek File
-          loadKuitansiData();
-          cekStatusFileKuitansi();
-        }
-
-        // 4. Aktifkan Tab dan Tampilkan View yang Dipilih
-        const btnId = 'tab-pencairan-' + tabName;
-        const viewId = 'view-pencairan-' + tabName;
-        
-        const btn = document.getElementById(btnId);
-        const view = document.getElementById(viewId);
-
-        if (btn) btn.classList.add('active');
-        if (view) view.classList.remove('hidden');
-
-        // 5. Load Data PKS (Jika membuka tab PKS)
-        if (tabName === 'pks') {
-          loadPksData();
-        }
+        // 3. Panggil Loader Terpusat (Cek Cache/Fetch Server)
+        loadAllPencairanData(false, tabName);
       }
 
       /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
@@ -11052,6 +11002,174 @@
             text: 'Dokumen belum dibuat. Silakan klik tombol "Generate PKS" terlebih dahulu.'
           });
         }
+      }
+
+      /* --- FUNGSI AGREGATOR PENCAIRAN (NEW) --- */
+      function loadAllPencairanData(forceRefresh = false, targetTab = 'pks') {
+        // Cek apakah data pencairan sudah ada di cache global?
+        // Kita cek properti khusus 'pencairan_lengkap' agar tidak bentrok dengan cache parsial lama
+        if (!forceRefresh && DATA_CACHE.pencairan_lengkap) {
+          renderTabPencairan(targetTab);
+          return;
+        }
+
+        const containerId = 'panel-berkas-pencairan';
+
+        // 1. KUNCI UI
+        toggleContainerInputs(containerId, true);
+        Swal.fire({
+          toast: true, position: 'top-end', showConfirmButton: false,
+          title: 'Sinkronisasi Berkas Pencairan...', didOpen: () => Swal.showLoading()
+        });
+
+        const token = localStorage.getItem('userToken');
+
+        google.script.run
+          .withFailureHandler((err) => {
+            Swal.close();
+            handleServerError(err);
+            toggleContainerInputs(containerId, false);
+          })
+          .withSuccessHandler(function(res) {
+            // 2. BUKA KUNCI UI
+            toggleContainerInputs(containerId, false);
+            Swal.close();
+
+            if (res && res.status === 'success') {
+              // SIMPAN KE CACHE GLOBAL
+              // Kita simpan strukturnya agar mudah diakses
+              DATA_CACHE.pencairan_lengkap = res.data;
+              
+              // Simpan juga ke cache spesifik untuk kompatibilitas fungsi lama
+              DATA_CACHE.sekolah = res.data.sekolah;
+              DATA_CACHE.pks = res.data.pks; 
+              // Tambahkan ID file PKS ke objek PKS di cache agar tombol muncul
+              DATA_CACHE.pks.pdfId = res.data.fileStatus.PKS_PDF; 
+              DATA_CACHE.pks.docId = res.data.fileStatus.PKS_DOC;
+
+              // Render tab yang diminta
+              renderTabPencairan(targetTab);
+
+              const Toast = Swal.mixin({
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+              });
+              Toast.fire({ icon: 'success', title: 'Data Pencairan Siap' });
+
+            } else {
+              Swal.fire('Gagal', res.message || 'Gagal memuat data pencairan', 'error');
+            }
+          })
+          .getAllPencairanData(token);
+      }
+
+      /* --- HELPER RENDER UI PENCAIRAN (TANPA REQUEST SERVER) --- */
+      function renderTabPencairan(tabName) {
+        const d = DATA_CACHE.pencairan_lengkap;
+        if (!d) return;
+
+        // --- LOGIKA GLOBAL: UPDATE STATUS FILE DI HIDDEN INPUT ---
+        // (Agar tombol Download/Lihat PDF langsung aktif jika file sudah ada)
+        const files = d.fileStatus || {};
+        
+        // PKS
+        if(files.OUTPUT_ID_PKS_PDF) tampilkanTombolHasilPks(files.OUTPUT_ID_PKS_PDF, files.OUTPUT_ID_PKS_DOC);
+        else resetTombolPks();
+
+        // Permohonan
+        updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.OUTPUT_ID_PERMOHONAN_PDF, files.OUTPUT_ID_PERMOHONAN_DOC);
+        
+        // Kuitansi
+        updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.OUTPUT_ID_KUITANSI_PDF, files.OUTPUT_ID_KUITANSI_DOC);
+
+
+        // --- LOGIKA PER TAB ---
+        if (tabName === 'pks') {
+          // Render Form PKS
+          applyPksData(d.pks, d.sekolah);
+          // Pasang listener dirty check
+          attachPksListeners();
+          markPksClean();
+
+        } else if (tabName === 'permohonan') {
+          // Validasi PKS dulu
+          if (!d.pks.nomorPks) { 
+              Swal.fire('Data PKS Kosong', 'Silakan lengkapi data PKS terlebih dahulu.', 'warning').then(() => bukaTabPencairan('pks'));
+              return;
+          }
+          
+          // Render Read-Only Data dari PKS
+          document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
+          document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
+          document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
+          document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
+          
+          const jml = d.sekolah.jumlahAnggaran || 0;
+          document.getElementById('pmJumlah').value = formatRupiahJS(jml);
+          document.getElementById('pmJumlahVal').value = jml;
+
+          // Render Inputan User (Data Permohonan Tersimpan)
+          const pm = d.permohonan || {};
+          document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
+          
+          // Default tempat/tanggal jika kosong
+          document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
+          if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
+          else document.getElementById('pmTanggal').valueAsDate = new Date();
+
+        } else if (tabName === 'kuitansi') {
+          // Validasi PKS
+          if (!d.pks.nomorPks) { 
+              Swal.fire('Data PKS Kosong', 'Lengkapi data PKS dulu.', 'warning').then(() => bukaTabPencairan('pks'));
+              return;
+          }
+
+          // Render Read-Only
+          document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
+          
+          // Tanggal PKS (Format Indonesia untuk display jika perlu, atau value raw)
+          document.getElementById('kwTanggalPks').value = d.pks.tanggalPks || '';
+          document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
+          
+          document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
+          const jml = d.sekolah.jumlahAnggaran || 0;
+          document.getElementById('kwJumlah').value = formatRupiahJS(jml);
+          document.getElementById('kwJumlahVal').value = jml;
+
+          // Render Inputan User (Data Kuitansi Tersimpan)
+          const kw = d.kuitansi || {};
+          document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
+          
+          // Default Tempat TTD (Ambil dari Permohonan agar konsisten jika ada, atau Sekolah)
+          const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
+          document.getElementById('kwTempat').value = defTempat;
+          
+          if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
+          else document.getElementById('kwTanggal').valueAsDate = new Date();
+        }
+      }
+
+      // Helper kecil untuk update tombol view/download di pencairan
+      function updateBtnViewPencairan(btnLihatId, btnUnduhId, btnGenId, inputPdfId, inputDocId, filePdfId, fileDocId) {
+          const btnGen = document.getElementById(btnGenId);
+          
+          if (filePdfId && filePdfId !== "") {
+              document.getElementById(inputPdfId).value = filePdfId;
+              document.getElementById(inputDocId).value = fileDocId;
+              document.getElementById(btnLihatId).classList.remove('hidden');
+              document.getElementById(btnUnduhId).classList.remove('hidden');
+              
+              if(btnGen) {
+                  btnGen.className = 'btn btn-warning flex-grow-1';
+                  btnGen.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+              }
+          } else {
+              document.getElementById(btnLihatId).classList.add('hidden');
+              document.getElementById(btnUnduhId).classList.add('hidden');
+              if(btnGen) {
+                  btnGen.className = 'btn btn-success flex-grow-1';
+                  btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
+              }
+          }
       }
 
     </script>
