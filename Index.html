@@ -3251,12 +3251,12 @@
 
                         <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                           
-                          <button type="button" id="btnSimpanPks" class="btn btn-outline-primary flex-grow-1" onclick="simpanDataPksSaja()">
+                          <button type="button" class="btn btn-primary" id="btnSimpanPks" onclick="simpanPks()">
                             <i class="fas fa-save me-2"></i> Simpan Data
                           </button>
-                          
+
                           <button type="submit" class="btn btn-success flex-grow-1" id="btnGenPks">
-                            <i class="fas fa-cog me-2"></i> Generate PDF
+                            <i class="fas fa-cog me-2"></i> Generate PKS
                           </button>
 
                           <button type="button" id="btnLihatPksPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFilePks('PDF')">
@@ -3269,7 +3269,6 @@
 
                           <input type="hidden" id="valPksPdfId">
                           <input type="hidden" id="valPksDocId">
-
                         </div>
 
                       </form>
