@@ -3151,7 +3151,7 @@
                 </button>
               </li>
               <li class="nav-item">
-                <button class="nav-link fw-bold text-muted" disabled>
+                <button class="nav-link fw-bold" id="tab-pencairan-sptjm" onclick="bukaTabPencairan('sptjm')">
                   <i class="fas fa-file-signature me-2"></i> SPTJM
                 </button>
               </li>
@@ -3446,6 +3446,84 @@
 
                           <input type="hidden" id="valKwPdfId">
                           <input type="hidden" id="valKwDocId">
+                        </div>
+
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="view-pencairan-sptjm" class="view-pencairan hidden">
+              <div class="row">
+                <div class="col-lg-8 mx-auto">
+                  <div class="card shadow-sm border-0">
+                    <div class="card-header bg-warning text-dark bg-opacity-25 py-3">
+                      <h5 class="mb-0 fw-bold"><i class="fas fa-file-signature me-2"></i> SPTJM BOS</h5>
+                    </div>
+                    <div class="card-body p-4">
+                      
+                      <form id="formSptjm" onsubmit="generateSptjm(event)">
+                        
+                        <div class="alert alert-light border mb-4">
+                          <h6 class="text-secondary fw-bold border-bottom pb-2 mb-3" style="font-size: 0.85rem;">
+                            <i class="fas fa-sync me-1"></i> Data Otomatis (Sinkronisasi Sekolah)
+                          </h6>
+                          
+                          <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Nama Kepala (Kamad)</label>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold border-0 ps-0" id="sptjmNamaKepala" readonly>
+                          </div>
+                          
+                          <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Nama Sekolah</label>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold border-0 ps-0" id="sptjmNamaSekolah" readonly>
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Alamat Lengkap</label>
+                            <textarea class="form-control form-control-sm bg-light fw-bold border-0 ps-0" id="sptjmAlamat" rows="2" readonly></textarea>
+                          </div>
+                          <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Tahun Anggaran</label>
+                            <input type="text" class="form-control form-control-sm bg-light fw-bold border-0 ps-0" id="sptjmTahun" readonly>
+                          </div>
+                        </div>
+
+                        <h6 class="text-warning text-dark fw-bold border-bottom pb-2 mb-3">Input Kelengkapan Surat</h6>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-bold">NIK Kepala Madrasah</label>
+                          <input type="number" class="form-control" id="sptjmNik" placeholder="Masukkan NIK (Wajib Diisi)" required>
+                          <div class="form-text">NIK diperlukan karena tidak tersedia di data sinkronisasi.</div>
+                        </div>
+
+                        <div class="row mb-4">
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tempat TTD</label>
+                            <input type="text" class="form-control" id="sptjmTempat" placeholder="Contoh: Bulukumba" required>
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label fw-bold">Tanggal TTD</label>
+                            <input type="date" class="form-control" id="sptjmTanggal" required>
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                          <button type="button" class="btn btn-primary" id="btnSimpanSptjm" onclick="simpanSptjm()">
+                            <i class="fas fa-save me-2"></i> Simpan Data
+                          </button>
+                          <button type="submit" class="btn btn-success flex-grow-1" id="btnGenSptjm">
+                            <i class="fas fa-cog me-2"></i> Generate SPTJM
+                          </button>
+                          <button type="button" id="btnLihatSptjmPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFileSptjm('PDF')">
+                            <i class="fas fa-file-pdf me-2"></i> Lihat PDF
+                          </button>
+                          <button type="button" id="btnUnduhSptjmWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFileSptjm('WORD')">
+                            <i class="fas fa-file-word me-2"></i> Unduh Word
+                          </button>
+                          <input type="hidden" id="valSptjmPdfId">
+                          <input type="hidden" id="valSptjmDocId">
                         </div>
 
                       </form>
@@ -10349,18 +10427,34 @@
 
       /* --- LOGIKA BERKAS PENCAIRAN --- */
 
-      // GANTI FUNGSI YANG LAMA DENGAN INI
       function bukaTabPencairan(tabName) {
-        // 1. Reset UI Tab
+        // 1. Reset Tampilan (Sembunyikan semua view & matikan active tab)
         document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.view-pencairan').forEach(el => el.classList.add('hidden'));
 
-        // 2. Aktifkan Tab
-        document.getElementById('tab-pencairan-' + tabName).classList.add('active');
-        document.getElementById('view-pencairan-' + tabName).classList.remove('hidden');
+        // 2. Aktifkan Tombol & View yang dipilih
+        const btnId = 'tab-pencairan-' + tabName;
+        const viewId = 'view-pencairan-' + tabName;
+        
+        const btn = document.getElementById(btnId);
+        const view = document.getElementById(viewId);
+        
+        if (btn) btn.classList.add('active');
+        if (view) view.classList.remove('hidden');
 
-        // 3. Panggil Loader Terpusat (Cek Cache/Fetch Server)
-        loadAllPencairanData(false, tabName);
+        // 3. Logika Load Data (Pemisahan Logika)
+        const token = localStorage.getItem('userToken');
+
+        if (tabName === 'sptjm') {
+          // --- KHUSUS SPTJM: Panggil fungsi baru ---
+          loadDataSptjm(token); 
+        } else {
+          // --- TAB LAMA (PKS, Permohonan, Kuitansi) ---
+          // Tetap menggunakan fungsi asli Anda agar tidak error
+          if (typeof loadAllPencairanData === 'function') {
+            loadAllPencairanData(false, tabName);
+          }
+        }
       }
 
       /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
@@ -11346,6 +11440,128 @@
                   btnGen.innerHTML = '<i class="fas fa-cog me-2"></i> Generate PDF';
               }
           }
+      }
+
+      // --- LOGIKA BARU: SPTJM ---
+
+      // 1. LOAD DATA
+      function loadDataSptjm(token) {
+        document.getElementById('sptjmNamaKepala').value = "Sinkronisasi...";
+        
+        // A. Ambil Data Sekolah (Otomatis)
+        google.script.run.withSuccessHandler(function(resSekolah) {
+          const ds = (resSekolah && resSekolah.status === 'success') ? resSekolah.data : {};
+          
+          document.getElementById('sptjmNamaKepala').value = ds.namaKepala || '-';
+          // CATATAN: NIK tidak lagi diambil dari sini
+          document.getElementById('sptjmNamaSekolah').value = ds.namaSekolah || '-';
+          
+          let alamatLengkap = ds.alamat || '';
+          if (ds.kelurahan) alamatLengkap += ', ' + ds.kelurahan;
+          if (ds.kecamatan) alamatLengkap += ', ' + ds.kecamatan;
+          if (ds.kabupaten) alamatLengkap += ', ' + ds.kabupaten;
+          document.getElementById('sptjmAlamat').value = alamatLengkap;
+          
+          document.getElementById('sptjmTahun').value = ds.tahunAnggaran || new Date().getFullYear();
+          
+          // Default Tempat TTD
+          const inputTempat = document.getElementById('sptjmTempat');
+          if(inputTempat.value === "") inputTempat.value = ds.tempatTTD || "";
+
+          // B. Ambil Data Tersimpan (Termasuk NIK Manual)
+          google.script.run.withSuccessHandler(function(res) {
+            if (res && res.status === 'success') {
+              const d = res.data;
+              // Isi kembali input manual
+              if (d.nik) document.getElementById('sptjmNik').value = d.nik; // <--- ISI NIK DARI DATABASE
+              if (d.tempat) document.getElementById('sptjmTempat').value = d.tempat;
+              if (d.tanggal) document.getElementById('sptjmTanggal').value = d.tanggal;
+              
+              updateBtnView('btnLihatSptjmPdf', 'valSptjmPdfId', d.pdfId);
+              updateBtnView('btnUnduhSptjmWord', 'valSptjmDocId', d.docId);
+            }
+          }).getDataSptjm(token);
+
+        }).getDataSekolah(token);
+      }
+
+      // 2. SIMPAN DATA (Update NIK)
+      function simpanSptjm() {
+        const token = localStorage.getItem('userToken');
+        const form = {
+          nik: document.getElementById('sptjmNik').value, // <--- SIMPAN NIK
+          tempat: document.getElementById('sptjmTempat').value,
+          tanggal: document.getElementById('sptjmTanggal').value
+        };
+        
+        // Validasi sederhana
+        if(!form.nik) { Swal.fire('Error', 'NIK wajib diisi!', 'warning'); return; }
+
+        const btn = document.getElementById('btnSimpanSptjm');
+        const txtAsli = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        google.script.run.withSuccessHandler(function(res) {
+          btn.innerHTML = txtAsli;
+          btn.disabled = false;
+          if (res.status === 'success') {
+            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Data Tersimpan', showConfirmButton:false, timer:1500});
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).simpanDataSptjm(token, form);
+      }
+
+      // 3. GENERATE SPTJM (Kirim NIK Manual)
+      function generateSptjm(e) {
+        e.preventDefault();
+        const token = localStorage.getItem('userToken');
+        
+        const nikVal = document.getElementById('sptjmNik').value;
+        if(!nikVal) { Swal.fire('Peringatan', 'Mohon isi NIK Kepala Madrasah terlebih dahulu.', 'warning'); return; }
+
+        Swal.fire({
+          title: 'Generate SPTJM?',
+          text: 'Pastikan data NIK, Tempat, dan Tanggal sudah benar.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Generate',
+          cancelButtonText: 'Batal'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            Swal.fire({ title: 'Memproses...', html: 'Sedang membuat dokumen...', didOpen: () => Swal.showLoading() });
+            
+            const formData = {
+              nik: nikVal, // <--- KIRIM NIK KE BACKEND
+              tempat: document.getElementById('sptjmTempat').value,
+              tanggal: document.getElementById('sptjmTanggal').value
+            };
+
+            google.script.run
+              .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
+              .withSuccessHandler(res => {
+                if (res.status === 'success') {
+                  updateBtnView('btnLihatSptjmPdf', 'valSptjmPdfId', res.pdfId);
+                  updateBtnView('btnUnduhSptjmWord', 'valSptjmDocId', res.docId);
+                  Swal.fire({
+                    icon: 'success', title: 'Selesai!', 
+                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
+                  }).then((r) => { if (r.isConfirmed) window.open(res.url, '_blank'); });
+                } else {
+                  Swal.fire('Gagal', res.message, 'error');
+                }
+              })
+              .generateSptjm(token, formData);
+          }
+        });
+      }
+
+      // 4. Buka File Hasil
+      function bukaFileSptjm(tipe) {
+        const id = (tipe === 'PDF') ? document.getElementById('valSptjmPdfId').value : document.getElementById('valSptjmDocId').value;
+        if(id) window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
+        else Swal.fire('File belum ada', 'Silakan generate terlebih dahulu', 'warning');
       }
 
     </script>
