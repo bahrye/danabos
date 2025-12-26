@@ -3000,7 +3000,7 @@
                           <i class="fas fa-cog me-2"></i> Generate Cover
                         </button>
                         <button id="btnViewCover" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('COVER')">
-                          <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                          <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                         </button>
                         <input type="hidden" id="urlPdfCover">
                       </div>
@@ -3042,7 +3042,7 @@
                           <i class="fas fa-cog me-2"></i> Generate Surat
                         </button>
                         <button id="btnViewSp" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('SP')">
-                          <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                          <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                         </button>
                         <input type="hidden" id="urlPdfSp">
                       </div>
@@ -3113,7 +3113,7 @@
                           <i class="fas fa-cog me-2"></i> Generate Verifikasi
                         </button>
                         <button id="btnViewVerif" class="btn btn-dark flex-grow-1 hidden" onclick="bukaPdfHasil('VERIFIKASI')">
-                          <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                          <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                         </button>
                         <input type="hidden" id="urlPdfVerif">
                       </div>
@@ -3260,7 +3260,7 @@
                           </button>
 
                           <button type="button" id="btnLihatPksPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFilePks('PDF')">
-                            <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                            <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                           </button>
                           
                           <button type="button" id="btnUnduhPksWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFilePks('WORD')">
@@ -3350,7 +3350,7 @@
                           </button>
 
                           <button type="button" id="btnLihatPmPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFilePermohonan('PDF')">
-                            <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                            <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                           </button>
                           
                           <button type="button" id="btnUnduhPmWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFilePermohonan('WORD')">
@@ -3437,7 +3437,7 @@
                           </button>
 
                           <button type="button" id="btnLihatKwPdf" class="btn btn-dark flex-grow-1 hidden" onclick="bukaFileKuitansi('PDF')">
-                            <i class="fas fa-file-pdf me-2"></i> Lihat / Cetak PDF
+                            <i class="fas fa-file-pdf me-2"></i> Lihat PDF
                           </button>
                           
                           <button type="button" id="btnUnduhKwWord" class="btn btn-info text-white flex-grow-1 hidden" onclick="bukaFileKuitansi('WORD')">
@@ -11542,8 +11542,8 @@
               .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
               .withSuccessHandler(res => {
                 if (res.status === 'success') {
-                  updateBtnView('btnLihatSptjmPdf', 'valSptjmPdfId', res.pdfId);
-                  updateBtnView('btnUnduhSptjmWord', 'valSptjmDocId', res.docId);
+                  document.getElementById('valSptjmPdfId').value = res.pdfId;
+                  document.getElementById('valSptjmDocId').value = res.docId;
                   Swal.fire({
                     icon: 'success', title: 'Selesai!', 
                     confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
@@ -11563,6 +11563,34 @@
         if(id) window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
         else Swal.fire('File belum ada', 'Silakan generate terlebih dahulu', 'warning');
       }
+
+      /* --- CARI KODE EVENT LISTENER UNTUK SPTJM --- */
+
+      document.getElementById('btnLihatSptjm').addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // --- CEK BAGIAN INI ---
+          // Apakah mengambil dari 'valSptjmPdfId'?
+          // Jika tertulis 'valPksPdfId', maka dia akan error atau membuka file yang salah.
+          
+          const pdfId = document.getElementById('valSptjmPdfId').value; 
+          
+          if (pdfId) {
+              // Jika menggunakan window.open langsung (jika URL sudah ada)
+              // window.open(url, '_blank'); 
+
+              // ATAU jika memanggil server untuk mendapatkan URL (kemungkinan yang Anda pakai)
+              google.script.run
+                  .withFailureHandler(function(err) { Swal.fire('Gagal', err.message, 'error'); })
+                  .withSuccessHandler(function(url) {
+                      window.open(url, '_blank');
+                  })
+                  .getDownloadUrl(pdfId); // <--- Pastikan fungsi ini ada di Server
+          } else {
+              // Ini yang memicu error jika ID kosong karena langkah 1 salah
+              Swal.fire('Gagal', 'File belum digenerate atau ID tidak ditemukan.', 'error');
+          }
+      });
 
     </script>
   </body>
