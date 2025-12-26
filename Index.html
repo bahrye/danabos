@@ -7394,69 +7394,105 @@
         });
       }
 
-      /* --- FUNGSI PROSES CETAK PDF (UPDATE) --- */
-      // --- PROSES CETAK PDF (INVALIDATE CACHE) ---
+      /* --- FUNGSI PROSES CETAK PDF (DENGAN KONFIRMASI TIMPA FILE) --- */
       function prosesCetakPDF(id, encodedData, tipeTab) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         const token = localStorage.getItem('userToken');
 
-        // Cek teks konfirmasi
-        let judul = 'Generate PDF?';
-        let teks = `Sistem akan membuat laporan PDF untuk: ${data.uraian}`;
-        let tombolWarna = '#ffc107'; 
-        let tombolTeks = '<i class="fas fa-cog"></i> Generate';
+        // 1. Tentukan Nama Dokumen Berdasarkan Tab/Tipe
+        let namaDokumen = "Laporan";
+        const tipeUpper = tipeTab.toUpperCase();
 
-        if (data.pdfId) {
-            judul = 'Generate Ulang?';
-            teks = `Peringatan: File PDF lama akan <b>DIHAPUS</b> dan diganti baru. Lanjutkan?`;
-            tombolWarna = '#dc3545';
-            tombolTeks = '<i class="fas fa-sync-alt"></i> Ya, Ganti File';
+        if (tipeUpper === 'TOKO') namaDokumen = "Laporan Belanja Toko";
+        else if (tipeUpper === 'GURU') namaDokumen = "Laporan Honor Guru";
+        else if (tipeUpper === 'TUKANG') namaDokumen = "Laporan Upah Tukang";
+
+        // 2. Cek Apakah File Lama Sudah Ada? (Berdasarkan pdfId di data baris)
+        const fileAda = (data.pdfId && data.pdfId !== "");
+
+        // 3. Konfigurasi SweetAlert Default (File Baru)
+        let judulSwal = 'Generate PDF?';
+        let htmlPesan = `Sistem akan membuat <b>${namaDokumen}</b> untuk:<br/>"${data.uraian}".<br/><br/>Lanjutkan?`;
+        let warnaTombol = '#0d6efd'; // Biru (Standar)
+        let teksTombol = 'Generate';
+
+        // 4. Konfigurasi Jika File Sudah Ada (Mode Timpa)
+        if (fileAda) {
+          judulSwal = 'Ganti File Lama?';
+          htmlPesan = `File <b>${namaDokumen}</b> lama akan <b>DIHAPUS</b> dan diganti dengan yang baru.<br/><br/>Uraian: "${data.uraian}".<br/>Lanjutkan?`;
+          warnaTombol = '#dc3545'; // Merah (Warning)
+          teksTombol = 'Ya, Ganti File';
         }
 
+        // 5. Tampilkan Popup Konfirmasi
         Swal.fire({
-          title: judul, html: teks, icon: 'warning',
-          showCancelButton: true, confirmButtonColor: tombolWarna,
-          cancelButtonColor: '#6c757d', confirmButtonText: tombolTeks, cancelButtonText: 'Batal'
+          title: judulSwal,
+          html: htmlPesan,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: warnaTombol,
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: teksTombol,
+          cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
-            
+
+            // Tampilkan Loading
             Swal.fire({
-              title: 'Sedang Memproses...', html: 'Mohon tunggu, menyusun dokumen PDF...',
-              allowOutsideClick: false, didOpen: () => { Swal.showLoading() }
+              title: 'Memproses...',
+              html: `Sedang menyusun ${namaDokumen}...`,
+              allowOutsideClick: false,
+              didOpen: () => Swal.showLoading()
             });
 
-            // Persiapan Data
+            // Persiapan Data Kirim
             let tipeTransaksi = data.tipe || 'TOKO';
             const namaMadrasah = document.getElementById('dashNamaSekolah').innerText || 'Madrasah';
+            // Pastikan nomor surat ada fallback jika belum disetting
             const nomorSurat = (data.dataSurat && data.dataSurat.permintaan) ? data.dataSurat.permintaan : 'DRAFT';
 
             const formUntukPDF = {
-              idTransaksi: id, tipe: tipeTransaksi, nomorSurat: nomorSurat,
-              pihakKetiga: data.pihakKetiga, pemesan: data.pemesan,
-              uraian: data.uraian, tanggal: data.tanggal,         
-              namaMadrasah: namaMadrasah, total: data.total, items: data.items              
+              idTransaksi: id,
+              tipe: tipeTransaksi,
+              nomorSurat: nomorSurat,
+              pihakKetiga: data.pihakKetiga,
+              pemesan: data.pemesan,
+              uraian: data.uraian,
+              tanggal: data.tanggal,
+              namaMadrasah: namaMadrasah,
+              total: data.total,
+              items: data.items
             };
 
-            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-              if (res.status === 'success') {
-                
-                // --- UPDATE PENTING: HAPUS CACHE ---
-                // Kita pakai 'tipeTab' (misal: 'toko') untuk menyusun key cache
-                DATA_CACHE['transaksi_' + tipeTab] = null;
-                // ----------------------------------
+            // Kirim ke Server
+            google.script.run
+              .withFailureHandler((err) => { Swal.fire('Gagal', err.message, 'error'); })
+              .withSuccessHandler(function(res) {
+                if (res.status === 'success') {
 
-                Swal.fire({
-                  icon: 'success', title: 'Selesai!', text: 'Dokumen PDF berhasil dibuat.',
-                  footer: `<a href="${res.url}" target="_blank" class="btn btn-primary btn-lg"><i class="fas fa-external-link-alt me-2"></i>Buka PDF Sekarang</a>`,
-                  showConfirmButton: true, confirmButtonText: 'Oke'
-                }).then(() => {
-                    // Reload Tabel (akan fetch baru karena cache sudah null)
+                  // Hapus Cache Lokal (Agar status tombol cetak terupdate saat reload tabel)
+                  // Ini penting agar tombol berubah dari "Generate" menjadi "Lihat PDF"
+                  DATA_CACHE['transaksi_' + tipeTab] = null;
+
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: `Dokumen ${namaDokumen} berhasil dibuat!`,
+                    confirmButtonText: 'Buka PDF',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup'
+                  }).then((r) => {
+                    if (r.isConfirmed) window.open(res.url, '_blank');
+                    
+                    // Reload Tabel otomatis untuk memperbarui tombol di list
                     loadListCetak(tipeTab);
-                });
-              } else {
-                Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', html: res.message, width: '500px' });
-              }
-            }).generateLPJ(token, formUntukPDF);
+                  });
+
+                } else {
+                  Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', html: res.message, width: '500px' });
+                }
+              })
+              .generateLPJ(token, formUntukPDF);
           }
         });
       }
