@@ -4325,9 +4325,9 @@ function getDataSptjm(token) {
 }
 
 /**
- * FUNGSI GENERATE SPTJM (YANG SUDAH DIPERBAIKI TYPO-NYA)
- * - Template ID diambil dari Master DB (Sheet 'Cetak_Lainnya')
- * - Data Sekolah & Output disimpan di Database Sekolah (Token)
+ * FUNGSI GENERATE SPTJM (UPDATE: HAPUS FILE LAMA OTOMATIS)
+ * - Cek file lama -> Hapus
+ * - Generate file baru -> Simpan
  */
 function generateSptjm(token, formData) {
   try {
@@ -4343,7 +4343,6 @@ function generateSptjm(token, formData) {
     const dataCetak = sheetCetak.getDataRange().getValues();
     
     // Loop baris Master DB untuk mencari "SPTJM"
-    // Struktur: Col A[0]=ID, Col B[1]=Nama Desain, Col C[2]=ID Template
     for (let i = 0; i < dataCetak.length; i++) {
       const namaDesain = String(dataCetak[i][1]).trim().toUpperCase(); 
       if (namaDesain === 'SPTJM') { 
@@ -4356,8 +4355,35 @@ function generateSptjm(token, formData) {
       throw new Error("Template SPTJM belum disetting di Database Master (Sheet Cetak_Lainnya).");
     }
 
-    // 2. AKSES DATABASE SEKOLAH (TOKEN) UNTUK DATA & SIMPAN HASIL
+    // 2. AKSES DATABASE SEKOLAH
     const ss = SpreadsheetApp.openById(token);
+    
+    // --- [LOGIKA BARU: HAPUS FILE LAMA JIKA ADA] ---
+    const sheetSet = ss.getSheetByName('DataPengaturan');
+    if (sheetSet) {
+      const dataSet = sheetSet.getDataRange().getValues();
+      let oldPdfId = null;
+      let oldDocId = null;
+      
+      // Cari ID file lama di DataPengaturan
+      for (let i = 0; i < dataSet.length; i++) {
+        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = dataSet[i][1];
+        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_DOC') oldDocId = dataSet[i][1];
+      }
+
+      // Hapus File PDF Lama
+      if (oldPdfId && oldPdfId !== "") {
+        try { DriveApp.getFileById(oldPdfId).setTrashed(true); } catch(e) {
+          // Abaikan error jika file sudah tidak ada/terhapus manual
+        }
+      }
+      
+      // Hapus File Doc Master Lama
+      if (oldDocId && oldDocId !== "") {
+        try { DriveApp.getFileById(oldDocId).setTrashed(true); } catch(e) {}
+      }
+    }
+    // -----------------------------------------------
     
     // Ambil Data Sekolah
     let ds = {};
@@ -4381,7 +4407,7 @@ function generateSptjm(token, formData) {
                      (ds.kecamatan || "") + ", " + 
                      (ds.kabupaten || "");
 
-    // 3. PROSES GENERATE FILE
+    // 3. PROSES GENERATE FILE BARU
     const folderId = ensureFolderPendukung(token); 
     const folder = DriveApp.getFolderById(folderId);
     
@@ -4404,6 +4430,7 @@ function generateSptjm(token, formData) {
     safeReplace('<<Tempat TTD>>', formData.tempat);
     safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
     
+    // Pastikan fungsi formatNamaKapital tersedia di helper Anda
     safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
 
     // Kop Surat
@@ -4411,9 +4438,7 @@ function generateSptjm(token, formData) {
 
     doc.saveAndClose();
 
-    // 5. FINISHING (DIPERBAIKI DI SINI)
-    // SEBELUMNYA SALAH: const pdfBlob = tempDocFile.getAs(MimeType.PDF); 
-    // YANG BENAR:
+    // 5. FINISHING
     const pdfBlob = tempFile.getAs(MimeType.PDF);
     
     const pdfFile = folder.createFile(pdfBlob).setName('SPTJM - ' + ds.namaSekolah + '.pdf');
@@ -4429,6 +4454,7 @@ function generateSptjm(token, formData) {
     } catch(e) {}
 
     // 6. SIMPAN ID HASIL KE DATABASE SEKOLAH
+    // Fungsi ini akan menimpa ID lama dengan yang baru
     simpanOutputId(ss, 'OUTPUT_ID_SPTJM_PDF', pdfFile.getId());
     simpanOutputId(ss, 'OUTPUT_ID_SPTJM_DOC', finalDocFile.getId());
     simpanOutputId(ss, 'SPTJM_NIK', formData.nik);
@@ -4441,7 +4467,6 @@ function generateSptjm(token, formData) {
     };
 
   } catch (e) {
-    // Log error agar mudah debug di Apps Script dashboard
     console.error("Error Generate SPTJM: " + e.toString()); 
     return { status: 'error', message: 'Gagal Generate SPTJM: ' + e.toString() };
   }
