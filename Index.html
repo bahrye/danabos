@@ -9758,7 +9758,7 @@
         executeGenerateCore(tipe);
       }
 
-      // --- FUNGSI INTI GENERATE (DIPISAH AGAR BISA DIPANGGIL CALLBACK) ---
+      // --- FUNGSI INTI GENERATE (DENGAN KONFIRMASI GANTI FILE) ---
       function executeGenerateCore(tipe) {
         const token = localStorage.getItem('userToken');
         let formData = {};
@@ -9769,7 +9769,7 @@
           if (inputLogo && inputLogo.value !== "") {
             Swal.fire({
               icon: 'warning', title: 'Logo Belum Diupload!',
-              html: 'Klik tombol <b>Upload</b> terlebih dahulu.',
+              html: 'Klik tombol <b>Upload</b> terlebih dahulu sebelum generate.',
               confirmButtonText: 'Oke'
             });
             return;
@@ -9777,7 +9777,6 @@
         }
 
         // === 2. PERSIAPAN DATA FORM ===
-        // (Data diambil dari elemen HTML karena sudah dianggap tersimpan/bersih)
         if (tipe === 'COVER') {
           formData.desain = document.getElementById('coverDesignSelect').value;
           formData.header = document.getElementById('inpHeaderCover').value;
@@ -9795,53 +9794,84 @@
           formData.rows = verifItems;
         }
 
-        // === 3. CEK FILE LAMA (KONFIRMASI TIMPA) ===
+        // === 3. LOGIKA CEK FILE LAMA (KONFIRMASI TIMPA) ===
         let fileAda = false;
-        if (tipe === 'COVER' && !document.getElementById('btnViewCover').classList.contains('hidden')) fileAda = true;
-        if (tipe === 'SP' && !document.getElementById('btnViewSp').classList.contains('hidden')) fileAda = true;
-        if (tipe === 'VERIFIKASI' && !document.getElementById('btnViewVerif').classList.contains('hidden')) fileAda = true;
-
-        let confirmMsg = "Sistem akan membuat dokumen PDF baru.";
-        let confirmBtn = "Generate";
-        let confirmColor = "#0d6efd";
-
-        if (fileAda) {
-          confirmMsg = "File lama akan <b>DIHAPUS</b> dan diganti baru. Lanjutkan?";
-          confirmBtn = "Ya, Ganti File";
-          confirmColor = "#dc3545";
+        let namaDokumen = "";
+        
+        // Cek tombol dan tentukan nama dokumen berdasarkan tipe
+        if (tipe === 'COVER') {
+          fileAda = !document.getElementById('btnViewCover').classList.contains('hidden');
+          namaDokumen = "Cover/Sampul";
+        } else if (tipe === 'SP') {
+          fileAda = !document.getElementById('btnViewSp').classList.contains('hidden');
+          namaDokumen = "Surat Pengantar";
+        } else if (tipe === 'VERIFIKASI') {
+          fileAda = !document.getElementById('btnViewVerif').classList.contains('hidden');
+          namaDokumen = "Lembar Verifikasi";
         }
 
+        // Default Konfigurasi (Jika belum ada file)
+        let judulSwal = 'Generate PDF?';
+        let htmlPesan = `Sistem akan membuat dokumen <b>${namaDokumen}</b>. Lanjutkan?`;
+        let warnaTombol = '#0d6efd'; // Biru (Normal)
+        let teksTombol = 'Generate';
+
+        // Jika File Sudah Ada (Mode Ganti)
+        if (fileAda) {
+          judulSwal = 'Ganti File Lama?';
+          htmlPesan = `File <b>${namaDokumen}</b> lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?`;
+          warnaTombol = '#dc3545'; // Merah (Warning)
+          teksTombol = 'Ya, Ganti File';
+        }
+
+        // Tampilkan Popup Konfirmasi
         Swal.fire({
-          title: 'Generate PDF?', html: confirmMsg, icon: 'warning',
-          showCancelButton: true, confirmButtonColor: confirmColor, cancelButtonColor: '#6c757d',
-          confirmButtonText: confirmBtn, cancelButtonText: 'Batal'
+          title: judulSwal,
+          html: htmlPesan,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: warnaTombol,
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: teksTombol,
+          cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
+            
+            // Tampilkan Loading
             Swal.fire({
-              title: 'Memproses...', html: 'Mohon tunggu...', allowOutsideClick: false,
+              title: 'Memproses...', 
+              html: `Sedang menyusun ${namaDokumen}...`, 
+              allowOutsideClick: false,
               didOpen: () => Swal.showLoading()
             });
 
+            // Kirim ke Server
             google.script.run
               .withFailureHandler((err) => { Swal.fire('Gagal', err.message, 'error'); })
               .withSuccessHandler((res) => {
                 if (res.status === 'success') {
+                  // Update Cache Lokal status file
                   if (DATA_CACHE.pendukung) {
                       if (!DATA_CACHE.pendukung.fileStatus) DATA_CACHE.pendukung.fileStatus = {};
                       DATA_CACHE.pendukung.fileStatus[tipe] = res.fileId;
                   }
 
+                  // Update UI: Munculkan tombol Lihat PDF
                   if (tipe === 'COVER') updateBtnView('btnViewCover', 'urlPdfCover', res.fileId);
                   if (tipe === 'SP') updateBtnView('btnViewSp', 'urlPdfSp', res.fileId);
                   if (tipe === 'VERIFIKASI') updateBtnView('btnViewVerif', 'urlPdfVerif', res.fileId);
 
+                  // Sukses Message & Buka Tab Baru
                   Swal.fire({
-                    icon: 'success', title: 'Berhasil', text: 'PDF berhasil dibuat.',
-                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
+                    icon: 'success', 
+                    title: 'Berhasil', 
+                    text: `Dokumen ${namaDokumen} berhasil dibuat!`,
+                    confirmButtonText: 'Buka PDF', 
+                    showCancelButton: true, 
+                    cancelButtonText: 'Tutup'
                   }).then((r) => { if (r.isConfirmed) window.open(res.url, '_blank'); });
 
                 } else if (res.status === 'error_template') {
-                  // ... handle error template ...
                   Swal.fire('Error Template', res.message, 'error');
                 } else {
                   Swal.fire({ icon: 'error', title: 'Gagal', text: res.message });
@@ -10529,7 +10559,7 @@
 
         if (fileLamaAda) {
           judul = 'Generate Ulang?';
-          pesan = "File PKS lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?";
+          pesan = "File <b>PKS</b> lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?";
           warna = '#ffc107'; // Kuning
           teksTombol = 'Ya, Ganti File';
         }
@@ -10711,90 +10741,93 @@
         }
       }
 
-      /* --- UPDATE: GENERATE PERMOHONAN DENGAN SWAL LOADING --- */
+      /* --- FUNGSI GENERATE PERMOHONAN (DENGAN KONFIRMASI) --- */
       function generatePermohonan(e) {
         e.preventDefault();
-        
-        // Ambil Data
-        const pksData = {
-          nomorPks: document.getElementById('pmNomorPks').value,
-          namaSekolah: document.getElementById('pmNamaSekolah').value,
-          danaBos: document.getElementById('pmDanaBos').value,
-          tahun: document.getElementById('pmTahun').value,
-          jumlah: document.getElementById('pmJumlahVal').value
-        };
 
-        const formData = {
-          ...pksData,
-          nomorSurat: document.getElementById('pmNomorSurat').value,
-          tempat: document.getElementById('pmTempat').value,
-          tanggal: document.getElementById('pmTanggal').value
-        };
+        // 1. Cek apakah File Lama sudah ada? (Cek visibilitas tombol PDF)
+        const btnLihat = document.getElementById('btnLihatPmPdf');
+        const fileAda = !btnLihat.classList.contains('hidden');
 
-        // Konfirmasi Generate
-        const fileLamaAda = document.getElementById('valPmPdfId').value !== "";
-        let judul = 'Generate Permohonan?';
-        let pesan = "Pastikan data sudah benar.";
-        let warna = '#198754';
-        let teksTombol = 'Ya, Buat PDF';
+        // Definisi Proses Inti Generate
+        const prosesGenerate = () => {
+          const token = localStorage.getItem('userToken');
+          
+          // Ambil Data dari Form
+          const formData = {
+            nomorPks: document.getElementById('pmNomorPks').value,
+            namaSekolah: document.getElementById('pmNamaSekolah').value,
+            danaBos: document.getElementById('pmDanaBos').value,
+            tahun: document.getElementById('pmTahun').value,
+            jumlah: document.getElementById('pmJumlahVal').value, // Ambil value angka murni
+            nomorSurat: document.getElementById('pmNomorSurat').value,
+            tempat: document.getElementById('pmTempat').value,
+            tanggal: document.getElementById('pmTanggal').value
+          };
 
-        if (fileLamaAda) {
-          judul = 'Generate Ulang?';
-          pesan = "File lama akan <b>DIHAPUS</b> dan diganti baru.";
-          warna = '#ffc107'; 
-          teksTombol = 'Ya, Ganti File';
-        }
-
-        Swal.fire({
-          title: judul, html: pesan, icon: 'question',
-          showCancelButton: true, confirmButtonColor: warna, confirmButtonText: teksTombol, cancelButtonColor: '#6c757d'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            
-            // [PERBAIKAN] Tampilkan Loading Box seperti Cetak PDF
-            Swal.fire({
-              title: 'Sedang Memproses...',
-              html: 'Sedang membuat Surat Permohonan...',
-              allowOutsideClick: false,
-              didOpen: () => { Swal.showLoading() }
-            });
-
-            const token = localStorage.getItem('userToken');
-
-            google.script.run
-              .withFailureHandler(function(err){
-                Swal.fire('Gagal', err.message, 'error');
-              })
-              .withSuccessHandler(function(res){
-                if(res.status === 'success') {
-                  // Update UI Hidden Input
-                  document.getElementById('valPmPdfId').value = res.pdfId;
-                  document.getElementById('valPmDocId').value = res.docId;
-                  
-                  // Munculkan tombol
-                  document.getElementById('btnLihatPmPdf').classList.remove('hidden');
-                  document.getElementById('btnUnduhPmWord').classList.remove('hidden');
-                  
-                  // Ubah tombol generate jadi mode ulang
-                  const btn = document.getElementById('btnGenPermohonan');
-                  if(btn) {
-                    btn.className = 'btn btn-warning flex-grow-1';
-                    btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
-                  }
-
-                  Swal.fire({
-                    icon: 'success', title: 'Berhasil!',
-                    text: 'Surat Permohonan telah selesai dibuat.',
-                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
-                  }).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
-
-                } else {
-                  Swal.fire('Gagal', res.message, 'error');
-                }
-              })
-              .generateBerkasPencairan(token, 'PERMOHONAN', formData);
+          // Validasi Input
+          if (!formData.nomorSurat || !formData.tempat || !formData.tanggal) {
+            Swal.fire('Data Belum Lengkap', 'Nomor Surat, Tempat, dan Tanggal wajib diisi.', 'warning');
+            return;
           }
-        });
+
+          // Tampilkan Loading
+          Swal.fire({ 
+            title: 'Memproses...', 
+            html: 'Sedang membuat dokumen Permohonan...', 
+            allowOutsideClick: false, 
+            didOpen: () => Swal.showLoading() 
+          });
+
+          // Kirim ke Server
+          google.script.run
+            .withFailureHandler((err) => { Swal.fire('Gagal', err.message, 'error'); })
+            .withSuccessHandler((res) => {
+              if (res.status === 'success') {
+                // Update UI: Simpan ID File & Munculkan Tombol Lihat
+                document.getElementById('valPmPdfId').value = res.fileId;
+                
+                // Helper manual untuk menampilkan tombol (jika updateBtnView tdk tersedia untuk ID ini)
+                const btnView = document.getElementById('btnLihatPmPdf');
+                btnView.classList.remove('hidden');
+                
+                Swal.fire({ 
+                  icon: 'success', 
+                  title: 'Berhasil', 
+                  text: 'Surat Permohonan berhasil dibuat!',
+                  confirmButtonText: 'Buka PDF',
+                  showCancelButton: true,
+                  cancelButtonText: 'Tutup'
+                }).then((r) => {
+                  if (r.isConfirmed) window.open(res.url, '_blank');
+                });
+              } else {
+                Swal.fire('Gagal', res.message, 'error');
+              }
+            })
+            .generateDokumenPendukung(token, 'PERMOHONAN', formData);
+        };
+
+        // 2. Logika Konfirmasi
+        if (fileAda) {
+          Swal.fire({
+            title: 'Ganti File Lama?',
+            html: "File <b>Permohonan</b> lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545', // Merah
+            cancelButtonColor: '#6c757d', // Abu-abu
+            confirmButtonText: 'Ya, Ganti File',
+            cancelButtonText: 'Batal'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              prosesGenerate();
+            }
+          });
+        } else {
+          // Jika belum ada file, langsung gas
+          prosesGenerate();
+        }
       }
 
       /* --- UPDATE: FUNGSI CEK STATUS FILE PERMOHONAN --- */
@@ -10936,73 +10969,90 @@
           }).simpanDataKuitansi(token, formData);
       }
 
-      /* --- UPDATE: GENERATE KUITANSI DENGAN SWAL LOADING --- */
+      /* --- FUNGSI GENERATE KUITANSI (DENGAN KONFIRMASI) --- */
       function generateKuitansi(e) {
         e.preventDefault();
-        
-        // Ambil Data
-        const formData = {
-          nomorPks: document.getElementById('kwNomorPks').value,
-          tanggalPks: document.getElementById('kwTanggalPksVal').value,
-          tahun: document.getElementById('kwTahun').value,
-          jumlah: document.getElementById('kwJumlahVal').value,
-          nomorSurat: document.getElementById('kwNomorSurat').value,
-          tempat: document.getElementById('kwTempat').value,
-          tanggal: document.getElementById('kwTanggal').value
+
+        // 1. Cek apakah File Lama sudah ada?
+        const btnLihat = document.getElementById('btnLihatKwPdf');
+        const fileAda = !btnLihat.classList.contains('hidden');
+
+        // Definisi Proses Inti Generate
+        const prosesGenerate = () => {
+          const token = localStorage.getItem('userToken');
+          
+          // Ambil Data dari Form
+          const formData = {
+            nomorPks: document.getElementById('kwNomorPks').value,
+            tanggalPks: document.getElementById('kwTanggalPksVal').value, // Value raw date
+            tahun: document.getElementById('kwTahun').value,
+            jumlah: document.getElementById('kwJumlahVal').value, // Value angka murni
+            nomorSurat: document.getElementById('kwNomorSurat').value,
+            tempat: document.getElementById('kwTempat').value,
+            tanggal: document.getElementById('kwTanggal').value
+          };
+
+          // Validasi Input
+          if (!formData.nomorSurat || !formData.tempat || !formData.tanggal) {
+            Swal.fire('Data Belum Lengkap', 'Nomor Kuitansi, Tempat, dan Tanggal wajib diisi.', 'warning');
+            return;
+          }
+
+          // Tampilkan Loading
+          Swal.fire({ 
+            title: 'Memproses...', 
+            html: 'Sedang membuat Kuitansi...', 
+            allowOutsideClick: false, 
+            didOpen: () => Swal.showLoading() 
+          });
+
+          // Kirim ke Server
+          google.script.run
+            .withFailureHandler((err) => { Swal.fire('Gagal', err.message, 'error'); })
+            .withSuccessHandler((res) => {
+              if (res.status === 'success') {
+                // Update UI: Simpan ID File & Munculkan Tombol Lihat
+                document.getElementById('valKwPdfId').value = res.fileId;
+                
+                const btnView = document.getElementById('btnLihatKwPdf');
+                btnView.classList.remove('hidden');
+                
+                Swal.fire({ 
+                  icon: 'success', 
+                  title: 'Berhasil', 
+                  text: 'Kuitansi berhasil dibuat!',
+                  confirmButtonText: 'Buka PDF',
+                  showCancelButton: true,
+                  cancelButtonText: 'Tutup'
+                }).then((r) => {
+                  if (r.isConfirmed) window.open(res.url, '_blank');
+                });
+              } else {
+                Swal.fire('Gagal', res.message, 'error');
+              }
+            })
+            .generateDokumenPendukung(token, 'KUITANSI', formData);
         };
 
-        // Konfirmasi
-        const fileLamaAda = document.getElementById('valKwPdfId').value !== "";
-        let judul = 'Generate Kuitansi?'; let pesan = "Pastikan data PKS sudah benar.";
-        let warna = '#198754'; let teksTombol = 'Ya, Buat PDF';
-
-        if (fileLamaAda) {
-          judul = 'Generate Ulang?'; pesan = "File lama akan <b>DIHAPUS</b>.";
-          warna = '#ffc107'; teksTombol = 'Ya, Ganti File';
+        // 2. Logika Konfirmasi
+        if (fileAda) {
+          Swal.fire({
+            title: 'Ganti File Lama?',
+            html: "File <b>Kuitansi</b> lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, Ganti File',
+            cancelButtonText: 'Batal'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              prosesGenerate();
+            }
+          });
+        } else {
+          prosesGenerate();
         }
-
-        Swal.fire({
-          title: judul, html: pesan, icon: 'question',
-          showCancelButton: true, confirmButtonColor: warna, confirmButtonText: teksTombol, cancelButtonColor: '#6c757d'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            
-            // [PERBAIKAN] Tampilkan Loading Box seperti Cetak PDF
-            Swal.fire({
-              title: 'Sedang Memproses...',
-              html: 'Sedang membuat Kuitansi...',
-              allowOutsideClick: false,
-              didOpen: () => { Swal.showLoading() }
-            });
-
-            const token = localStorage.getItem('userToken');
-
-            google.script.run.withSuccessHandler(function(res){
-                if(res.status === 'success') {
-                  // Update UI
-                  document.getElementById('valKwPdfId').value = res.pdfId;
-                  document.getElementById('valKwDocId').value = res.docId;
-                  document.getElementById('btnLihatKwPdf').classList.remove('hidden');
-                  document.getElementById('btnUnduhKwWord').classList.remove('hidden');
-                  
-                  const btn = document.getElementById('btnGenKuitansi');
-                  if(btn) {
-                    btn.className = 'btn btn-warning flex-grow-1';
-                    btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
-                  }
-
-                  Swal.fire({
-                    icon: 'success', title: 'Berhasil!', 
-                    text: 'Kuitansi telah selesai dibuat.', 
-                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
-                  }).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
-                } else { Swal.fire('Gagal', res.message, 'error'); }
-              }).withFailureHandler(function(err){ 
-                  Swal.fire('Error', err.message, 'error'); 
-              })
-              .generateBerkasPencairan(token, 'KUITANSI', formData);
-          }
-        });
       }
 
       // 4. Buka File
