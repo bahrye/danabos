@@ -568,7 +568,7 @@ function simpanTransaksi(token, dataTransaksi) {
   }
 }
 
-/* --- FUNGSI GENERATE PDF YANG SUDAH DIOPTIMASI --- */
+/* --- FUNGSI GENERATE PDF YANG SUDAH DIOPTIMASI (UPDATE FORMAT NAMA & GELAR) --- */
 function generateLPJ(token, dataForm) {
   try {
     // 1. Validasi Token & Items
@@ -579,7 +579,6 @@ function generateLPJ(token, dataForm) {
     const ss = SpreadsheetApp.openById(token);
 
     // --- OPTIMASI 1: BACA SEMUA PENGATURAN SEKALIGUS ---
-    // Daripada memanggil getSettingValue berkali-kali, kita baca sheet DataPengaturan sekali saja.
     let settingsMap = {};
     const sheetSet = ss.getSheetByName('DataPengaturan');
     if (sheetSet) {
@@ -589,7 +588,7 @@ function generateLPJ(token, dataForm) {
       });
     }
 
-    // Tentukan Template ID dari settingsMap yang sudah di-load
+    // Tentukan Template ID
     let templateId = '';
     const tipe = dataForm.tipe;
     
@@ -612,8 +611,7 @@ function generateLPJ(token, dataForm) {
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // --- OPTIMASI 2: AMBIL DATA SEKOLAH LANGSUNG (Tanpa fungsi helper eksternal) ---
-    // Kita baca langsung dari 'ss' yang sudah terbuka
+    // --- OPTIMASI 2: AMBIL DATA SEKOLAH LANGSUNG ---
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
@@ -632,8 +630,7 @@ function generateLPJ(token, dataForm) {
     let nomorBuktiUraian = "-";
     const sheetUraian = ss.getSheetByName('DataUraian');
     if (sheetUraian) {
-      const dataUr = sheetUraian.getDataRange().getValues(); // Baca semua memori
-      // Loop array di memori (cepat)
+      const dataUr = sheetUraian.getDataRange().getValues();
       for(let i=1; i<dataUr.length; i++){
         if(String(dataUr[i][2]).trim() === String(dataForm.uraian).trim()){
           nomorBuktiUraian = dataUr[i][1];
@@ -649,7 +646,9 @@ function generateLPJ(token, dataForm) {
       const rowsTrans = sheetTrans.getDataRange().getValues();
       const transRow = rowsTrans.find(r => r[0] === dataForm.idTransaksi);
       if (transRow) {
-          // Asumsi index kolom sesuai kode asli Anda (9 dan 10)
+          // Asumsi index kolom JSON Surat & Tanggal sesuai struktur DB (Kolom 10 & 11 / Index 9 & 10)
+          // Jika menggunakan getHeaderMap di fungsi lain, disini kita hardcode atau pakai logika deteksi sederhana
+          // Tapi agar aman, kita coba akses kolom terakhir - 2 dan - 3 jika struktur dinamis
           try { dbSurat = JSON.parse(transRow[9]); } catch(e) {}
           try { dbTanggal = JSON.parse(transRow[10]); } catch(e) {}
       }
@@ -658,14 +657,11 @@ function generateLPJ(token, dataForm) {
     // =========================================================================
     // OPTIMASI GAMBAR KOP SURAT
     // =========================================================================
-    const kopSuratId = settingsMap['KOP_SURAT_ID']; // Ambil dari map
-    
+    const kopSuratId = settingsMap['KOP_SURAT_ID']; 
     if (kopSuratId) {
       try {
         const kopFile = DriveApp.getFileById(kopSuratId);
-        const kopBlob = kopFile.getBlob(); // Load blob sekali saja
-        
-        // Fungsi replace optimized
+        const kopBlob = kopFile.getBlob(); 
         const processContainer = (container) => {
            let searchResult = container.findText('<<KOP SURAT>>');
            let safety = 0;
@@ -675,7 +671,6 @@ function generateLPJ(token, dataForm) {
              const parent = textEl.getParent();
              try {
                textEl.removeFromParent();
-               // Tidak perlu copyBlob berkali-kali jika tidak wajib, tapi DocumentApp kadang butuh
                const img = parent.insertInlineImage(0, kopBlob); 
                if (img.getWidth() > 600) {
                  const ratio = img.getHeight() / img.getWidth();
@@ -686,16 +681,13 @@ function generateLPJ(token, dataForm) {
              searchResult = container.findText('<<KOP SURAT>>');
            }
         };
-
         processContainer(doc.getHeader());
         processContainer(body);
-        
       } catch (e) { safeReplace('<<KOP SURAT>>', ''); }
     } else { safeReplace('<<KOP SURAT>>', ''); }
-    // =========================================================================
-
+    
     // --- REPLACE DATA UMUM ---
-    safeReplace('<<Nomor Bukti Uraian>>', String(nomorBuktiUraian).replace(/'/g, '')); // Bersihkan tanda kutip
+    safeReplace('<<Nomor Bukti Uraian>>', String(nomorBuktiUraian).replace(/'/g, ''));
     safeReplace('<<Nama Sekolah>>', ds.namaSekolah);
     safeReplace('<<Nama Madrasah>>', ds.namaSekolah);
     safeReplace('<<Alamat Lengkap Sekolah>>', (ds.alamat||'') + ', ' + (ds.kecamatan||'') + ', ' + (ds.kabupaten||''));
@@ -711,15 +703,16 @@ function generateLPJ(token, dataForm) {
     safeReplace('<<Periode>>', ds.periodeAnggaran);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
     
+    // [UPDATE] NAMA KEPALA & BENDAHARA -> Format Kapital + Gelar Baku
     safeReplace('<<NAMA KEPALA SEKOLAH>>', formatNamaKapital(ds.namaKepala));
     safeReplace('<<Nama Kepala Sekolah>>', formatNamaKapital(ds.namaKepala));
-    safeReplace('<<NIP Kepala Sekolah>>', ds.nipKepala);
+    safeReplace('<<NIP Kepala Sekolah>>', ds.nipKepala || "-");
 
     safeReplace('<<NAMA BENDAHARA>>', formatNamaKapital(ds.namaBendahara));
-    safeReplace('<<NIP Bendahara>>', ds.nipBendahara);
+    safeReplace('<<NIP Bendahara>>', ds.nipBendahara || "-");
 
 
-    // --- LOGIKA TIPE (Sama seperti sebelumnya, tapi akses DB via `ss`) ---
+    // --- LOGIKA TIPE ---
     if (tipe === 'TUKANG') {
         let alamatTukang = "................................";
         const sheetTukang = ss.getSheetByName('DataTukang');
@@ -729,9 +722,10 @@ function generateLPJ(token, dataForm) {
             if (tkg) alamatTukang = tkg[2];
         }
 
-        const namaTukangKapital = formatNamaKapital(dataForm.pihakKetiga);
-        safeReplace('<<Nama Tukang>>', namaTukangKapital);
-        safeReplace('<<NAMA TUKANG>>', namaTukangKapital);
+        // [UPDATE] Format Nama Tukang
+        const namaTukangFormatted = formatNamaKapital(dataForm.pihakKetiga);
+        safeReplace('<<Nama Tukang>>', namaTukangFormatted);
+        safeReplace('<<NAMA TUKANG>>', namaTukangFormatted);
         safeReplace('<<Alamat Lengkap Tukang>>', alamatTukang);
         safeReplace('<<Uraian Pekerjaan>>', dataForm.uraian);
 
@@ -744,6 +738,7 @@ function generateLPJ(token, dataForm) {
              if (guruFound) nipPemesan = String(guruFound[2]).replace(/'/g, '') || "-";
         }
         
+        // [UPDATE] Format Nama Pemesan Tukang
         safeReplace('<<NAMA PEMESAN TUKANG>>', formatNamaKapital(namaPemesan));
         safeReplace('<<NIP PEMESAN TUKANG>>', nipPemesan);
 
@@ -754,12 +749,6 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Nomor Surat BA.Bayar>>', dbSurat.baPembayaran || '-');
 
         const tglTrans = dataForm.tanggal;
-        const tglMinta = dbTanggal.permintaan || tglTrans;
-        const tglPP = dbTanggal.baPemeriksaan || tglTrans;
-        const tglSTP = dbTanggal.baSerahTerima || tglTrans;
-        const tglBayar = dbTanggal.baPembayaran || tglTrans;
-
-        // Replace Helper
         const doDateReplace = (suffix, dateVal) => {
            const det = getIndonesianDateDetails(dateVal);
            safeReplace('<<Tanggal ' + suffix + '>>', formatTanggalIndo(dateVal));
@@ -769,10 +758,10 @@ function generateLPJ(token, dataForm) {
            safeReplace('<<Tahun Huruf Tanggal ' + suffix + '>>', det.tahun);
         };
         
-        safeReplace('<<Tanggal Surat Permintaan Tukang>>', formatTanggalIndo(tglMinta));
-        doDateReplace('BA.PP', tglPP);
-        doDateReplace('BA.STP', tglSTP);
-        doDateReplace('BA.Bayar Tukang', tglBayar);
+        safeReplace('<<Tanggal Surat Permintaan Tukang>>', formatTanggalIndo(dbTanggal.permintaan || tglTrans));
+        doDateReplace('BA.PP', dbTanggal.baPemeriksaan || tglTrans);
+        doDateReplace('BA.STP', dbTanggal.baSerahTerima || tglTrans);
+        doDateReplace('BA.Bayar Tukang', dbTanggal.baPembayaran || tglTrans);
 
 
     } else if (tipe === 'TOKO') {
@@ -790,10 +779,13 @@ function generateLPJ(token, dataForm) {
             }
         }
 
+        // Nama Toko biasanya Badan Usaha, jadi cukup Uppercase biasa
         safeReplace('<<Nama Toko>>', String(dataForm.pihakKetiga).toUpperCase());
         safeReplace('<<Jenis Toko>>', jenisToko);
         safeReplace('<<Alamat Lengkap Toko>>', alamatToko);
         safeReplace('<<Telp Toko>>', telpToko);
+        
+        // [UPDATE] Format Nama Pemilik Toko (Siapa tahu ada gelar)
         safeReplace('<<NAMA PEMILIK TOKO>>', formatNamaKapital(pemilikToko));
         safeReplace('<<Alamat TTD Toko>>', tempatToko); 
         
@@ -820,6 +812,8 @@ function generateLPJ(token, dataForm) {
         doDateReplaceToko('BA.Bayar', dbTanggal.baPembayaran || tglTrans);
 
         safeReplace('<<Uraian Pesanan>>', dataForm.uraian);
+        
+        // [UPDATE] Format Nama Pemesan (Guru) di LPJ Toko
         safeReplace('<<Nama Pemesan>>', formatNamaKapital(dataForm.pemesan));
         
         let nipPemesan = "-";
@@ -838,6 +832,8 @@ function generateLPJ(token, dataForm) {
         safeReplace('<<Tanggal BA.Bayar>>', formatTanggalIndo(dbTanggal.baPembayaran || dataForm.tanggal));
 
         let namaPenerima = (itemsSafe.length > 0) ? itemsSafe[0].nama : "-";
+        
+        // [UPDATE] Format Nama Penerima (Guru 1)
         safeReplace('<<Nama Guru 1>>', formatNamaKapital(namaPenerima));
 
         let nipGuru1 = "-";
@@ -848,6 +844,8 @@ function generateLPJ(token, dataForm) {
              if (guruFound) nipGuru1 = String(guruFound[2]).replace(/'/g, '') || "-";
         }
         safeReplace('<<NIP Guru 1>>', nipGuru1);
+        
+        // [UPDATE] Format Nama Pemesan/Penanggung Jawab Kegiatan
         safeReplace('<<NAMA PEMESAN/GURU>>', formatNamaKapital(dataForm.pemesan));
     }
 
@@ -870,7 +868,11 @@ function generateLPJ(token, dataForm) {
              const newRow = table.insertTableRow(rowIndexTemplate + index, templateRow.copy());
              const numCells = newRow.getNumCells();
              let namaItemTabel = item.nama || "";
-             if (tipe === 'GURU') namaItemTabel = formatNamaKapital(namaItemTabel);
+             
+             // [UPDATE] Format Nama di Tabel (Khusus Honor Guru)
+             if (tipe === 'GURU') {
+                namaItemTabel = formatNamaKapital(namaItemTabel);
+             }
 
              try { newRow.getCell(0).setText((index + 1).toString()); } catch(e){} 
              try { newRow.getCell(1).setText(namaItemTabel); } catch(e){}        
@@ -902,7 +904,7 @@ function generateLPJ(token, dataForm) {
     const pdfFile = DriveApp.createFile(pdfBlob).setName(namaPdf);
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    const folderGenerateId = settingsMap['FOLDER_PDF_ID']; // Ambil dari map
+    const folderGenerateId = settingsMap['FOLDER_PDF_ID']; 
     if (folderGenerateId) {
        try {
          const folder = DriveApp.getFolderById(folderGenerateId);
@@ -916,27 +918,31 @@ function generateLPJ(token, dataForm) {
     // 5. Update Database ID PDF (Tanpa Buka Spreadsheet Lagi)
     const newFileId = pdfFile.getId();
     if (sheetTrans) {
-      // Kita pakai logika sederhana: cari header di memori untuk mendapatkan index kolom
-      // Tapi untuk write tetap harus pakai getRange().setValue
-      // Untuk amannya, kita panggil fungsi ensureColumn (tapi pastikan dia pakai 'sheetTrans' yang sudah ada)
-      
-      const colIdxPdf = ensureColumn(sheetTrans, 'File_PDF_ID');
-      const colIdxId = ensureColumn(sheetTrans, 'ID_Transaksi');
-      
-      // Karena kita sudah punya rowsTrans dari pembacaan di atas, kita pakai loop itu
-      const rowsTrans = sheetTrans.getDataRange().getValues();
+      // Logic standar: header map via getHeaderMap (jika ada) atau fallback
+      // Disini kita gunakan header map dinamis sederhana
+      let colIdxPdf = -1; let colIdxId = -1;
+      const headers = sheetTrans.getRange(1, 1, 1, sheetTrans.getLastColumn()).getValues()[0];
+      headers.forEach((h, i) => {
+         if(h === 'File_PDF_ID') colIdxPdf = i;
+         if(h === 'ID_Transaksi') colIdxId = i;
+      });
 
-      for (let i = 1; i < rowsTrans.length; i++) {
-        if (rowsTrans[i][colIdxId] == dataForm.idTransaksi) {
-          sheetTrans.getRange(i + 1, colIdxPdf + 1).setValue(newFileId);
-          
-          // Hapus file lama jika ada
-          const oldFileId = rowsTrans[i][colIdxPdf];
-          if (oldFileId && oldFileId !== "-" && oldFileId !== newFileId) {
-             try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
+      // Jika kolom PDF belum ada, jangan error, tapi coba append header jika bisa (opsional)
+      // Asumsi: Header sudah diperbaiki via fungsi perbaikiSemuaHeader
+      if (colIdxPdf !== -1 && colIdxId !== -1) {
+          const rowsTrans = sheetTrans.getDataRange().getValues();
+          for (let i = 1; i < rowsTrans.length; i++) {
+            if (rowsTrans[i][colIdxId] == dataForm.idTransaksi) {
+              sheetTrans.getRange(i + 1, colIdxPdf + 1).setValue(newFileId);
+              
+              // Hapus file lama jika ada
+              const oldFileId = rowsTrans[i][colIdxPdf];
+              if (oldFileId && oldFileId !== "-" && oldFileId !== newFileId) {
+                 try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch(e) {}
+              }
+              break;
+            }
           }
-          break;
-        }
       }
     }
     
@@ -1064,24 +1070,102 @@ function terbilang(nilai) {
   return temp.trim();
 }
 
-/* --- HELPER BARU: FORMAT NAMA KAPITAL KECUALI GELAR --- */
-/* Letakkan fungsi ini di luar function generateLPJ, misalnya di bagian paling bawah file */
+/* --- HELPER UPDATE: FORMAT NAMA KAPITAL DENGAN KAMUS GELAR --- */
 function formatNamaKapital(rawName) {
-  if (!rawName || rawName === '-' || rawName === '') return "-";
+  // 1. Cek Kosong
+  if (!rawName || rawName === '-' || rawName === '') return "_______________________";
   
   const str = String(rawName).trim();
   const firstCommaIndex = str.indexOf(',');
 
+  // KASUS A: ADA KOMA (Format: Nama, Gelar)
   if (firstCommaIndex !== -1) {
-    // KASUS: Ada gelar belakang (Contoh: "Andi, S.Pd")
-    // Ambil nama sebelum koma -> Uppercase
-    const namaDepan = str.substring(0, firstCommaIndex).toUpperCase();
-    // Ambil sisanya mulai dari koma sampai akhir -> Biarkan asli
-    const gelarBelakang = str.substring(firstCommaIndex); 
     
-    return namaDepan + gelarBelakang;
+    // Bagian Nama: Selalu Kapital (Huruf Besar)
+    const namaDepan = str.substring(0, firstCommaIndex).toUpperCase();
+    
+    // Bagian Gelar: Ambil teks setelah koma
+    let gelarRaw = str.substring(firstCommaIndex + 1).trim();
+    
+    // --- KAMUS GELAR (DATABASE) ---
+    // Kunci: huruf kecil tanpa titik | Nilai: Format Baku
+    const mapGelar = {
+        "se": "S.E.",
+        "spd": "S.Pd.",
+        "spdi": "S.Pd.I.",
+        "sag": "S.Ag.",
+        "sh": "S.H.",
+        "st": "S.T.",
+        "skom": "S.Kom.",
+        "ssos": "S.Sos.",
+        "sip": "S.I.P.",
+        "skm": "S.K.M.",
+        "skep": "S.Kep.",
+        "sfarm": "S.Farm.",
+        "spsi": "S.Psi.",
+        "ss": "S.S.",
+        "ssn": "S.Sn.",
+        "strt": "S.Tr.T.",
+        "mpd": "M.Pd.",
+        "mpdi": "M.Pd.I.",
+        "mm": "M.M.",
+        "msi": "M.Si.",
+        "mag": "M.Ag.",
+        "mh": "M.H.",
+        "mkom": "M.Kom.",
+        "mt": "M.T.",
+        "amd": "A.Md.",
+        "drs": "Drs.",
+        "dra": "Dra.",
+        "dr": "Dr.",
+        "lc": "Lc.",
+        "ma": "M.A."
+    };
+
+    // Bersihkan input gelar (hapus titik, hapus spasi, lowercase) untuk pencarian
+    // Contoh input: " S.E ", "S.E.", "SE", "s.e" -> menjadi "se"
+    const cleanKey = gelarRaw.toLowerCase().replace(/[^a-z]/g, '');
+
+    let gelarJadi = "";
+
+    // CEK 1: Apakah ada di Kamus?
+    if (mapGelar[cleanKey]) {
+        gelarJadi = mapGelar[cleanKey];
+    } else {
+        // CEK 2: Fallback (Jika gelar tidak dikenal di kamus)
+        // Logika: Split berdasarkan titik atau spasi, lalu Title Case
+        
+        // Hapus titik di akhir agar bersih dulu
+        while(gelarRaw.endsWith('.')) gelarRaw = gelarRaw.slice(0, -1);
+        
+        let parts = [];
+        if (gelarRaw.includes('.')) {
+             parts = gelarRaw.split('.');
+        } else {
+             // Jika input "MBA" (tanpa titik), biarkan tetap "MBA" jika pendek, atau split spasi
+             if (gelarRaw.length <= 4 && !gelarRaw.includes(' ')) {
+                 parts = [gelarRaw.toUpperCase()]; // Paksa Kapital semua jika singkatan pendek tak dikenal
+             } else {
+                 parts = gelarRaw.split(' ');
+             }
+        }
+
+        gelarJadi = parts.map(p => {
+            const c = p.trim();
+            if(!c) return "";
+            // Jika part sudah kapital semua (seperti MBA), biarkan. Jika campuran, format Title Case.
+            if (c === c.toUpperCase() && c.length > 1) return c; 
+            return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+        }).join('.');
+
+        // Pastikan diakhiri titik jika formatnya singkatan (mengandung titik di tengah atau hasil join)
+        if (!gelarJadi.endsWith('.')) gelarJadi += '.';
+    }
+
+    return namaDepan + ', ' + gelarJadi;
+
   } else {
-    // KASUS: Tidak ada koma (Contoh: "Budi Santoso") -> Uppercase semua
+    // KASUS B: TIDAK ADA KOMA (Hanya Nama) -> Kapital Semua
     return str.toUpperCase();
   }
 }
@@ -3328,7 +3412,7 @@ function generateDokumenPendukung(token, tipe, formData) {
     const doc = DocumentApp.openById(tempDocFile.getId());
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
-    const formatNipLengkap = (val) => (val && String(val).trim() !== "" && String(val).trim() !== "-") ? "NIP. " + String(val).trim() : "NIP.";
+    const formatNipLengkap = (val) => (val && String(val).trim() !== "" && String(val).trim() !== "-") ? "NIP. " + String(val).trim() : "NIP. -";
 
     // Helper Replace Gambar
     const replaceWithImage = (placeholder, imageId) => {
@@ -3367,7 +3451,10 @@ function generateDokumenPendukung(token, tipe, formData) {
     safeReplace('<<Kelurahan>>', ds.kelurahan);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
     safeReplace('<<Periode>>', ds.periodeAnggaran);
-    safeReplace('<<Nama Kepala Sekolah>>', ds.namaKepala);
+    
+    // [UPDATE] Format Nama Kepala Sekolah (Untuk SP dan Cover)
+    safeReplace('<<Nama Kepala Sekolah>>', formatNamaKapital(ds.namaKepala));
+    safeReplace('<<NAMA KEPALA SEKOLAH>>', formatNamaKapital(ds.namaKepala));
     safeReplace('<<NIP Kepala Sekolah>>', formatNipLengkap(ds.nipKepala)); 
 
     if (tipe === 'COVER') {
@@ -3382,12 +3469,14 @@ function generateDokumenPendukung(token, tipe, formData) {
         safeReplace('<<Tanggal Surat>>', formatTanggalIndo(formData.tanggal));
         replaceWithImage('<<KOP SURAT>>', kopSuratId);
     } else if (tipe === 'VERIFIKASI') {
-        const fmtNama = (val) => (val && val.trim() !== "") ? val : "_______________________";
-        safeReplace('<<Nama Verifikator 1>>', fmtNama(formData.verifikator1.nama));
+        // [UPDATE] Format Nama Verifikator dengan helper formatNamaKapital
+        safeReplace('<<Nama Verifikator 1>>', formatNamaKapital(formData.verifikator1.nama));
         safeReplace('<<NIP Verifikator 1>>', formatNipLengkap(formData.verifikator1.nip));
-        safeReplace('<<Nama Verifikator 2>>', fmtNama(formData.verifikator2.nama));
+        
+        safeReplace('<<Nama Verifikator 2>>', formatNamaKapital(formData.verifikator2.nama));
         safeReplace('<<NIP Verifikator 2>>', formatNipLengkap(formData.verifikator2.nip));
-        safeReplace('<<Nama Pengawas>>', fmtNama(formData.pengawas.nama));
+        
+        safeReplace('<<Nama Pengawas>>', formatNamaKapital(formData.pengawas.nama));
         safeReplace('<<NIP Pengawas>>', formatNipLengkap(formData.pengawas.nip));
 
         const items = formData.rows || [];
@@ -3770,9 +3859,12 @@ function generateBerkasPencairan(token, tipe, formData) {
       safeReplace('<<Nama Sekolah Lengkap>>', namaSekolahRaw);
 
       const namaKamadRaw = ds.namaKepala || "";
-      safeReplace('<<Nama Kamad.B>>', namaKamadRaw.toUpperCase());
-      safeReplace('<<Nama Kamad.K>>', toTitleCase(namaKamadRaw));
+      
+      // [UPDATE] Gunakan formatNamaKapital agar gelar otomatis baku (S.E., S.Pd., dll)
+      safeReplace('<<Nama Kamad.B>>', formatNamaKapital(namaKamadRaw));
       safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
+      
+      safeReplace('<<Nama Kamad.K>>', formatNamaTitleCase(namaKamadRaw));
 
       safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
       // Gunakan OR (||) untuk mengantisipasi perbedaan nama variabel (danaBos vs danaBOS)
@@ -3823,7 +3915,10 @@ function generateBerkasPencairan(token, tipe, formData) {
       // 1. Data Auto dari PKS
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
       safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(formData.namaSekolah));
-      safeReplace('<<Nama Kamad.B>>', (ds.namaKepala || "").toUpperCase());
+      
+      // [UPDATE] Format Nama Kamad Kapital + Gelar Baku
+      safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
+      
       safeReplace('<<Tahun Anggaran>>', formData.tahun);
       safeReplace('<<Nama Dana BOS>>', formData.danaBos || formData.danaBOS);
       safeReplace('<<Jumlah Dana>>', formatRupiah(formData.jumlah || 0));
@@ -3856,7 +3951,8 @@ function generateBerkasPencairan(token, tipe, formData) {
       safeReplace('<<Jumlah Dana Terbilang>>', terbilang(formData.jumlah || 0) + ' Rupiah');
       
       // 2. Data Tambahan (Kamad Kapital)
-      safeReplace('<<Nama Kamad.B>>', (ds.namaKepala || "").toUpperCase());
+      // [UPDATE] Format Nama Kamad Kapital + Gelar Baku
+      safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
 
       // 3. Data Inputan Kuitansi
       safeReplace('<<Nomor Surat Kuitansi>>', formData.nomorSurat);
@@ -4116,5 +4212,58 @@ function getAllPencairanData(token) {
 
   } catch (e) {
     return { status: 'error', message: e.toString() };
+  }
+}
+
+/* --- HELPER BARU: FORMAT NAMA TITLE CASE (DEPAN BESAR) + GELAR BAKU --- */
+function formatNamaTitleCase(rawName) {
+  if (!rawName || rawName === '-' || rawName === '') return "-";
+  
+  const str = String(rawName).trim();
+  const firstCommaIndex = str.indexOf(',');
+
+  // --- KAMUS GELAR (Sama dengan formatNamaKapital) ---
+  const mapGelar = {
+      "se": "S.E.", "spd": "S.Pd.", "spdi": "S.Pd.I.", "sag": "S.Ag.",
+      "sh": "S.H.", "st": "S.T.", "skom": "S.Kom.", "ssos": "S.Sos.",
+      "sip": "S.I.P.", "skm": "S.K.M.", "skep": "S.Kep.", "sfarm": "S.Farm.",
+      "spsi": "S.Psi.", "ss": "S.S.", "ssn": "S.Sn.", "strt": "S.Tr.T.",
+      "mpd": "M.Pd.", "mpdi": "M.Pd.I.", "mm": "M.M.", "msi": "M.Si.",
+      "mag": "M.Ag.", "mh": "M.H.", "mkom": "M.Kom.", "mt": "M.T.",
+      "amd": "A.Md.", "drs": "Drs.", "dra": "Dra.", "dr": "Dr.", 
+      "lc": "Lc.", "ma": "M.A.", "mhum": "M.Hum."
+  };
+
+  if (firstCommaIndex !== -1) {
+    // 1. Bagian Nama: Format Title Case (Awal Kata Besar)
+    const namaDepanRaw = str.substring(0, firstCommaIndex);
+    const namaDepan = toTitleCase(namaDepanRaw); 
+    
+    // 2. Bagian Gelar: Format Baku
+    let gelarRaw = str.substring(firstCommaIndex + 1).trim();
+    const cleanKey = gelarRaw.toLowerCase().replace(/[^a-z]/g, '');
+    let gelarJadi = "";
+
+    if (mapGelar[cleanKey]) {
+        gelarJadi = mapGelar[cleanKey];
+    } else {
+        // Fallback: Split per titik/spasi dan Title Case per bagian
+        while(gelarRaw.endsWith('.')) gelarRaw = gelarRaw.slice(0, -1);
+        let parts = gelarRaw.includes('.') ? gelarRaw.split('.') : gelarRaw.split(' ');
+        
+        gelarJadi = parts.map(p => {
+            const c = p.trim();
+            if(!c) return "";
+            if (c === c.toUpperCase() && c.length > 1) return c; // Biarkan singkatan pendek (cth: MBA)
+            return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+        }).join('.');
+        if (!gelarJadi.endsWith('.')) gelarJadi += '.';
+    }
+    
+    return namaDepan + ', ' + gelarJadi;
+
+  } else {
+    // Tidak ada gelar -> Format Title Case biasa
+    return toTitleCase(str);
   }
 }
