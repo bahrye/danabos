@@ -11558,10 +11558,34 @@
       }
 
       // 4. Buka File Hasil
+      /* --- PERBAIKAN FUNGSI BUKA FILE SPTJM --- */
       function bukaFileSptjm(tipe) {
-        const id = (tipe === 'PDF') ? document.getElementById('valSptjmPdfId').value : document.getElementById('valSptjmDocId').value;
-        if(id) window.open("https://drive.google.com/file/d/" + id + "/view?usp=sharing", "_blank");
-        else Swal.fire('File belum ada', 'Silakan generate terlebih dahulu', 'warning');
+        let val = "";
+        
+        // 1. Ambil Value dari Hidden Input yang Sesuai
+        if (tipe === 'PDF') {
+          val = document.getElementById('valSptjmPdfId').value;
+        } else if (tipe === 'WORD') {
+          val = document.getElementById('valSptjmDocId').value;
+        }
+        
+        // 2. Validasi & Buka Link
+        if (val && val.trim() !== "") {
+          // Cek apakah value sudah berupa Link (URL) atau masih ID
+          if (val.startsWith('http')) {
+            // Jika sudah berupa URL (karena diset oleh updateBtnView), buka langsung
+            window.open(val, '_blank');
+          } else {
+            // Jika masih berupa ID, rangkai URL-nya
+            window.open("https://drive.google.com/file/d/" + val + "/view?usp=sharing", "_blank");
+          }
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'File Belum Ada',
+            text: 'Silakan klik tombol "Generate SPTJM" terlebih dahulu.'
+          });
+        }
       }
 
       /* --- CARI KODE EVENT LISTENER UNTUK SPTJM --- */
