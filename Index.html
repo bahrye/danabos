@@ -10507,40 +10507,98 @@
         }).simpanDataPKS(token, form);
       }
 
-      /* --- UPDATE: GENERATE PKS (LOGIKA SIMPAN & GENERATE) --- */
+      /* --- FIX FINAL: GENERATE PKS (ID SUDAH SESUAI) --- */
       function generatePks(e) {
-        if(e) e.preventDefault();
+        if (e) e.preventDefault(); // Mencegah reload halaman
+        
+        // 1. AMBIL DATA FORM (Gunakan fungsi helper yang ID-nya sudah pasti benar)
+        // Ini perbaikan utamanya: menggunakan ambilFormPks() mencegah error null
+        const form = ambilFormPks(); 
         
         const token = localStorage.getItem('userToken');
-        const form = ambilFormPks();
 
-        // 1. CEK APAKAH ADA PERUBAHAN YANG BELUM DISIMPAN?
-        if (isPksDirty) {
-            Swal.fire({
-              title: 'Data Belum Disimpan!',
-              text: "Ada perubahan data yang belum disimpan ke database. Apakah Anda ingin menyimpan lalu generate?",
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonColor: '#3085d6',
-              cancelButtonColor: '#d33',
-              confirmButtonText: 'Simpan & Generate',
-              cancelButtonText: 'Batal'
-            }).then((result) => {
-              if (result.isConfirmed) {
-                // Panggil Simpan dulu, lalu Generate lewat callback
-                simpanDataPksSaja(() => {
-                   jalankanProsesGenerate(token, form);
-                });
-              }
-            });
-            return; // Berhenti disini, tunggu konfirmasi user
+        // 2. Cek apakah file lama sudah ada (untuk konfirmasi timpa)
+        // Pastikan ID 'valPksPdfId' ada di HTML (biasanya input hidden)
+        const elFileLama = document.getElementById('valPksPdfId');
+        const fileLamaAda = elFileLama && elFileLama.value !== "";
+        
+        let judul = 'Generate PKS?';
+        let pesan = "Pastikan data PKS sudah benar sebelum membuat dokumen.";
+        let warna = '#198754'; // Hijau
+        let teksTombol = 'Ya, Buat PKS';
+
+        if (fileLamaAda) {
+          judul = 'Generate Ulang?';
+          pesan = "File PKS lama akan <b>DIHAPUS</b> dan diganti dengan yang baru. Lanjutkan?";
+          warna = '#ffc107'; // Kuning
+          teksTombol = 'Ya, Ganti File';
         }
 
-        // 2. Jika data sudah bersih (Saved), lanjut proses generate normal
-        jalankanProsesGenerate(token, form);
+        // 3. Tampilkan Popup Konfirmasi Awal
+        Swal.fire({
+          title: judul,
+          html: pesan,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: teksTombol,
+          confirmButtonColor: warna,
+          cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            
+            // 4. Tampilkan Loading Overlay (Layar Penuh)
+            Swal.fire({
+              title: 'Sedang Memproses...',
+              html: 'Sedang membuat dokumen PKS...',
+              allowOutsideClick: false,
+              didOpen: () => {
+                Swal.showLoading();
+              }
+            });
+
+            // 5. Jalankan Script Google
+            google.script.run
+              .withFailureHandler(function(err){
+                Swal.fire('Gagal', err.message, 'error');
+              })
+              .withSuccessHandler(function(res){
+                if(res.status === 'success') {
+                  
+                  // Simpan ke Cache Lokal (Agar data tidak hilang saat pindah menu)
+                  if (typeof DATA_CACHE !== 'undefined') {
+                    if (!DATA_CACHE.pks) DATA_CACHE.pks = {};
+                    DATA_CACHE.pks = { ...DATA_CACHE.pks, ...form, pdfId: res.pdfId, docId: res.docId };
+                  }
+                  
+                  // Update UI: Isi Hidden Input & Munculkan Tombol Hasil
+                  // Fungsi ini (tampilkanTombolHasilPks) sudah ada di kode asli Anda
+                  if (typeof tampilkanTombolHasilPks === 'function') {
+                      tampilkanTombolHasilPks(res.pdfId, res.docId);
+                  }
+
+                  // Tampilkan Pesan Sukses
+                  Swal.fire({
+                    icon: 'success', 
+                    title: 'Berhasil!', 
+                    text: 'Dokumen PKS telah selesai dibuat.', 
+                    confirmButtonText: 'Buka PDF',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup'
+                  }).then((r) => {
+                    if(r.isConfirmed) window.open(res.url, '_blank');
+                  });
+
+                } else {
+                  Swal.fire('Gagal', res.message, 'error');
+                }
+              })
+              // PENTING: Parameter ke-2 'PKS' dan ke-3 'form' harus sesuai urutan
+              .generateBerkasPencairan(token, 'PKS', form);
+          }
+        });
       }
 
-      // Helper: Proses Inti Generate ke Server
+      /* --- UPDATE: GENERATE PKS DENGAN SWAL LOADING --- */
       function jalankanProsesGenerate(token, form) {
         // Cek ID File lama
         const fileLamaAda = document.getElementById('valPksPdfId').value !== "";
@@ -10568,27 +10626,33 @@
         }).then((result) => {
           if (result.isConfirmed) {
             
-            toggleLoading(true, "Memproses PKS...");
+            // [PERBAIKAN] Tampilkan Loading Box seperti Cetak PDF
+            Swal.fire({
+              title: 'Sedang Memproses...',
+              html: 'Sedang membuat dokumen PKS...',
+              allowOutsideClick: false,
+              didOpen: () => { Swal.showLoading() }
+            });
 
             google.script.run
               .withFailureHandler(function(err){
-                toggleLoading(false);
+                // Pesan Loading akan tertimpa otomatis oleh Swal Error
                 Swal.fire('Gagal', err.message, 'error');
               })
               .withSuccessHandler(function(res){
-                toggleLoading(false);
                 if(res.status === 'success') {
                   
-                  // Update Cache Lokal dengan ID File Baru
+                  // Update Cache Lokal
                   if (!DATA_CACHE.pks) DATA_CACHE.pks = {};
                   DATA_CACHE.pks = { ...DATA_CACHE.pks, ...form, pdfId: res.pdfId, docId: res.docId };
 
-                  // Update Tampilan Tombol
+                  // Update UI
                   tampilkanTombolHasilPks(res.pdfId, res.docId);
 
+                  // Tampilkan Pesan Sukses (Menimpa Loading)
                   Swal.fire({
                     icon: 'success', title: 'Berhasil!',
-                    text: 'Dokumen PKS telah dibuat.',
+                    text: 'Dokumen PKS telah selesai dibuat.',
                     confirmButtonText: 'Buka PDF',
                     showCancelButton: true,
                     cancelButtonText: 'Tutup'
@@ -10647,31 +10711,27 @@
         }
       }
 
-      // 2. Fungsi Generate Permohonan
+      /* --- UPDATE: GENERATE PERMOHONAN DENGAN SWAL LOADING --- */
       function generatePermohonan(e) {
         e.preventDefault();
         
-        // Data dari Readonly PKS
+        // Ambil Data
         const pksData = {
           nomorPks: document.getElementById('pmNomorPks').value,
           namaSekolah: document.getElementById('pmNamaSekolah').value,
           danaBos: document.getElementById('pmDanaBos').value,
           tahun: document.getElementById('pmTahun').value,
-          jumlah: document.getElementById('pmJumlahVal').value // Angka Murni
+          jumlah: document.getElementById('pmJumlahVal').value
         };
 
-        // Data Inputan User
         const formData = {
-          ...pksData, // Spread data PKS
+          ...pksData,
           nomorSurat: document.getElementById('pmNomorSurat').value,
           tempat: document.getElementById('pmTempat').value,
           tanggal: document.getElementById('pmTanggal').value
         };
 
-        const btn = document.getElementById('btnGenPermohonan');
-        const txtAsli = btn.innerHTML;
-        
-        // Cek File Lama
+        // Konfirmasi Generate
         const fileLamaAda = document.getElementById('valPmPdfId').value !== "";
         let judul = 'Generate Permohonan?';
         let pesan = "Pastikan data sudah benar.";
@@ -10691,34 +10751,40 @@
         }).then((result) => {
           if (result.isConfirmed) {
             
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...'; 
-            btn.disabled = true;
+            // [PERBAIKAN] Tampilkan Loading Box seperti Cetak PDF
+            Swal.fire({
+              title: 'Sedang Memproses...',
+              html: 'Sedang membuat Surat Permohonan...',
+              allowOutsideClick: false,
+              didOpen: () => { Swal.showLoading() }
+            });
 
             const token = localStorage.getItem('userToken');
 
             google.script.run
               .withFailureHandler(function(err){
-                btn.innerHTML = txtAsli; btn.disabled = false;
                 Swal.fire('Gagal', err.message, 'error');
               })
               .withSuccessHandler(function(res){
-                btn.innerHTML = txtAsli; btn.disabled = false;
-                
                 if(res.status === 'success') {
-                  // Update UI
+                  // Update UI Hidden Input
                   document.getElementById('valPmPdfId').value = res.pdfId;
                   document.getElementById('valPmDocId').value = res.docId;
                   
+                  // Munculkan tombol
                   document.getElementById('btnLihatPmPdf').classList.remove('hidden');
                   document.getElementById('btnUnduhPmWord').classList.remove('hidden');
                   
-                  // Ubah tombol generate jadi kuning
-                  btn.className = 'btn btn-warning flex-grow-1';
-                  btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+                  // Ubah tombol generate jadi mode ulang
+                  const btn = document.getElementById('btnGenPermohonan');
+                  if(btn) {
+                    btn.className = 'btn btn-warning flex-grow-1';
+                    btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+                  }
 
                   Swal.fire({
                     icon: 'success', title: 'Berhasil!',
-                    text: 'Surat Permohonan berhasil dibuat.',
+                    text: 'Surat Permohonan telah selesai dibuat.',
                     confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
                   }).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
 
@@ -10870,27 +10936,22 @@
           }).simpanDataKuitansi(token, formData);
       }
 
-      // 3. Generate Kuitansi
+      /* --- UPDATE: GENERATE KUITANSI DENGAN SWAL LOADING --- */
       function generateKuitansi(e) {
         e.preventDefault();
         
-        // Data dari PKS (Hidden / Readonly)
+        // Ambil Data
         const formData = {
           nomorPks: document.getElementById('kwNomorPks').value,
-          tanggalPks: document.getElementById('kwTanggalPksVal').value, // Ambil Value Date Asli
+          tanggalPks: document.getElementById('kwTanggalPksVal').value,
           tahun: document.getElementById('kwTahun').value,
-          jumlah: document.getElementById('kwJumlahVal').value, // Angka Murni
-          
-          // Data Inputan Kuitansi
+          jumlah: document.getElementById('kwJumlahVal').value,
           nomorSurat: document.getElementById('kwNomorSurat').value,
           tempat: document.getElementById('kwTempat').value,
           tanggal: document.getElementById('kwTanggal').value
         };
 
-        const btn = document.getElementById('btnGenKuitansi');
-        const txtAsli = btn.innerHTML;
-        
-        // Logic Konfirmasi Generate Ulang
+        // Konfirmasi
         const fileLamaAda = document.getElementById('valKwPdfId').value !== "";
         let judul = 'Generate Kuitansi?'; let pesan = "Pastikan data PKS sudah benar.";
         let warna = '#198754'; let teksTombol = 'Ya, Buat PDF';
@@ -10905,22 +10966,40 @@
           showCancelButton: true, confirmButtonColor: warna, confirmButtonText: teksTombol, cancelButtonColor: '#6c757d'
         }).then((result) => {
           if (result.isConfirmed) {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Proses...'; btn.disabled = true;
+            
+            // [PERBAIKAN] Tampilkan Loading Box seperti Cetak PDF
+            Swal.fire({
+              title: 'Sedang Memproses...',
+              html: 'Sedang membuat Kuitansi...',
+              allowOutsideClick: false,
+              didOpen: () => { Swal.showLoading() }
+            });
+
             const token = localStorage.getItem('userToken');
 
             google.script.run.withSuccessHandler(function(res){
-                btn.innerHTML = txtAsli; btn.disabled = false;
                 if(res.status === 'success') {
+                  // Update UI
                   document.getElementById('valKwPdfId').value = res.pdfId;
                   document.getElementById('valKwDocId').value = res.docId;
                   document.getElementById('btnLihatKwPdf').classList.remove('hidden');
                   document.getElementById('btnUnduhKwWord').classList.remove('hidden');
                   
-                  btn.className = 'btn btn-warning flex-grow-1';
-                  btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
-                  Swal.fire({icon: 'success', title: 'Berhasil!', text: 'Kuitansi berhasil dibuat.', confirmButtonText: 'Buka PDF'}).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
+                  const btn = document.getElementById('btnGenKuitansi');
+                  if(btn) {
+                    btn.className = 'btn btn-warning flex-grow-1';
+                    btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Generate Ulang';
+                  }
+
+                  Swal.fire({
+                    icon: 'success', title: 'Berhasil!', 
+                    text: 'Kuitansi telah selesai dibuat.', 
+                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
+                  }).then((r) => { if(r.isConfirmed) window.open(res.url, '_blank'); });
                 } else { Swal.fire('Gagal', res.message, 'error'); }
-              }).withFailureHandler(function(err){ btn.innerHTML = txtAsli; btn.disabled = false; Swal.fire('Error', err.message, 'error'); })
+              }).withFailureHandler(function(err){ 
+                  Swal.fire('Error', err.message, 'error'); 
+              })
               .generateBerkasPencairan(token, 'KUITANSI', formData);
           }
         });
