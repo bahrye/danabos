@@ -4175,27 +4175,33 @@ function getDataKuitansi(token) {
   }
 }
 
-/* --- [TAMBAHAN BARU] AGREGATOR DATA PENCAIRAN (PKS, PERMOHONAN, KUITANSI) --- */
+/**
+ * UPDATE: getAllPencairanData
+ * Menambahkan data SPTJM ke dalam objek respon agar tersinkron sekaligus.
+ */
 function getAllPencairanData(token) {
   try {
     // 1. Ambil Data Sekolah (Untuk Default)
     const resSekolah = getDataSekolah(token);
     const sekolah = (resSekolah.status === 'success') ? resSekolah.data : {};
-
+    
     // 2. Ambil Data PKS
     const resPks = getDataPKS(token);
     const pks = (resPks.status === 'success') ? resPks.data : {};
-
+    
     // 3. Ambil Data Permohonan
     const resPm = getDataPermohonan(token);
     const permohonan = (resPm.status === 'success') ? resPm.data : {};
-
+    
     // 4. Ambil Data Kuitansi
     const resKw = getDataKuitansi(token);
     const kuitansi = (resKw.status === 'success') ? resKw.data : {};
+    
+    // 5. [BARU] Ambil Data SPTJM
+    const resSptjm = getDataSptjm(token);
+    const sptjm = (resSptjm.status === 'success') ? resSptjm.data : {};
 
-    // 5. Ambil Status File (ID PDF/Doc yang sudah digenerate)
-    // Kita reuse fungsi getDokumenPendukungStatus karena ID file disimpan di tabel yang sama
+    // 6. Ambil Status File
     const resStatus = getDokumenPendukungStatus(token);
     const fileStatus = (resStatus.status === 'success') ? resStatus.data : {};
 
@@ -4206,10 +4212,10 @@ function getAllPencairanData(token) {
         pks: pks,
         permohonan: permohonan,
         kuitansi: kuitansi,
+        sptjm: sptjm, // <-- Data SPTJM masuk disini
         fileStatus: fileStatus
       }
     };
-
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
@@ -4301,7 +4307,10 @@ function simpanDataSptjm(token, form) {
   }
 }
 
-// B. GET DATA (Ambil key SPTJM_NIK)
+/**
+ * UPDATE: getDataSptjm
+ * Pastikan fungsi ini membaca NIK, Tempat, Tanggal, serta ID File.
+ */
 function getDataSptjm(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
@@ -4311,11 +4320,15 @@ function getDataSptjm(token) {
     if (sheet) {
       const data = sheet.getDataRange().getValues();
       data.forEach(row => {
-        if (row[0] === 'SPTJM_NIK') res.nik = row[1]; // <--- AMBIL NIK
+        if (row[0] === 'SPTJM_NIK') res.nik = row[1];
         if (row[0] === 'SPTJM_TEMPAT') res.tempat = row[1];
-        if (row[0] === 'SPTJM_TANGGAL') res.tanggal = Utilities.formatDate(new Date(row[1]), "GMT+7", "yyyy-MM-dd");
-        if (row[0] === 'OUTPUT_ID_SPTJM_PDF') res.pdfId = row[1];
-        if (row[0] === 'OUTPUT_ID_SPTJM_DOC') res.docId = row[1];
+        // Konversi tanggal jika ada
+        if (row[0] === 'SPTJM_TANGGAL' && row[1]) {
+           try { res.tanggal = Utilities.formatDate(new Date(row[1]), "GMT+7", "yyyy-MM-dd"); } 
+           catch(e) { res.tanggal = ""; }
+        }
+        if (row[0] === 'SPTJM_PDF') res.pdfId = row[1];
+        if (row[0] === 'SPTJM_DOC') res.docId = row[1];
       });
     }
     return { status: 'success', data: res };
