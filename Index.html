@@ -4522,6 +4522,10 @@
             // Karena form sudah berisi data terbaru yang baru saja diketik user, kita tidak perlu reload.
             
             // loadDataSekolah(true);  <-- HAPUS INI
+
+            // [TAMBAHAN BARU] Hapus cache pencairan agar dipaksa download ulang nanti
+            DATA_CACHE.pencairan_lengkap = null; 
+            DATA_CACHE.pks = null;
             
             Swal.fire('Sukses', 'Data Sekolah berhasil disimpan!', 'success');
             
@@ -10437,13 +10441,12 @@
         const viewId = 'view-pencairan-' + tabName;
         const btn = document.getElementById(btnId);
         const view = document.getElementById(viewId);
-
         if (btn) btn.classList.add('active');
         if (view) view.classList.remove('hidden');
 
-        // 3. Load Data Terpusat (Semua Tab, termasuk SPTJM, pakai fungsi ini)
-        // Tidak ada lagi pengecekan khusus 'if (tabName === 'sptjm')'
-        loadAllPencairanData(false, tabName);
+        // 3. Load Data Terpusat (SOLUSI)
+        // Ubah parameter menjadi 'true' agar selalu Force Refresh / Sinkron Ulang
+        loadAllPencairanData(false, tabName); 
       }
 
       /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
