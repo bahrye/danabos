@@ -10428,33 +10428,22 @@
       /* --- LOGIKA BERKAS PENCAIRAN --- */
 
       function bukaTabPencairan(tabName) {
-        // 1. Reset Tampilan (Sembunyikan semua view & matikan active tab)
+        // 1. Reset Tampilan
         document.querySelectorAll('#panel-berkas-pencairan .nav-link').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.view-pencairan').forEach(el => el.classList.add('hidden'));
 
-        // 2. Aktifkan Tombol & View yang dipilih
+        // 2. Aktifkan Tombol & View
         const btnId = 'tab-pencairan-' + tabName;
         const viewId = 'view-pencairan-' + tabName;
-        
         const btn = document.getElementById(btnId);
         const view = document.getElementById(viewId);
-        
+
         if (btn) btn.classList.add('active');
         if (view) view.classList.remove('hidden');
 
-        // 3. Logika Load Data (Pemisahan Logika)
-        const token = localStorage.getItem('userToken');
-
-        if (tabName === 'sptjm') {
-          // --- KHUSUS SPTJM: Panggil fungsi baru ---
-          loadDataSptjm(token); 
-        } else {
-          // --- TAB LAMA (PKS, Permohonan, Kuitansi) ---
-          // Tetap menggunakan fungsi asli Anda agar tidak error
-          if (typeof loadAllPencairanData === 'function') {
-            loadAllPencairanData(false, tabName);
-          }
-        }
+        // 3. Load Data Terpusat (Semua Tab, termasuk SPTJM, pakai fungsi ini)
+        // Tidak ada lagi pengecekan khusus 'if (tabName === 'sptjm')'
+        loadAllPencairanData(false, tabName);
       }
 
       /* --- LOGIKA BERKAS PENCAIRAN (UPDATED: DIRTY CHECK & SYNC) --- */
@@ -11321,100 +11310,90 @@
           .getAllPencairanData(token);
       }
 
-      /* --- HELPER RENDER UI PENCAIRAN (TANPA REQUEST SERVER) --- */
+      /* --- HELPER RENDER UI PENCAIRAN (UPDATE: TAMBAH LOGIKA SPTJM) --- */
       function renderTabPencairan(tabName) {
         const d = DATA_CACHE.pencairan_lengkap;
         if (!d) return;
 
-        // --- LOGIKA GLOBAL: UPDATE STATUS FILE DI HIDDEN INPUT ---
-        // (Agar tombol Download/Lihat PDF langsung aktif jika file sudah ada)
         const files = d.fileStatus || {};
-
-        // 1. PKS (Perbaikan: Menggunakan keys 'PKS_PDF' bukan 'OUTPUT_ID_PKS_PDF')
-        if (files.PKS_PDF) {
-          tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
-        } else {
-          resetTombolPks();
-        }
-
-        // 2. Permohonan (Perbaikan: Menggunakan keys 'PERMOHONAN_PDF')
-        updateBtnViewPencairan(
-          'btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 
-          'valPmPdfId', 'valPmDocId', 
-          files.PERMOHONAN_PDF, files.PERMOHONAN_DOC
-        );
-
-        // 3. Kuitansi (Perbaikan: Menggunakan keys 'KUITANSI_PDF')
-        updateBtnViewPencairan(
-          'btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 
-          'valKwPdfId', 'valKwDocId', 
-          files.KUITANSI_PDF, files.KUITANSI_DOC
-        );
-
 
         // --- LOGIKA PER TAB ---
         if (tabName === 'pks') {
-          // Render Form PKS
-          applyPksData(d.pks, d.sekolah);
-          // Pasang listener dirty check
-          attachPksListeners();
-          markPksClean();
-
+            if (files.PKS_PDF) tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
+            else resetTombolPks();
+            applyPksData(d.pks, d.sekolah);
+            attachPksListeners(); // Re-attach listener
+            
         } else if (tabName === 'permohonan') {
-          // Validasi PKS dulu
-          if (!d.pks.nomorPks) {
-            Swal.fire('Data PKS Kosong', 'Silakan lengkapi data PKS terlebih dahulu.', 'warning').then(() => bukaTabPencairan('pks'));
-            return;
-          }
+            updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.PERMOHONAN_PDF, files.PERMOHONAN_DOC);
+            
+            // Data Read-Only
+            document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
+            document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
+            document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
+            document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
+            const jml = d.sekolah.jumlahAnggaran || 0;
+            document.getElementById('pmJumlah').value = formatRupiahJS(jml);
+            document.getElementById('pmJumlahVal').value = jml;
 
-          // Render Read-Only Data dari PKS
-          document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
-          document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
-          document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
-          document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
-
-          const jml = d.sekolah.jumlahAnggaran || 0;
-          document.getElementById('pmJumlah').value = formatRupiahJS(jml);
-          document.getElementById('pmJumlahVal').value = jml;
-
-          // Render Inputan User (Data Permohonan Tersimpan)
-          const pm = d.permohonan || {};
-          document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
-
-          // Default tempat/tanggal jika kosong
-          document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
-          if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
-          else document.getElementById('pmTanggal').valueAsDate = new Date();
+            // Data User
+            const pm = d.permohonan || {};
+            document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
+            document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
+            if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
+            else document.getElementById('pmTanggal').valueAsDate = new Date();
 
         } else if (tabName === 'kuitansi') {
-          // Validasi PKS
-          if (!d.pks.nomorPks) {
-            Swal.fire('Data PKS Kosong', 'Lengkapi data PKS dulu.', 'warning').then(() => bukaTabPencairan('pks'));
-            return;
-          }
+            updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.KUITANSI_PDF, files.KUITANSI_DOC);
+            
+            if (!d.pks.nomorPks) {
+                Swal.fire('Data PKS Kosong', 'Lengkapi data PKS dulu.', 'warning').then(() => bukaTabPencairan('pks'));
+                return;
+            }
+            document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
+            document.getElementById('kwTanggalPks').value = d.pks.tanggalPks || '';
+            document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
+            document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
+            const jml = d.sekolah.jumlahAnggaran || 0;
+            document.getElementById('kwJumlah').value = formatRupiahJS(jml);
+            document.getElementById('kwJumlahVal').value = jml;
 
-          // Render Read-Only
-          document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
+            const kw = d.kuitansi || {};
+            document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
+            const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
+            document.getElementById('kwTempat').value = defTempat;
+            if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
+            else document.getElementById('kwTanggal').valueAsDate = new Date();
 
-          // Tanggal PKS (Format Indonesia untuk display jika perlu, atau value raw)
-          document.getElementById('kwTanggalPks').value = d.pks.tanggalPks || '';
-          document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
+        } else if (tabName === 'sptjm') {
+            // [BARU] RENDER LOGIKA SPTJM DARI CACHE
+            
+            // 1. Update Tombol View/Download
+            // Gunakan ID File dari 'files' (fileStatus) atau fallback ke 'd.sptjm'
+            const pdfId = files.SPTJM_PDF || d.sptjm.pdfId;
+            const docId = files.SPTJM_DOC || d.sptjm.docId;
+            updateBtnViewPencairan('btnLihatSptjmPdf', 'btnUnduhSptjmWord', 'btnGenSptjm', 'valSptjmPdfId', 'valSptjmDocId', pdfId, docId);
 
-          document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
-          const jml = d.sekolah.jumlahAnggaran || 0;
-          document.getElementById('kwJumlah').value = formatRupiahJS(jml);
-          document.getElementById('kwJumlahVal').value = jml;
+            // 2. Isi Data Read-Only (Dari Sekolah)
+            document.getElementById('sptjmNamaKepala').value = d.sekolah.namaKepala || '';
+            document.getElementById('sptjmNamaSekolah').value = d.sekolah.namaSekolah || '';
+            
+            let alamatLengkap = d.sekolah.alamat || '';
+            if (d.sekolah.kecamatan) alamatLengkap += ', ' + d.sekolah.kecamatan;
+            if (d.sekolah.kabupaten) alamatLengkap += ', ' + d.sekolah.kabupaten;
+            document.getElementById('sptjmAlamat').value = alamatLengkap;
+            
+            document.getElementById('sptjmTahun').value = d.sekolah.tahunAnggaran || new Date().getFullYear();
 
-          // Render Inputan User (Data Kuitansi Tersimpan)
-          const kw = d.kuitansi || {};
-          document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
+            // 3. Isi Data Inputan (Dari saved SPTJM)
+            const sp = d.sptjm || {};
+            document.getElementById('sptjmNik').value = sp.nik || '';
+            
+            const defTempatSptjm = sp.tempat || d.sekolah.tempatTTD || '';
+            document.getElementById('sptjmTempat').value = defTempatSptjm;
 
-          // Default Tempat TTD (Ambil dari Permohonan agar konsisten jika ada, atau Sekolah)
-          const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
-          document.getElementById('kwTempat').value = defTempat;
-
-          if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
-          else document.getElementById('kwTanggal').valueAsDate = new Date();
+            if (sp.tanggal) document.getElementById('sptjmTanggal').value = sp.tanggal;
+            else document.getElementById('sptjmTanggal').valueAsDate = new Date();
         }
       }
 
