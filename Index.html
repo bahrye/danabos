@@ -11497,13 +11497,16 @@
         }).simpanDataSptjm(token, form);
       }
 
-      // 3. GENERATE SPTJM (Kirim NIK Manual)
       function generateSptjm(e) {
         e.preventDefault();
-        const token = localStorage.getItem('userToken');
         
+        const token = localStorage.getItem('userToken');
         const nikVal = document.getElementById('sptjmNik').value;
-        if(!nikVal) { Swal.fire('Peringatan', 'Mohon isi NIK Kepala Madrasah terlebih dahulu.', 'warning'); return; }
+        
+        if(!nikVal) {
+          Swal.fire('Peringatan', 'Mohon isi NIK Kepala Madrasah terlebih dahulu.', 'warning');
+          return;
+        }
 
         Swal.fire({
           title: 'Generate SPTJM?',
@@ -11514,24 +11517,68 @@
           cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
-            Swal.fire({ title: 'Memproses...', html: 'Sedang membuat dokumen...', didOpen: () => Swal.showLoading() });
             
+            Swal.fire({
+              title: 'Memproses...',
+              html: 'Sedang membuat dokumen...',
+              didOpen: () => Swal.showLoading()
+            });
+
             const formData = {
-              nik: nikVal, // <--- KIRIM NIK KE BACKEND
+              nik: nikVal,
               tempat: document.getElementById('sptjmTempat').value,
               tanggal: document.getElementById('sptjmTanggal').value
             };
 
             google.script.run
-              .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
-              .withSuccessHandler(res => {
+              .withFailureHandler(function(err) {
+                Swal.fire('Gagal', err.message, 'error');
+              })
+              .withSuccessHandler(function(res) {
                 if (res.status === 'success') {
-                  document.getElementById('valSptjmPdfId').value = res.pdfId;
-                  document.getElementById('valSptjmDocId').value = res.docId;
+                  
+                  // 1. UPDATE UI: Munculkan Tombol (Seperti sebelumnya)
+                  updateBtnViewPencairan(
+                    'btnLihatSptjmPdf',
+                    'btnUnduhSptjmWord',
+                    'btnGenSptjm',
+                    'valSptjmPdfId',
+                    'valSptjmDocId',
+                    res.pdfId,
+                    res.docId
+                  );
+
+                  // 2. UPDATE CACHE (INI PERBAIKANNYA)
+                  // Agar saat pindah tab & kembali, data tidak hilang
+                  if (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.pencairan_lengkap) {
+                      // Inisialisasi jika belum ada
+                      if (!DATA_CACHE.pencairan_lengkap.fileStatus) {
+                          DATA_CACHE.pencairan_lengkap.fileStatus = {};
+                      }
+                      
+                      // Simpan ID File Baru ke Memory Cache
+                      DATA_CACHE.pencairan_lengkap.fileStatus.SPTJM_PDF = res.pdfId;
+                      DATA_CACHE.pencairan_lengkap.fileStatus.SPTJM_DOC = res.docId;
+                      
+                      // Update juga object SPTJM spesifik jika ada
+                      if(DATA_CACHE.pencairan_lengkap.sptjm) {
+                          DATA_CACHE.pencairan_lengkap.sptjm.pdfId = res.pdfId;
+                          DATA_CACHE.pencairan_lengkap.sptjm.docId = res.docId;
+                      }
+                  }
+
+                  // 3. Tampilkan Pesan Sukses
                   Swal.fire({
-                    icon: 'success', title: 'Selesai!', 
-                    confirmButtonText: 'Buka PDF', showCancelButton: true, cancelButtonText: 'Tutup'
-                  }).then((r) => { if (r.isConfirmed) window.open(res.url, '_blank'); });
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: 'Dokumen SPTJM berhasil dibuat.',
+                    confirmButtonText: 'Buka PDF',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup'
+                  }).then((r) => {
+                    if (r.isConfirmed) window.open(res.url, '_blank');
+                  });
+
                 } else {
                   Swal.fire('Gagal', res.message, 'error');
                 }
