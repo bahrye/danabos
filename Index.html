@@ -10907,7 +10907,8 @@
             .withSuccessHandler((res) => {
               if (res.status === 'success') {
                 // Update UI: Simpan ID File & Munculkan Tombol Lihat
-                document.getElementById('valPmPdfId').value = res.fileId;
+                document.getElementById('valPmPdfId').value = res.pdfId;
+                document.getElementById('valPmDocId').value = res.docId;
                 
                 // Helper manual untuk menampilkan tombol (jika updateBtnView tdk tersedia untuk ID ini)
                 const btnView = document.getElementById('btnLihatPmPdf');
@@ -11134,7 +11135,8 @@
             .withSuccessHandler((res) => {
               if (res.status === 'success') {
                 // Update UI: Simpan ID File & Munculkan Tombol Lihat
-                document.getElementById('valKwPdfId').value = res.fileId;
+                document.getElementById('valKwPdfId').value = res.pdfId;
+                document.getElementById('valKwDocId').value = res.docId;
                 
                 const btnView = document.getElementById('btnLihatKwPdf');
                 btnView.classList.remove('hidden');
