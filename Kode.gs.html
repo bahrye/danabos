@@ -412,31 +412,55 @@ function updateUserActivity(email, clientToken) {
   const cachedSession = getSessionCache(email);
   const now = new Date().getTime();
   
-  // 1. Jika di server tidak ada sesi di Cache (mungkin server restart/cache expired)
-  // Kita cek juga ke Database untuk memastikan apakah user harus dilogout
+  // A. JIKA CACHE KOSONG (Mungkin karena dibersihkan saat simpan data, atau server restart)
   if (!cachedSession) {
-    // Coba hapus sesi di DB untuk kebersihan data
+    // --- [PERBAIKAN] LOGIKA SELF-HEALING (FALLBACK KE DB) ---
+    // Jangan langsung logout! Cek dulu ke Database Master.
+    try {
+      const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+      // Cari user berdasarkan email
+      const finder = ssMaster.getRange("C:C").createTextFinder(email).matchEntireCell(true);
+      const found = finder.findNext();
+
+      if (found) {
+        const rowIdx = found.getRow();
+        const dbSession = ssMaster.getRange(rowIdx, 6).getValue(); // Ambil Session ID di DB (Kolom F)
+
+        // JIKA TOKEN DI DB COCOK DENGAN CLIENT
+        if (dbSession === clientToken) {
+          // KEMBALIKAN CACHE (RESTORE/HEAL)
+          setSessionCache(email, {
+            token: dbSession,
+            lastPing: now
+          });
+          return { valid: true }; // User selamat, tidak jadi logout
+        }
+      }
+    } catch (e) {
+      console.error("Gagal cek DB saat heartbeat: " + e.toString());
+    }
+
+    // Jika di DB juga tidak cocok/kosong, baru lakukan logout paksa
     hapusSesiDiDatabase(email); 
     return { valid: false }; 
   }
 
-  // 2. VALIDASI TOKEN (Kunci Anti-Ganda)
+  // B. VALIDASI TOKEN (Kunci Anti-Ganda)
   if (cachedSession.token !== clientToken) {
-    return { valid: false }; // Kirim sinyal logout ke client
+    return { valid: false }; // Token beda -> Logout
   }
 
-  // 3. Auto Logout jika idle > 30 menit
+  // C. Auto Logout jika idle > 30 menit
   const lastPing = cachedSession.lastPing || 0;
   const diffMin = (now - lastPing) / 1000 / 60;
 
-  // JIKA SUDAH LEBIH DARI 30 MENIT TIDAK AKTIF
   if (diffMin > MAX_IDLE_TIME_MINUTES) {
-    clearSessionCache(email); // Hapus dari memori Server
-    hapusSesiDiDatabase(email); // HAPUS DARI DATABASE SPREADSHEET (Baru)
+    clearSessionCache(email); 
+    hapusSesiDiDatabase(email); 
     return { valid: false }; 
   }
 
-  // 4. Update Waktu Ping Terakhir (User Masih Aktif)
+  // D. Update Waktu Ping Terakhir (User Masih Aktif)
   cachedSession.lastPing = now;
   setSessionCache(email, cachedSession);
   
@@ -1258,12 +1282,21 @@ function getDataSekolah(token) {
   }
 }
 
-// 2. Simpan Data Sekolah (Update: Simpan kolom Periode terpisah)
+// 2. Simpan Data Sekolah (Update: Format Nama, Sync Master, Clear Cache & FLUSH)
 function simpanDataSekolah(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheet = ss.getSheetByName('DataSekolah');
     if (!sheet) return { status: 'error', message: 'Sheet DataSekolah tidak ditemukan!' };
+
+    // --- [PERBAIKAN 1] FORMAT NAMA OTOMATIS ---
+    if (form.namaKepala) {
+      form.namaKepala = formatNamaTitleCase(form.namaKepala);
+    }
+    if (form.namaBendahara) {
+      form.namaBendahara = formatNamaTitleCase(form.namaBendahara);
+    }
+    // ------------------------------------------
 
     // Format Text
     const npsnText = "'" + form.npsn; 
@@ -1272,7 +1305,7 @@ function simpanDataSekolah(token, form) {
     const nipKepalaText = form.nipKepala ? "'" + form.nipKepala : "";
     const nipBendaharaText = form.nipBendahara ? "'" + form.nipBendahara : "";
 
-    // Pastikan header kolom periode ada (jika user lama)
+    // Header Periode
     if(sheet.getLastColumn() < 19) {
        sheet.getRange(1, 19).setValue("Periode Anggaran");
     }
@@ -1287,26 +1320,53 @@ function simpanDataSekolah(token, form) {
       form.kecamatan,
       form.kelurahan,
       form.tempatTTD, 
-      form.namaKepala,
+      form.namaKepala, // <--- Nama Baru (Formatted)
       nipKepalaText,
       form.namaBendahara,
       nipBendaharaText,
       telpText,
       form.email,
-      form.danaBOS,       // Nama BOS murni
+      form.danaBOS,       
       form.jumlahAnggaran,
       form.tahunAnggaran,
-      form.periodeAnggaran // <-- Simpan Periode disini
+      form.periodeAnggaran 
     ];
 
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
 
+    // --- [PERBAIKAN 2] SINKRONISASI KE MASTER DB ---
+    try {
+       const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID).getSheetByName('Users');
+       const dataUsers = ssMaster.getDataRange().getValues();
+       let userEmail = null;
+       
+       for (let i = 1; i < dataUsers.length; i++) {
+         if (dataUsers[i][4] === token) {
+           ssMaster.getRange(i + 1, 2).setValue(form.namaSekolah);
+           userEmail = String(dataUsers[i][2]); 
+           break;
+         }
+       }
+
+       if (userEmail) {
+         clearSessionCache(userEmail); 
+       }
+    } catch (err) {
+       console.error("Warning: Gagal sinkronisasi master - " + err);
+    }
+
+    // --- [PERBAIKAN UTAMA] FLUSH SPREADSHEET ---
+    // Ini kuncinya! Memaksa Spreadsheet menyimpan data DETIK INI JUGA.
+    // Sehingga saat halaman Berkas Pencairan dibuka, datanya sudah pasti baru.
+    SpreadsheetApp.flush(); 
+    // -------------------------------------------
+
     return { status: 'success', message: 'Data Sekolah berhasil disimpan!' };
   } catch (e) {
     const pesan = beautifyError(
-      "Gagal Menyimpan Transaksi", 
+      "Gagal Menyimpan Data", 
       e, 
-      "Cobalah refresh halaman. Jika masih gagal, lakukan 'Maintenance Database' di menu Data Sekolah untuk memperbaiki struktur tabel."
+      "Cobalah refresh halaman. Jika masih gagal, lakukan 'Maintenance Database' di menu Data Sekolah."
     );
     return { status: 'error', message: pesan };
   }
