@@ -4398,9 +4398,7 @@ function getDataSptjm(token) {
 }
 
 /**
- * FUNGSI GENERATE SPTJM (UPDATE: HAPUS FILE LAMA OTOMATIS)
- * - Cek file lama -> Hapus
- * - Generate file baru -> Simpan
+ * FUNGSI GENERATE SPTJM (PERBAIKAN: FORMAT NAMA & SUMBER DATA PKS)
  */
 function generateSptjm(token, formData) {
   try {
@@ -4419,46 +4417,46 @@ function generateSptjm(token, formData) {
     for (let i = 0; i < dataCetak.length; i++) {
       const namaDesain = String(dataCetak[i][1]).trim().toUpperCase(); 
       if (namaDesain === 'SPTJM') { 
-        TEMPLATE_ID = dataCetak[i][2]; // Ambil ID dari Kolom C
+        TEMPLATE_ID = dataCetak[i][2];
         break;
       }
     }
     
     if (!TEMPLATE_ID) {
-      throw new Error("Template SPTJM belum disetting di Database Master (Sheet Cetak_Lainnya).");
+      throw new Error("Template SPTJM belum disetting di Database Master.");
     }
 
-    // 2. AKSES DATABASE SEKOLAH
+    // 2. AKSES DATABASE SEKOLAH & PENGATURAN (PKS)
     const ss = SpreadsheetApp.openById(token);
-    
-    // --- [LOGIKA BARU: HAPUS FILE LAMA JIKA ADA] ---
     const sheetSet = ss.getSheetByName('DataPengaturan');
+    
+    // --- [PERBAIKAN UTAMA 2] AMBIL DATA PKS DARI DB (Agar Sinkron dengan Input PKS) ---
+    let pksNama = "";
+    let pksAlamat = "";
+    let oldPdfId = null;
+    let oldDocId = null;
+
     if (sheetSet) {
       const dataSet = sheetSet.getDataRange().getValues();
-      let oldPdfId = null;
-      let oldDocId = null;
-      
-      // Cari ID file lama di DataPengaturan
       for (let i = 0; i < dataSet.length; i++) {
-        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = dataSet[i][1];
-        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_DOC') oldDocId = dataSet[i][1];
-      }
-
-      // Hapus File PDF Lama
-      if (oldPdfId && oldPdfId !== "") {
-        try { DriveApp.getFileById(oldPdfId).setTrashed(true); } catch(e) {
-          // Abaikan error jika file sudah tidak ada/terhapus manual
-        }
-      }
-      
-      // Hapus File Doc Master Lama
-      if (oldDocId && oldDocId !== "") {
-        try { DriveApp.getFileById(oldDocId).setTrashed(true); } catch(e) {}
+        const key = dataSet[i][0];
+        const val = dataSet[i][1];
+        
+        // Ambil Data PKS Tersimpan
+        if (key === 'PKS_OVERRIDE_NAMA') pksNama = val;
+        if (key === 'PKS_OVERRIDE_ALAMAT') pksAlamat = val;
+        
+        // Cek File Lama
+        if (key === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = val;
+        if (key === 'OUTPUT_ID_SPTJM_DOC') oldDocId = val;
       }
     }
-    // -----------------------------------------------
+
+    // Hapus File Lama
+    if (oldPdfId && oldPdfId !== "") { try { DriveApp.getFileById(oldPdfId).setTrashed(true); } catch(e) {} }
+    if (oldDocId && oldDocId !== "") { try { DriveApp.getFileById(oldDocId).setTrashed(true); } catch(e) {} }
     
-    // Ambil Data Sekolah (sebagai fallback & data pendukung)
+    // Ambil Data Sekolah (sebagai fallback)
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
@@ -4475,15 +4473,12 @@ function generateSptjm(token, formData) {
       };
     }
 
-    // --- [UPDATE] LOGIKA DATA SUMBER ---
-    // Prioritas: Data dari Form (Input PKS) > Data Sekolah (Database)
+    // --- LOGIKA DATA SUMBER FINAL ---
+    // Prioritas: Database PKS (pksNama) > Form Input (formData) > Data Sekolah (ds)
     
-    // Nama Sekolah
-    const finalNamaSekolah = formData.namaSekolah || ds.namaSekolah;
+    const finalNamaSekolah = pksNama || formData.namaSekolah || ds.namaSekolah;
     
-    // Alamat
-    // Jika user mengisi alamat di form (dari PKS), pakai itu. Jika tidak, rakit dari DB Sekolah.
-    let finalAlamat = formData.alamat; 
+    let finalAlamat = pksAlamat || formData.alamat; 
     if (!finalAlamat) {
         finalAlamat = (ds.alamat || "") + ", " + (ds.kelurahan || "") + ", " + (ds.kecamatan || "") + ", " + (ds.kabupaten || "");
     }
@@ -4501,22 +4496,19 @@ function generateSptjm(token, formData) {
 
     // 4. REPLACE DATA PLACEHOLDER
     
-    // --- [UPDATE] FUNGSI NAMA KAMAD ---
+    // --- [PERBAIKAN UTAMA 1] FORMAT NAMA KAMAD (Nama Saja, Gelar Baku) ---
+    // .B = Nama UPPERCASE, Gelar Baku (Contoh: BUDI SANTOSO, S.Pd.)
+    safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
+
+    // .K = Nama Title Case, Gelar Baku (Contoh: Budi Santoso, S.Pd.)
+    safeReplace('<<Nama Kamad.K>>', formatNamaTitleCase(ds.namaKepala));
     
-    // <<Nama Kamad.B>> = HURUF BESAR SEMUA (UPPERCASE)
-    // Contoh: BUDI SANTOSO
-    safeReplace('<<Nama Kamad.B>>', String(ds.namaKepala).toUpperCase());
+    // ---------------------------------------------------------------------
 
-    // <<Nama Kamad.K>> = Huruf Awal Besar (Title Case)
-    // Contoh: Budi Santoso
-    safeReplace('<<Nama Kamad.K>>', toTitleCase(ds.namaKepala));
-
-    // ----------------------------------
-
-    // Data Sekolah & Alamat (Mengambil dari Input PKS / Form jika ada)
-    safeReplace('<<Nama Sekolah Lengkap.K>>', finalNamaSekolah);
-    safeReplace('<<Alamat Lengkap Madrasah>>', finalAlamat);
-    safeReplace('<<Alamat Sekolah>>', finalAlamat); // Jaga-jaga jika ada placeholder lain
+    // Data Sekolah & Alamat (Menggunakan Data PKS)
+    safeReplace('<<Nama Sekolah Lengkap.K>>', finalNamaSekolah); // Isi apa adanya dari PKS
+    safeReplace('<<Alamat Lengkap Madrasah>>', finalAlamat);     // Isi apa adanya dari PKS
+    safeReplace('<<Alamat Sekolah>>', finalAlamat); 
 
     // Data Lain
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
@@ -4529,7 +4521,7 @@ function generateSptjm(token, formData) {
 
     doc.saveAndClose();
 
-    // 5. FINISHING & SAVE (Sama seperti kode asli)
+    // 5. FINISHING & SAVE
     const pdfBlob = tempFile.getAs(MimeType.PDF);
     const pdfFile = folder.createFile(pdfBlob).setName('SPTJM - ' + finalNamaSekolah + '.pdf');
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -4537,7 +4529,6 @@ function generateSptjm(token, formData) {
     const finalDocFile = DriveApp.getFileById(tempFile.getId());
     finalDocFile.setName('SPTJM - ' + finalNamaSekolah + ' (Master).docx');
     
-    // Pindahkan Doc ke folder (jika perlu)
     try { 
       folder.addFile(finalDocFile); 
       DriveApp.getRootFolder().removeFile(finalDocFile); 
@@ -4546,8 +4537,6 @@ function generateSptjm(token, formData) {
     // 6. SIMPAN LOG
     simpanOutputId(ss, 'OUTPUT_ID_SPTJM_PDF', pdfFile.getId());
     simpanOutputId(ss, 'OUTPUT_ID_SPTJM_DOC', finalDocFile.getId());
-    
-    // Simpan juga NIK dan PKS Info agar saat reload data tetap ada (Opsional, tergantung fungsi simpan Anda)
     simpanOutputId(ss, 'SPTJM_NIK', formData.nik);
 
     return { 
