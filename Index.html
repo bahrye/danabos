@@ -11315,7 +11315,7 @@
           .getAllPencairanData(token);
       }
 
-      /* --- HELPER RENDER UI PENCAIRAN (UPDATE: TAMBAH LOGIKA SPTJM) --- */
+      /* --- HELPER RENDER UI PENCAIRAN (UPDATE: LOGIKA SPTJM DARI PKS) --- */
       function renderTabPencairan(tabName) {
         const d = DATA_CACHE.pencairan_lengkap;
         if (!d) return;
@@ -11324,81 +11324,94 @@
 
         // --- LOGIKA PER TAB ---
         if (tabName === 'pks') {
-            if (files.PKS_PDF) tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
-            else resetTombolPks();
-            applyPksData(d.pks, d.sekolah);
-            attachPksListeners(); // Re-attach listener
-            
-        } else if (tabName === 'permohonan') {
-            updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.PERMOHONAN_PDF, files.PERMOHONAN_DOC);
-            
-            // Data Read-Only
-            document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
-            document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
-            document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
-            document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
-            const jml = d.sekolah.jumlahAnggaran || 0;
-            document.getElementById('pmJumlah').value = formatRupiahJS(jml);
-            document.getElementById('pmJumlahVal').value = jml;
+          if (files.PKS_PDF) tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
+          else resetTombolPks();
+          
+          applyPksData(d.pks, d.sekolah);
+          attachPksListeners(); 
 
-            // Data User
-            const pm = d.permohonan || {};
-            document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
-            document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
-            if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
-            else document.getElementById('pmTanggal').valueAsDate = new Date();
+        } else if (tabName === 'permohonan') {
+          updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.PERMOHONAN_PDF, files.PERMOHONAN_DOC);
+          
+          // Data Read-Only
+          document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
+          document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
+          document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
+          document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
+          
+          const jml = d.sekolah.jumlahAnggaran || 0;
+          document.getElementById('pmJumlah').value = formatRupiahJS(jml);
+          document.getElementById('pmJumlahVal').value = jml;
+
+          // Data User
+          const pm = d.permohonan || {};
+          document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
+          document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
+          if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
+          else document.getElementById('pmTanggal').valueAsDate = new Date();
 
         } else if (tabName === 'kuitansi') {
-            updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.KUITANSI_PDF, files.KUITANSI_DOC);
-            
-            if (!d.pks.nomorPks) {
-                Swal.fire('Data PKS Kosong', 'Lengkapi data PKS dulu.', 'warning').then(() => bukaTabPencairan('pks'));
-                return;
-            }
-            document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
-            document.getElementById('kwTanggalPks').value = d.pks.tanggalPks || '';
-            document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
-            document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
-            const jml = d.sekolah.jumlahAnggaran || 0;
-            document.getElementById('kwJumlah').value = formatRupiahJS(jml);
-            document.getElementById('kwJumlahVal').value = jml;
+          updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.KUITANSI_PDF, files.KUITANSI_DOC);
+          
+          document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
+          document.getElementById('kwTanggalPks').value = d.pks.tanggalPks ? fmtDate(d.pks.tanggalPks) : '';
+          document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
+          document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
+          
+          const jml = d.sekolah.jumlahAnggaran || 0;
+          document.getElementById('kwJumlah').value = formatRupiahJS(jml);
+          document.getElementById('kwJumlahVal').value = jml;
 
-            const kw = d.kuitansi || {};
-            document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
-            const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
-            document.getElementById('kwTempat').value = defTempat;
-            if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
-            else document.getElementById('kwTanggal').valueAsDate = new Date();
+          const kw = d.kuitansi || {};
+          document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
+          const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
+          document.getElementById('kwTempat').value = defTempat;
+          
+          if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
+          else document.getElementById('kwTanggal').valueAsDate = new Date();
 
         } else if (tabName === 'sptjm') {
-            // [BARU] RENDER LOGIKA SPTJM DARI CACHE
-            
-            // 1. Update Tombol View/Download
-            // Gunakan ID File dari 'files' (fileStatus) atau fallback ke 'd.sptjm'
-            const pdfId = files.SPTJM_PDF || d.sptjm.pdfId;
-            const docId = files.SPTJM_DOC || d.sptjm.docId;
-            updateBtnViewPencairan('btnLihatSptjmPdf', 'btnUnduhSptjmWord', 'btnGenSptjm', 'valSptjmPdfId', 'valSptjmDocId', pdfId, docId);
+          // [BARU] RENDER LOGIKA SPTJM DENGAN PRIORITAS DATA PKS
+          
+          // 1. Update Tombol View/Download
+          const pdfId = files.SPTJM_PDF || d.sptjm.pdfId;
+          const docId = files.SPTJM_DOC || d.sptjm.docId;
+          updateBtnViewPencairan('btnLihatSptjmPdf', 'btnUnduhSptjmWord', 'btnGenSptjm', 'valSptjmPdfId', 'valSptjmDocId', pdfId, docId);
 
-            // 2. Isi Data Read-Only (Dari Sekolah)
-            document.getElementById('sptjmNamaKepala').value = d.sekolah.namaKepala || '';
-            document.getElementById('sptjmNamaSekolah').value = d.sekolah.namaSekolah || '';
-            
-            let alamatLengkap = d.sekolah.alamat || '';
-            if (d.sekolah.kecamatan) alamatLengkap += ', ' + d.sekolah.kecamatan;
-            if (d.sekolah.kabupaten) alamatLengkap += ', ' + d.sekolah.kabupaten;
-            document.getElementById('sptjmAlamat').value = alamatLengkap;
-            
-            document.getElementById('sptjmTahun').value = d.sekolah.tahunAnggaran || new Date().getFullYear();
+          // 2. Isi Data Otomatis (Prioritas PKS > Sekolah)
+          // Nama Kepala tetap dari sekolah (Kamad)
+          document.getElementById('sptjmNamaKepala').value = d.sekolah.namaKepala || '';
 
-            // 3. Isi Data Inputan (Dari saved SPTJM)
-            const sp = d.sptjm || {};
-            document.getElementById('sptjmNik').value = sp.nik || '';
-            
-            const defTempatSptjm = sp.tempat || d.sekolah.tempatTTD || '';
-            document.getElementById('sptjmTempat').value = defTempatSptjm;
+          // Nama Sekolah: Ambil dari Input PKS (namaLengkap) jika ada
+          const namaSekolahSptjm = (d.pks.namaLengkap && d.pks.namaLengkap !== "") 
+                                    ? d.pks.namaLengkap 
+                                    : d.sekolah.namaSekolah;
+          document.getElementById('sptjmNamaSekolah').value = namaSekolahSptjm || '';
 
-            if (sp.tanggal) document.getElementById('sptjmTanggal').value = sp.tanggal;
-            else document.getElementById('sptjmTanggal').valueAsDate = new Date();
+          // Alamat Lengkap: Ambil dari Input PKS (alamat) jika ada
+          let alamatSptjm = "";
+          if (d.pks.alamat && d.pks.alamat !== "") {
+            alamatSptjm = d.pks.alamat;
+          } else {
+            // Fallback ke data sekolah standar
+            alamatSptjm = d.sekolah.alamat || '';
+            if (d.sekolah.kecamatan) alamatSptjm += ', ' + d.sekolah.kecamatan;
+            if (d.sekolah.kabupaten) alamatSptjm += ', ' + d.sekolah.kabupaten;
+          }
+          document.getElementById('sptjmAlamat').value = alamatSptjm;
+
+          // Tahun Anggaran: Gunakan Tahun Sekolah (karena PKS juga mengacu ke ini)
+          document.getElementById('sptjmTahun').value = d.sekolah.tahunAnggaran || new Date().getFullYear();
+
+          // 3. Isi Data Inputan Manual (NIK, Tempat, Tanggal)
+          const sp = d.sptjm || {};
+          document.getElementById('sptjmNik').value = sp.nik || ''; // Ambil NIK tersimpan
+          
+          const defTempatSptjm = sp.tempat || d.sekolah.tempatTTD || '';
+          document.getElementById('sptjmTempat').value = defTempatSptjm;
+          
+          if (sp.tanggal) document.getElementById('sptjmTanggal').value = sp.tanggal;
+          else document.getElementById('sptjmTanggal').valueAsDate = new Date();
         }
       }
 
