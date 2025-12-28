@@ -4397,150 +4397,145 @@ function getDataSptjm(token) {
   }
 }
 
-/**
- * FUNGSI GENERATE SPTJM (UPDATE: HAPUS FILE LAMA OTOMATIS)
- * - Cek file lama -> Hapus
- * - Generate file baru -> Simpan
- */
 function generateSptjm(token, formData) {
   try {
     // 1. AKSES MASTER DB UNTUK CARI TEMPLATE ID
-    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID); 
+    const ssMaster = SpreadsheetApp.openById(CONFIG.MASTER_DB_ID);
     const sheetCetak = ssMaster.getSheetByName('Cetak_Lainnya');
-    
     if (!sheetCetak) {
       throw new Error("Sheet 'Cetak_Lainnya' tidak ditemukan di Database Master.");
     }
-    
+
     let TEMPLATE_ID = '';
     const dataCetak = sheetCetak.getDataRange().getValues();
-    
-    // Loop baris Master DB untuk mencari "SPTJM"
     for (let i = 0; i < dataCetak.length; i++) {
-      const namaDesain = String(dataCetak[i][1]).trim().toUpperCase(); 
-      if (namaDesain === 'SPTJM') { 
-        TEMPLATE_ID = dataCetak[i][2]; // Ambil ID dari Kolom C
+      if (String(dataCetak[i][1]).trim().toUpperCase() === 'SPTJM') {
+        TEMPLATE_ID = dataCetak[i][2];
         break;
       }
     }
-    
-    if (!TEMPLATE_ID) {
-      throw new Error("Template SPTJM belum disetting di Database Master (Sheet Cetak_Lainnya).");
-    }
 
-    // 2. AKSES DATABASE SEKOLAH
+    if (!TEMPLATE_ID) throw new Error("Template SPTJM belum diatur di Database Master.");
+
+    // 2. PERSIAPAN DATA SEKOLAH & PKS
     const ss = SpreadsheetApp.openById(token);
     
-    // --- [LOGIKA BARU: HAPUS FILE LAMA JIKA ADA] ---
-    const sheetSet = ss.getSheetByName('DataPengaturan');
-    if (sheetSet) {
-      const dataSet = sheetSet.getDataRange().getValues();
-      let oldPdfId = null;
-      let oldDocId = null;
-      
-      // Cari ID file lama di DataPengaturan
-      for (let i = 0; i < dataSet.length; i++) {
-        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = dataSet[i][1];
-        if (dataSet[i][0] === 'OUTPUT_ID_SPTJM_DOC') oldDocId = dataSet[i][1];
-      }
-
-      // Hapus File PDF Lama
-      if (oldPdfId && oldPdfId !== "") {
-        try { DriveApp.getFileById(oldPdfId).setTrashed(true); } catch(e) {
-          // Abaikan error jika file sudah tidak ada/terhapus manual
-        }
-      }
-      
-      // Hapus File Doc Master Lama
-      if (oldDocId && oldDocId !== "") {
-        try { DriveApp.getFileById(oldDocId).setTrashed(true); } catch(e) {}
-      }
-    }
-    // -----------------------------------------------
-    
-    // Ambil Data Sekolah
+    // A. Ambil Data Sekolah (Default)
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
       const d = sheetSekolah.getRange(2, 1, 1, 19).getValues()[0];
       ds = {
-        namaSekolah: d[0],       
-        alamat: d[3],            
-        kelurahan: d[7],         
-        kecamatan: d[6],         
-        kabupaten: d[5],         
-        provinsi: d[4],          
-        namaKepala: d[9],        
-        tahunAnggaran: d[17]     
+        namaSekolah: d[0],
+        alamat: d[3],
+        kelurahan: d[7],
+        kecamatan: d[6],
+        kabupaten: d[5],
+        provinsi: d[4],
+        namaKepala: d[9],
+        tahunAnggaran: d[17]
       };
     }
 
-    let alamatFull = (ds.alamat || "") + ", " + 
-                     (ds.kelurahan || "") + ", " + 
-                     (ds.kecamatan || "") + ", " + 
-                     (ds.kabupaten || "");
-
-    // 3. PROSES GENERATE FILE BARU
-    const folderId = ensureFolderPendukung(token); 
-    const folder = DriveApp.getFolderById(folderId);
+    // B. Ambil Data PKS (Override)
+    let pksNama = "";
+    let pksAlamat = "";
     
-    // Copy Template dari ID yang ditemukan di Master
+    const sheetSet = ss.getSheetByName('DataPengaturan');
+    if (sheetSet) {
+      const dataSet = sheetSet.getDataRange().getValues();
+      let oldPdfId = null, oldDocId = null;
+
+      for (let i = 0; i < dataSet.length; i++) {
+        const key = dataSet[i][0];
+        const val = dataSet[i][1];
+        if (key === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = val;
+        if (key === 'OUTPUT_ID_SPTJM_DOC') oldDocId = val;
+        if (key === 'PKS_OVERRIDE_NAMA') pksNama = val;
+        if (key === 'PKS_OVERRIDE_ALAMAT') pksAlamat = val;
+      }
+
+      // Hapus File Lama
+      if (oldPdfId) try { DriveApp.getFileById(oldPdfId).setTrashed(true); } catch(e) {}
+      if (oldDocId) try { DriveApp.getFileById(oldDocId).setTrashed(true); } catch(e) {}
+    }
+
+    // C. Tentukan Data Final
+    const finalNamaSekolah = (pksNama && pksNama !== "") ? pksNama : ds.namaSekolah;
+    
+    let finalAlamat = "";
+    if (pksAlamat && pksAlamat !== "") {
+       finalAlamat = pksAlamat; 
+    } else {
+       finalAlamat = (ds.alamat || "") + ", " + (ds.kelurahan || "") + ", " + (ds.kecamatan || "") + ", " + (ds.kabupaten || "");
+    }
+
+    // 3. PROSES GENERATE FILE
+    const folderId = ensureFolderPendukung(token);
+    const folder = DriveApp.getFolderById(folderId);
+
     const docFileMaster = DriveApp.getFileById(TEMPLATE_ID);
-    const tempFile = docFileMaster.makeCopy('SPTJM_' + ds.namaSekolah + '_' + new Date().getTime());
+    const tempFile = docFileMaster.makeCopy('SPTJM_' + finalNamaSekolah + '_' + new Date().getTime(), folder);
     const doc = DocumentApp.openById(tempFile.getId());
     const body = doc.getBody();
     
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // 4. REPLACE DATA
-    safeReplace('<<Nama Kamad.K>>', ds.namaKepala);
-    safeReplace('<<Nama Sekolah Lengkap.K>>', ds.namaSekolah);
-    safeReplace('<<Alamat Lengkap Madrasah>>', alamatFull);
+    // --- REPLACE DATA SEKOLAH ---
+    safeReplace('<<Nama Sekolah>>', finalNamaSekolah);
+    safeReplace('<<Alamat Lengkap>>', finalAlamat);
     safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+
+    // --- REPLACE DATA KEPALA SEKOLAH (UPDATED) ---
+    const rawNamaKepala = ds.namaKepala || '';
     
-    // Data Manual (NIK, Tempat, Tanggal)
-    safeReplace('<<NIK>>', formData.nik); 
+    // 1. Format Title Case (Kecil/Standar) -> <<Nama Kepala Sekolah>>
+    // Menggunakan fungsi formatNamaKapital yang sudah ada di kode Anda
+    safeReplace('<<Nama Kepala Sekolah>>', formatNamaKapital(rawNamaKepala));
+
+    // 2. Format Uppercase (Kapital Semua) -> <<NAMA KEPALA SEKOLAH>>
+    safeReplace('<<NAMA KEPALA SEKOLAH>>', rawNamaKepala.toUpperCase());
+
+    // NIK Kepala
+    safeReplace('<<NIK Kepala Sekolah>>', formData.nik);
+
+    // --- REPLACE TANGGAL & TEMPAT ---
     safeReplace('<<Tempat TTD>>', formData.tempat);
     safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
-    
-    // Pastikan fungsi formatNamaKapital tersedia di helper Anda
-    safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
-
-    // Kop Surat
-    processKopSurat(doc, body, ss); 
 
     doc.saveAndClose();
 
-    // 5. FINISHING
+    // 4. KONVERSI KE PDF
     const pdfBlob = tempFile.getAs(MimeType.PDF);
+    const pdfFile = folder.createFile(pdfBlob).setName('SPTJM_' + finalNamaSekolah + '.pdf');
     
-    const pdfFile = folder.createFile(pdfBlob).setName('SPTJM - ' + ds.namaSekolah + '.pdf');
     pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    const finalDocFile = DriveApp.getFileById(tempFile.getId());
-    finalDocFile.setName('SPTJM - ' + ds.namaSekolah + ' (Master).docx');
-    finalDocFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    try { 
-      folder.addFile(finalDocFile); 
-      DriveApp.getRootFolder().removeFile(finalDocFile); 
-    } catch(e) {}
+    tempFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
 
-    // 6. SIMPAN ID HASIL KE DATABASE SEKOLAH
-    // Fungsi ini akan menimpa ID lama dengan yang baru
-    simpanOutputId(ss, 'OUTPUT_ID_SPTJM_PDF', pdfFile.getId());
-    simpanOutputId(ss, 'OUTPUT_ID_SPTJM_DOC', finalDocFile.getId());
-    simpanOutputId(ss, 'SPTJM_NIK', formData.nik);
+    // 5. SIMPAN ID
+    if (sheetSet) {
+      const data = sheetSet.getDataRange().getValues(); 
+      let keyMap = new Map();
+      for (let i = 0; i < data.length; i++) keyMap.set(data[i][0], i + 1);
 
-    return { 
-      status: 'success', 
-      url: pdfFile.getUrl(), 
-      pdfId: pdfFile.getId(), 
-      docId: finalDocFile.getId() 
+      const setVal = (key, val) => {
+        if (keyMap.has(key)) sheetSet.getRange(keyMap.get(key), 2).setValue(val);
+        else { sheetSet.appendRow([key, val]); keyMap.set(key, sheetSet.getLastRow()); }
+      };
+
+      setVal('OUTPUT_ID_SPTJM_PDF', pdfFile.getId());
+      setVal('OUTPUT_ID_SPTJM_DOC', tempFile.getId());
+    }
+
+    return {
+      status: 'success',
+      url: pdfFile.getUrl(),
+      pdfId: pdfFile.getId(),
+      docId: tempFile.getId()
     };
 
   } catch (e) {
-    console.error("Error Generate SPTJM: " + e.toString()); 
+    console.error("Error Generate SPTJM: " + e.toString());
     return { status: 'error', message: 'Gagal Generate SPTJM: ' + e.toString() };
   }
 }
