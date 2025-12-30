@@ -3726,21 +3726,20 @@ function hapusLogoSampul(token) {
   }
 }
 
-/* --- FITUR BERKAS PENCAIRAN (NEW) --- */
-
-/* --- UPDATE: SIMPAN DATA PKS (FIX NOMOR REKENING) --- */
+/* --- UPDATE: SIMPAN DATA PKS (TAMBAHAN TAHUN & JUMLAH) --- */
 function simpanDataPKS(token, form) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheet = ss.getSheetByName('DataPengaturan');
-    if (!sheet) { sheet = ss.insertSheet('DataPengaturan'); sheet.appendRow(['KEY', 'VALUE']); }
-
+    if (!sheet) {
+      sheet = ss.insertSheet('DataPengaturan');
+      sheet.appendRow(['KEY', 'VALUE']);
+    }
     const data = sheet.getDataRange().getValues();
     
-    // Mapping Key ke Baris untuk pencarian cepat
     let keyMap = new Map();
     for (let i = 0; i < data.length; i++) {
-      keyMap.set(data[i][0], i + 1); // Simpan KEY dan Index Baris (1-based)
+      keyMap.set(data[i][0], i + 1);
     }
 
     const setVal = (key, val) => {
@@ -3749,7 +3748,7 @@ function simpanDataPKS(token, form) {
         sheet.getRange(keyMap.get(key), 2).setValue(valStr);
       } else {
         sheet.appendRow([key, valStr]);
-        keyMap.set(key, sheet.getLastRow()); 
+        keyMap.set(key, sheet.getLastRow());
       }
     };
 
@@ -3758,16 +3757,17 @@ function simpanDataPKS(token, form) {
     setVal('PKS_NOMOR_PKS', form.nomorPks);
     setVal('PKS_NOMOR_SURAT', form.nomorSurat);
     setVal('PKS_TANGGAL', form.tanggalPks);
-    
-    // [PERBAIKAN] Tambahkan tanda kutip satu (') agar angka 0 di depan tidak hilang
     setVal('PKS_NO_REK', "'" + form.noRek);
-    
     setVal('PKS_NAMA_REK', form.namaRek);
-    
+
     // Simpan Data Override
     setVal('PKS_OVERRIDE_NAMA', form.namaLengkap);
     setVal('PKS_OVERRIDE_BOS', form.danaBos);
     setVal('PKS_OVERRIDE_ALAMAT', form.alamat);
+    
+    // [BARU] Simpan Tahun & Jumlah
+    setVal('PKS_TAHUN', form.tahun);
+    setVal('PKS_JUMLAH', form.jumlah);
 
     return { status: 'success', message: 'Data PKS berhasil disimpan ke database!' };
   } catch (e) {
@@ -3775,16 +3775,18 @@ function simpanDataPKS(token, form) {
   }
 }
 
-/* --- UPDATE: AMBIL DATA PKS (FORMAT TEXT) --- */
+/* --- UPDATE: AMBIL DATA PKS (TAMBAHAN TAHUN & JUMLAH) --- */
 function getDataPKS(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataPengaturan');
     
+    // Inisialisasi object result
     let res = { 
-      namaSingkat: '', nomorPks: '', nomorSurat: '', tanggalPks: '',
+      namaSingkat: '', nomorPks: '', nomorSurat: '', tanggalPks: '', 
       noRek: '', namaRek: '', 
-      namaLengkap: '', danaBos: '', alamat: '',
+      namaLengkap: '', danaBos: '', alamat: '', 
+      tahun: '', jumlah: '', // [BARU]
       pdfId: null, docId: null 
     };
 
@@ -3793,24 +3795,23 @@ function getDataPKS(token) {
       for (let i = 0; i < data.length; i++) {
         const key = data[i][0];
         const val = data[i][1];
-        
+
         if (key === 'PKS_NAMA_SINGKAT') res.namaSingkat = val;
         if (key === 'PKS_NOMOR_PKS') res.nomorPks = val;
         if (key === 'PKS_NOMOR_SURAT') res.nomorSurat = val;
-        
         if (key === 'PKS_TANGGAL' && val) {
-           try { res.tanggalPks = Utilities.formatDate(new Date(val), "GMT+7", "yyyy-MM-dd"); } 
-           catch(e) { res.tanggalPks = ""; }
+          try { res.tanggalPks = Utilities.formatDate(new Date(val), "GMT+7", "yyyy-MM-dd"); } catch(e) { res.tanggalPks = ""; }
         }
-
-        // [PERBAIKAN] Pastikan dibaca sebagai String untuk menjaga angka 0
         if (key === 'PKS_NO_REK') res.noRek = String(val);
-        
         if (key === 'PKS_NAMA_REK') res.namaRek = val;
         
         if (key === 'PKS_OVERRIDE_NAMA') res.namaLengkap = val;
         if (key === 'PKS_OVERRIDE_BOS') res.danaBos = val;
         if (key === 'PKS_OVERRIDE_ALAMAT') res.alamat = val;
+
+        // [BARU] Ambil Tahun & Jumlah
+        if (key === 'PKS_TAHUN') res.tahun = val;
+        if (key === 'PKS_JUMLAH') res.jumlah = val;
 
         if (key === 'OUTPUT_ID_PKS_PDF') res.pdfId = val;
         if (key === 'OUTPUT_ID_PKS_DOC') res.docId = val;
@@ -3830,12 +3831,12 @@ function toTitleCase(str) {
   });
 }
 
-/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (LENGKAP: PKS, PERMOHONAN, KUITANSI) --- */
+/* --- UPDATE FUNGSI GENERATE BERKAS PENCAIRAN (LENGKAP & PRIORITAS DATA) --- */
 function generateBerkasPencairan(token, tipe, formData) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Data Sekolah (Master)
+    // 1. Ambil Data Sekolah (Master Default)
     let ds = {};
     const sheetSekolah = ss.getSheetByName('DataSekolah');
     if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
@@ -3848,7 +3849,23 @@ function generateBerkasPencairan(token, tipe, formData) {
       };
     }
 
-    // 2. Siapkan Folder Output & Pengaturan
+    // 2. Ambil Data PKS Tersimpan (Sebagai Backup/Fallback)
+    // Pastikan fungsi getDataPKS sudah Anda update juga untuk mengambil PKS_TAHUN & PKS_JUMLAH
+    const resPks = getDataPKS(token);
+    const pksDB = (resPks.status === 'success') ? resPks.data : {};
+
+    // --- LOGIKA UTAMA: PRIORITAS TAHUN & JUMLAH ---
+    // Urutan: Input Form > Data PKS Tersimpan > Data Sekolah
+    const tahunFinal = formData.tahun || pksDB.tahun || ds.tahunAnggaran;
+    
+    // Pastikan jumlah diambil angka murni (clean)
+    const jumlahRaw = formData.jumlah || pksDB.jumlah || ds.jumlahAnggaran; 
+    
+    // Format Ulang untuk Dokumen
+    const jumlahFmt = formatRupiah(jumlahRaw);
+    const terbilangFmt = terbilang(jumlahRaw) + ' Rupiah';
+
+    // 3. Siapkan Folder Output & Pengaturan
     const folderId = ensureFolderPendukung(token); 
     const folder = DriveApp.getFolderById(folderId);
     
@@ -3869,12 +3886,10 @@ function generateBerkasPencairan(token, tipe, formData) {
           break;
         }
       }
-      
       // Hapus file lama jika ada
       if(oldId && oldId !== "") {
         try { DriveApp.getFileById(oldId).setTrashed(true); } catch(e){}
       }
-
       // Simpan ID baru
       if(rowIdx !== -1) {
         sheetSet.getRange(rowIdx, 2).setValue(newId);
@@ -3883,25 +3898,20 @@ function generateBerkasPencairan(token, tipe, formData) {
       }
     };
 
-    // 3. Tentukan Template ID (DINAMIS DARI MASTER DB)
+    // 4. Tentukan Template ID (DINAMIS DARI MASTER DB)
     let templateId = '';
-    
-    if (tipe === 'PKS') {
-       templateId = getMasterDefaultId('PKS'); 
-    } else if (tipe === 'PERMOHONAN') {
-       templateId = getMasterDefaultId('PERMOHONAN');
-    } else if (tipe === 'KUITANSI') {
-       templateId = getMasterDefaultId('KUITANSI');
-    }
+    if (tipe === 'PKS') templateId = getMasterDefaultId('PKS'); 
+    else if (tipe === 'PERMOHONAN') templateId = getMasterDefaultId('PERMOHONAN');
+    else if (tipe === 'KUITANSI') templateId = getMasterDefaultId('KUITANSI');
 
-    if (!templateId) return { status: 'error', message: 'ID Template ' + tipe + ' belum disetting di Database Master (Sheet Cetak_Lainnya).' };
+    if (!templateId) return { status: 'error', message: 'ID Template ' + tipe + ' belum disetting di Database Master.' };
 
-    // 4. Proses Copy Template
+    // 5. Proses Copy Template
     let templateFile;
     try { 
       templateFile = DriveApp.getFileById(templateId); 
     } catch(e) { 
-      return { status: 'error', message: 'File Template Master tidak ditemukan atau ID salah. Cek Database Master.' }; 
+      return { status: 'error', message: 'File Template Master tidak ditemukan atau ID salah.' }; 
     }
 
     const tempDocFile = templateFile.makeCopy(tipe + '_' + ds.namaSekolah + '_' + new Date().getTime());
@@ -3909,7 +3919,17 @@ function generateBerkasPencairan(token, tipe, formData) {
     const body = doc.getBody();
     const safeReplace = (key, val) => body.replaceText(key, val || '-');
 
-    // ================== LOGIKA REPLACE BERDASARKAN TIPE ==================
+    // ================== LOGIKA REPLACE UMUM (GLOBAL) ==================
+    // Kita replace tahun & jumlah di sini agar berlaku untuk SEMUA tipe dokumen
+    safeReplace('<<Tahun Anggaran>>', tahunFinal);
+    safeReplace('<<Jumlah Dana>>', jumlahFmt);
+    safeReplace('<<Jumlah Dana Terbilang>>', terbilangFmt);
+    
+    // Antisipasi format placeholder lain
+    safeReplace('<<Total>>', jumlahFmt);
+    safeReplace('<<Total Terbilang>>', terbilangFmt);
+
+    // ================== LOGIKA REPLACE SPESIFIK TIPE ==================
 
     if (tipe === 'PKS') {
       // === LOGIKA PKS ===
@@ -3919,15 +3939,11 @@ function generateBerkasPencairan(token, tipe, formData) {
       safeReplace('<<Nama Sekolah Lengkap>>', namaSekolahRaw);
 
       const namaKamadRaw = ds.namaKepala || "";
-      
-      // [UPDATE] Gunakan formatNamaKapital agar gelar otomatis baku (S.E., S.Pd., dll)
-      safeReplace('<<Nama Kamad.B>>', formatNamaKapital(namaKamadRaw));
+      safeReplace('<<Nama Kamad.B>>', formatNamaKapital(namaKamadRaw)); // Kapital + Gelar Baku
       safeReplace('<<Nama Kamad>>', formatNamaKapital(namaKamadRaw));
-      
       safeReplace('<<Nama Kamad.K>>', formatNamaTitleCase(namaKamadRaw));
 
       safeReplace('<<Nama Sekolah Singkat>>', formData.namaSingkat);
-      // Gunakan OR (||) untuk mengantisipasi perbedaan nama variabel (danaBos vs danaBOS)
       safeReplace('<<Nama Dana BOS>>', formData.danaBos || formData.danaBOS);
       safeReplace('<<Alamat Lengkap Madrasah>>', formData.alamat);
       
@@ -3951,83 +3967,69 @@ function generateBerkasPencairan(token, tipe, formData) {
         safeReplace('<<Tahun PKS>>', toTitleCase(thnTeks));   
         safeReplace('<<Tanggal PKS Lengkap>>', formatTanggalIndo(tglInput)); 
       } else {
-        safeReplace('<<Hari PKS>>', '................'); safeReplace('<<Tanggal PKS>>', '................');
-        safeReplace('<<Bulan PKS>>', '................'); safeReplace('<<Tahun PKS>>', '................');
+        safeReplace('<<Hari PKS>>', '................'); 
+        safeReplace('<<Tanggal PKS>>', '................');
+        safeReplace('<<Bulan PKS>>', '................'); 
+        safeReplace('<<Tahun PKS>>', '................');
       }
 
       safeReplace('<<Nomor Rekening>>', formData.noRek);
       safeReplace('<<Nama Rekening>>', formData.namaRek);
-      safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
-      const jml = ds.jumlahAnggaran || 0;
-      safeReplace('<<Jumlah Dana>>', formatRupiah(jml));
-      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(jml) + ' Rupiah');
 
     } else if (tipe === 'PERMOHONAN') {
       // === LOGIKA PERMOHONAN ===
       
-      // 0. Auto-Save Data Inputan
+      // Auto-Save Data Inputan Permohonan
       simpanDataPermohonan(token, {
          nomorSurat: formData.nomorSurat,
          tempat: formData.tempat,
          tanggal: formData.tanggal
       });
       
-      // 1. Data Auto dari PKS
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
       safeReplace('<<Nama Sekolah Lengkap.K>>', toTitleCase(formData.namaSekolah));
-      
-      // [UPDATE] Format Nama Kamad Kapital + Gelar Baku
       safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
       
-      safeReplace('<<Tahun Anggaran>>', formData.tahun);
       safeReplace('<<Nama Dana BOS>>', formData.danaBos || formData.danaBOS);
-      safeReplace('<<Jumlah Dana>>', formatRupiah(formData.jumlah || 0));
-      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(formData.jumlah || 0) + ' Rupiah');
 
-      // 2. Data Inputan Permohonan
+      // Data Inputan Permohonan
       safeReplace('<<Nomor Surat Permohonan>>', formData.nomorSurat);
       safeReplace('<<Tempat TTD>>', formData.tempat);
       safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
 
-      // 3. Kop Surat (Logic Optimasi Gambar)
-      processKopSurat(doc, body, ss); // Panggil Helper
+      // Kop Surat
+      processKopSurat(doc, body, ss); 
 
     } else if (tipe === 'KUITANSI') {
       // === LOGIKA KUITANSI ===
       
-      // 0. Auto-Save Data Inputan
+      // Auto-Save Data Inputan Kuitansi
       simpanDataKuitansi(token, {
          nomorSurat: formData.nomorSurat,
          tempat: formData.tempat,
          tanggal: formData.tanggal
       });
 
-      // 1. Data Auto dari PKS
       safeReplace('<<Nomor PKS>>', formData.nomorPks);
-      // Tanggal PKS harus diformat ke Bahasa Indonesia (DD MMMM YYYY)
       safeReplace('<<Tanggal PKS>>', formatTanggalIndo(formData.tanggalPks)); 
-      safeReplace('<<Tahun Anggaran>>', formData.tahun);
-      safeReplace('<<Jumlah Dana>>', formatRupiah(formData.jumlah || 0));
-      safeReplace('<<Jumlah Dana Terbilang>>', terbilang(formData.jumlah || 0) + ' Rupiah');
       
-      // 2. Data Tambahan (Kamad Kapital)
-      // [UPDATE] Format Nama Kamad Kapital + Gelar Baku
       safeReplace('<<Nama Kamad.B>>', formatNamaKapital(ds.namaKepala));
 
-      // 3. Data Inputan Kuitansi
+      // Data Inputan Kuitansi
       safeReplace('<<Nomor Surat Kuitansi>>', formData.nomorSurat);
       safeReplace('<<Tempat TTD>>', formData.tempat);
       safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
+      safeReplace('<<Untuk Pembayaran>>', "Pencairan Dana BOS Tahun " + tahunFinal); // Tambahan otomatis
 
-      // 4. Kop Surat (Logic Optimasi Gambar)
-      processKopSurat(doc, body, ss); // Panggil Helper
+      // Kop Surat
+      processKopSurat(doc, body, ss); 
     }
 
     // =====================================================================
 
     doc.saveAndClose();
 
-    // 5. Convert ke PDF & Simpan Master Doc
+    // 6. Convert ke PDF & Simpan Master Doc
     const pdfBlob = tempDocFile.getAs(MimeType.PDF);
     const fileNameBase = tipe + '_' + ds.namaSekolah;
     
@@ -4043,7 +4045,7 @@ function generateBerkasPencairan(token, tipe, formData) {
       DriveApp.getRootFolder().removeFile(docFile);
     } catch(e) {}
 
-    // 6. Simpan ID File ke Database
+    // 7. Simpan ID File ke Database
     updateOutputId('OUTPUT_ID_' + tipe + '_PDF', pdfFile.getId());
     updateOutputId('OUTPUT_ID_' + tipe + '_DOC', docFile.getId());
 
@@ -4433,6 +4435,7 @@ function generateSptjm(token, formData) {
     // --- [PERBAIKAN UTAMA 2] AMBIL DATA PKS DARI DB (Agar Sinkron dengan Input PKS) ---
     let pksNama = "";
     let pksAlamat = "";
+    let pksTahun = ""; // [BARU] Variabel untuk Tahun dari DB PKS
     let oldPdfId = null;
     let oldDocId = null;
 
@@ -4445,6 +4448,7 @@ function generateSptjm(token, formData) {
         // Ambil Data PKS Tersimpan
         if (key === 'PKS_OVERRIDE_NAMA') pksNama = val;
         if (key === 'PKS_OVERRIDE_ALAMAT') pksAlamat = val;
+        if (key === 'PKS_TAHUN') pksTahun = val; // [BARU] Ambil Tahun tersimpan
         
         // Cek File Lama
         if (key === 'OUTPUT_ID_SPTJM_PDF') oldPdfId = val;
@@ -4483,6 +4487,9 @@ function generateSptjm(token, formData) {
         finalAlamat = (ds.alamat || "") + ", " + (ds.kelurahan || "") + ", " + (ds.kecamatan || "") + ", " + (ds.kabupaten || "");
     }
 
+    // [BARU] Logika Prioritas Tahun Anggaran (Form > DB PKS > Data Sekolah)
+    const finalTahun = formData.tahun || pksTahun || ds.tahunAnggaran;
+
     // 3. PROSES GENERATE FILE BARU
     const folderId = ensureFolderPendukung(token); 
     const folder = DriveApp.getFolderById(folderId);
@@ -4511,7 +4518,9 @@ function generateSptjm(token, formData) {
     safeReplace('<<Alamat Sekolah>>', finalAlamat); 
 
     // Data Lain
-    safeReplace('<<Tahun Anggaran>>', ds.tahunAnggaran);
+    // [UPDATE] Menggunakan finalTahun (Sesuai inputan PKS)
+    safeReplace('<<Tahun Anggaran>>', finalTahun);
+    
     safeReplace('<<NIK>>', formData.nik); 
     safeReplace('<<Tempat TTD>>', formData.tempat);
     safeReplace('<<Tanggal TTD>>', formatTanggalIndo(formData.tanggal));
