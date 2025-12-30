@@ -11909,153 +11909,129 @@
       }
 
       // 2. Download Template (Client-Side Excel)
-      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED: STRICT DROPDOWN VALIDATION) --- */
-      async function downloadTemplateCurrent() {
-        if (typeof XLSX === 'undefined') {
-          Swal.fire('Error', 'Library Excel belum dimuat.', 'error');
-          return;
-        }
+      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED: FETCH SERVER & DROPDOWN) --- */
+      function downloadTemplateCurrent() {
+        const type = document.getElementById('importTypeTarget').value;
+        if (!type) return;
 
-        const type = currentImportType;
+        // 1. Tampilkan Loading & Ambil Token
+        toggleLoading(true, "Mengambil Data Referensi...");
         const token = localStorage.getItem('userToken');
-        
-        toggleLoading(true, "Menyiapkan Template & Referensi...");
 
-        try {
-          // 1. AMBIL DATA REFERENSI DARI SERVER
-          let refData = { uraian: [], toko: [], guru: [], satuan: [], dataBarang: [] };
-          
-          if (type === 'TRANSAKSI' || type === 'URAIAN') {
-            try {
-              refData = await new Promise((resolve, reject) => {
-                if (type === 'TRANSAKSI') {
-                  google.script.run
-                    .withSuccessHandler(res => resolve(res.status === 'success' ? res.data : {}))
-                    .withFailureHandler(reject)
-                    .getAllOptions(token);
-                } else {
-                  google.script.run
-                    .withSuccessHandler(res => resolve(res.status === 'success' ? { masterUraian: res.data } : {}))
-                    .withFailureHandler(reject)
-                    .getReferensiUraianMaster(token);
-                }
-              });
-            } catch (err) {
-              console.warn("Gagal ambil referensi, menggunakan template standar.", err);
+        // 2. Panggil Server untuk Data Terbaru
+        google.script.run
+          .withFailureHandler(function(err) {
+            toggleLoading(false);
+            Swal.fire('Gagal', 'Gagal mengambil data referensi: ' + err, 'error');
+          })
+          .withSuccessHandler(function(res) {
+            if (res.status !== 'success') {
+              toggleLoading(false);
+              Swal.fire('Error', res.message, 'error');
+              return;
             }
-          }
+            
+            // Jika Sukses, Generate Excel dengan Data Server
+            generateExcelWithData(type, res.data);
+          })
+          .getTemplateRefData(token);
+      }
 
-          // 2. SETUP WORKBOOK
+      // Fungsi Internal Generate Excel
+      function generateExcelWithData(type, refData) {
+        try {
           const wb = XLSX.utils.book_new();
           let headers = [];
-          let example = [];
-          
-          // --- SETUP HEADER ---
+          let wsInput;
+
+          // A. SETUP HEADER SESUAI TIPE
           if (type === 'TRANSAKSI') {
+            // Index Kolom: 0=No, 1=Tipe, 2=Uraian, 3=Toko, 4=Pemesan, 5=Barang, 6=Harga, 7=Satuan, 8=Vol, 9=Jumlah
             headers = [
-              "Tanggal (YYYY-MM-DD)",       // A (0)
-              "Tipe (TOKO/TUKANG/GURU)",    // B (1)
-              "Uraian Pekerjaan",           // C (2)
-              "Pihak Ketiga",               // D (3)
-              "Pemesan",                    // E (4)
-              "Nama Barang",                // F (5)
-              "Volume",                     // G (6)
-              "Satuan",                     // H (7)
-              "Harga Satuan",               // I (8)
-              "Nomor Surat Permintaan",     // J (9)
-              "Tanggal Surat Permintaan",   // K (10)
-              "Nomor Surat Penawaran",      // L (11)
-              "Tanggal Surat Penawaran",    // M (12)
-              "Nomor BA Pemeriksaan",       // N (13)
-              "Tanggal BA Pemeriksaan",     // O (14)
-              "Nomor BA Serah Terima",      // P (15)
-              "Tanggal BA Serah Terima",    // Q (16)
-              "Nomor BA Pembayaran",        // R (17)
-              "Tanggal BA Pembayaran"       // S (18)
-            ];
-            // Contoh Data (Baris 2)
-            example = [
-              "2025-01-15", "TOKO", "", "", "", "", 10, "", 55000,
-              "001/...", "2025-01-15", "", "", "", "", "", "", "", "" 
+              "No", 
+              "Tipe (TOKO/TUKANG/GURU)", 
+              "Uraian Pekerjaan", 
+              "Pihak Ketiga", 
+              "Pemesan", 
+              "Nama Barang", 
+              "Harga Satuan", 
+              "Satuan", 
+              "Volume", 
+              "Jumlah"
             ];
           } else if (type === 'URAIAN') {
-            headers = ["Nomor Bukti", "Uraian Pekerjaan"];
-            example = ["01/BOS/2025", ""];
-          } else {
-            // Default
-            if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
-            else if (type === 'TUKANG') headers = ["Nama Tukang", "Alamat Lengkap"];
-            else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
+            headers = ["No", "Nomor Bukti", "Uraian Pekerjaan"];
+          } else if (type === 'TOKO') {
+            headers = ["No", "Nama Toko", "Jenis Usaha", "Alamat", "No HP", "Nama Pemilik", "Kota/Tempat TTD"];
+          } else if (type === 'TUKANG') {
+            headers = ["No", "Nama Tukang", "Alamat Lengkap"];
+          } else if (type === 'GURU') {
+            headers = ["No", "Nama Guru", "NIP"];
           }
 
-          // 3. BUAT SHEET INPUT UTAMA (Sheet Pertama)
-          // Gunakan aoa_to_sheet untuk membuat sheet dari array
-          const wsInput = XLSX.utils.aoa_to_sheet(example.length ? [headers, example] : [headers]);
+          // B. BUAT SHEET INPUT UTAMA
+          wsInput = XLSX.utils.aoa_to_sheet([headers]);
           
-          // Atur Lebar Kolom
-          wsInput['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 5, 20) }));
-
-          // Append Sheet Input DULUAN
+          // Atur Lebar Kolom Biar Rapi
+          const colWidths = headers.map(() => ({ wch: 25 }));
+          wsInput['!cols'] = colWidths;
+          
           XLSX.utils.book_append_sheet(wb, wsInput, "Input_Data");
 
-          // 4. LOGIKA REFERENSI & VALIDASI STRICT
+          // C. LOGIKA VALIDASI KHUSUS TRANSAKSI
+          let validations = [];
+
+          // Helper: Buat Range Excel (Baris 2 s.d 5000)
           const getRangeStr = (colIdx) => {
             const letter = XLSX.utils.encode_col(colIdx);
-            return `${letter}2:${letter}1000`; // Berlaku untuk Baris 2 s.d 1000
+            return `${letter}2:${letter}5000`; 
           };
 
-          const createRefSheet = (sheetName, dataArray, headerTitle) => {
-            if (!dataArray || dataArray.length === 0) return null;
+          // Helper: Buat Sheet Referensi Tersembunyi
+          const createRefSheet = (sheetName, listData) => {
+            if (!listData || listData.length === 0) return null;
             
-            const content = [[headerTitle]].concat(dataArray.map(item => [item]));
+            // Header Sheet Ref
+            const content = [["Daftar Reference"]].concat(listData.map(d => [d]));
             const wsRef = XLSX.utils.aoa_to_sheet(content);
             
-            // Proteksi Sheet Referensi
-            wsRef['!protect'] = { password: "MadrasahHebat", selectLockedCells: true, selectUnlockedCells: false };
-            
+            // Tambahkan ke Workbook & Sembunyikan
             XLSX.utils.book_append_sheet(wb, wsRef, sheetName);
+            wb.Sheets[sheetName]['!protect'] = { password: "Admin", selectLockedCells: true }; // Opsional: Proteksi
             
-            // Return Formula Referensi
-            // Format: 'NamaSheet'!$A$2:$A$100
-            return `'${sheetName}'!$A$2:$A$${dataArray.length + 1}`;
+            // Return Formula Referensi (Absolute Range)
+            // Contoh: 'Ref_Uraian'!$A$2:$A$500
+            return `'${sheetName}'!$A$2:$A$${listData.length + 1}`; 
           };
 
-          // Fungsi Helper untuk membuat Object Validasi Strict
-          const createValidation = (colIndex, formulaRef, errorMsg) => {
+          // Helper: Buat Objek Validasi
+          const createValidation = (colIndex, formula, msg, strict = true) => {
             return {
               sqref: getRangeStr(colIndex),
               type: 'list',
               operator: 'equal',
-              formula1: formulaRef,
+              formula1: formula,
+              showDropDown: true,
               allowBlank: true,
-              showDropDown: true,      // Wajib: Tampilkan panah
-              showErrorMessage: true,  // Wajib: Tampilkan error jika input manual salah
-              errorTitle: "Data Tidak Valid",
-              error: errorMsg || "Anda harus memilih data dari daftar dropdown yang tersedia. Dilarang mengetik manual yang tidak sesuai.",
-              errorStyle: "stop"       // Wajib: Mencegah input salah (STOP)
+              // Konfigurasi Error
+              showErrorMessage: strict, // Jika true, muncul popup error
+              errorTitle: strict ? "Data Tidak Valid" : undefined,
+              error: strict ? (msg || "Pilih data dari list!") : undefined,
+              errorStyle: strict ? "stop" : undefined // "stop" blokir input manual
             };
           };
 
-          let validations = [];
-
           if (type === 'TRANSAKSI') {
-            // --- Buat Data Referensi ---
-            const listUr  = (refData.uraian || []).map(u => u.uraian);
-            const listTk  = (refData.toko || []).map(t => t.nama);
-            const listGr  = (refData.guru || []).map(g => g.nama);
-            const listBrg = (refData.dataBarang || []).map(b => b.nama);
-            const listSat = refData.satuan || [];
+            // 1. Buat Sheet Referensi dari Data Server
+            const refUr = createRefSheet("Ref_Uraian", refData.uraian);
+            const refTk = createRefSheet("Ref_Toko", refData.toko);
+            const refGr = createRefSheet("Ref_Pemesan", refData.guru);
+            const refBrg = createRefSheet("Ref_Barang", refData.barang);
+            const refSat = createRefSheet("Ref_Satuan", refData.satuan);
 
-            // --- Buat Sheet Referensi ---
-            const refFormulaUr  = createRefSheet("Ref_Uraian", listUr, "Daftar Uraian");
-            const refFormulaTk  = createRefSheet("Ref_Toko", listTk, "Daftar Toko");
-            const refFormulaGr  = createRefSheet("Ref_Pemesan", listGr, "Daftar Guru");
-            const refFormulaBrg = createRefSheet("Ref_Barang", listBrg, "Daftar Barang");
-            const refFormulaSat = createRefSheet("Ref_Satuan", listSat, "Daftar Satuan");
+            // 2. Terapkan Validasi
 
-            // --- Pasang Validasi ---
-            
-            // 1. Kolom B (Tipe) - Manual List "TOKO,TUKANG,GURU"
+            // Kolom B (Index 1): Tipe -> Manual List (Strict)
             validations.push({
               sqref: getRangeStr(1),
               type: 'list',
@@ -12063,58 +12039,48 @@
               formula1: '"TOKO,TUKANG,GURU"',
               showDropDown: true,
               showErrorMessage: true,
-              error: "Pilih tipe: TOKO, TUKANG, atau GURU.",
+              error: "Pilih TOKO, TUKANG, atau GURU.",
               errorStyle: "stop"
             });
 
-            // 2. Kolom C (Uraian)
-            if (refFormulaUr) validations.push(createValidation(2, refFormulaUr, "Pilih Uraian Pekerjaan dari daftar."));
+            // Kolom C (Index 2): Uraian -> Dropdown (Strict)
+            if (refUr) validations.push(createValidation(2, refUr, "Uraian wajib dipilih dari list!", true));
 
-            // 3. Kolom D (Toko)
-            if (refFormulaTk) validations.push(createValidation(3, refFormulaTk, "Pilih Pihak Ketiga (Toko) dari daftar."));
+            // Kolom D (Index 3): Pihak Ketiga -> Dropdown (Strict)
+            if (refTk) validations.push(createValidation(3, refTk, "Pihak ketiga wajib dari list Toko!", true));
 
-            // 4. Kolom E (Pemesan/Guru)
-            if (refFormulaGr) validations.push(createValidation(4, refFormulaGr, "Pilih Pemesan (Guru) dari daftar."));
+            // Kolom E (Index 4): Pemesan -> Dropdown (Strict)
+            if (refGr) validations.push(createValidation(4, refGr, "Pemesan wajib dari list Guru!", true));
 
-            // 5. Kolom F (Barang)
-            if (refFormulaBrg) validations.push(createValidation(5, refFormulaBrg, "Pilih Nama Barang dari daftar."));
+            // Kolom F (Index 5): Nama Barang -> Dropdown (LOOSE / Boleh Ketik)
+            if (refBrg) validations.push(createValidation(5, refBrg, "", false));
 
-            // 6. Kolom H (Satuan)
-            if (refFormulaSat) validations.push(createValidation(7, refFormulaSat, "Pilih Satuan dari daftar."));
-
-          } else if (type === 'URAIAN') {
-            // Referensi Uraian Master
-            if (refData.masterUraian && refData.masterUraian.length > 0) {
-              const listMaster = refData.masterUraian.map(m => m.uraian);
-              const refFormulaMaster = createRefSheet("Ref_Master", listMaster, "Master Kegiatan");
-              
-              if (refFormulaMaster) {
-                validations.push(createValidation(1, refFormulaMaster, "Pilih Kegiatan Standar dari daftar."));
-              }
-            }
+            // Kolom H (Index 7): Satuan -> Dropdown (LOOSE / Boleh Ketik)
+            if (refSat) validations.push(createValidation(7, refSat, "", false));
           }
 
-          // Terapkan Validasi ke Sheet Input
+          // D. TERAPKAN VALIDASI KE WORKSHEET
           if (validations.length > 0) {
             wsInput['!dataValidation'] = validations;
           }
 
-          // 5. DOWNLOAD FILE
+          // E. DOWNLOAD FILE
           const fileName = `Template_Import_${type}.xlsx`;
           XLSX.writeFile(wb, fileName);
-
+          
           toggleLoading(false);
           Swal.fire({
-            icon: 'success',
-            title: 'Template Siap',
-            text: 'File berhasil didownload. Kolom referensi sekarang WAJIB menggunakan dropdown.',
-            timer: 3000
+            icon: 'success', 
+            title: 'Template Siap', 
+            text: 'Silakan buka Excel dan Aktifkan Editing (Enable Editing) agar dropdown berfungsi.',
+            timer: 3000,
+            showConfirmButton: false
           });
 
         } catch (e) {
           toggleLoading(false);
           console.error(e);
-          Swal.fire('Gagal', 'Terjadi kesalahan: ' + e.message, 'error');
+          Swal.fire('Gagal Membuat Excel', e.message, 'error');
         }
       }
 
