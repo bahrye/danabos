@@ -4662,3 +4662,34 @@ function importDataBatch(token, type, data) {
     return { status: 'error', message: 'Gagal Import: ' + e.toString() };
   }
 }
+
+/* --- TAMBAHAN: FUNGSI KHUSUS DATA TEMPLATE EXCEL --- */
+function getTemplateRefData(token) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    
+    // 1. Helper untuk ambil data kolom tertentu
+    const getList = (sheetName, colIndex) => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet || sheet.getLastRow() < 2) return [];
+      // Ambil range dari baris 2 sampai akhir
+      const vals = sheet.getRange(2, colIndex, sheet.getLastRow() - 1, 1).getValues();
+      // Filter yang kosong & unik
+      return [...new Set(vals.flat().filter(String).map(s => String(s).trim()))];
+    };
+
+    // 2. Ambil Data
+    return {
+      status: 'success',
+      data: {
+        uraian: getList('DataUraian', 3), // Kolom C (Uraian)
+        toko:   getList('DataToko', 2),   // Kolom B (Nama Toko)
+        guru:   getList('DataGuru', 2),   // Kolom B (Nama Guru)
+        barang: getList('Data Barang', 1),// Kolom A (Nama Barang)
+        satuan: getList('Satuan', 1)      // Kolom A (Nama Satuan)
+      }
+    };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
