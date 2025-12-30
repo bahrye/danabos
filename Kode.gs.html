@@ -4693,3 +4693,152 @@ function getTemplateRefData(token) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI GENERATE EXCEL VIA SERVER (UPDATE VALIDASI) --- */
+function createExcelTemplateFromServer(type, refData) {
+  var ss = SpreadsheetApp.create("Temp_Template_" + new Date().getTime());
+  var ssId = ss.getId();
+  
+  try {
+    // Helper: Buat Sheet Referensi & Sembunyikan
+    var createRefSheet = function(name, data) {
+      if (!data || data.length === 0) return null;
+      var sheetName = "Ref_" + name;
+      var newSheet = ss.insertSheet(sheetName);
+      
+      var values = [["Daftar Reference"]];
+      data.forEach(function(item) { values.push([item]); });
+      
+      newSheet.getRange(1, 1, values.length, 1).setValues(values);
+      
+      // PENTING: Sembunyikan sheet referensi agar tampilan bersih
+      newSheet.hideSheet(); 
+      
+      return newSheet.getRange(2, 1, data.length, 1);
+    };
+
+    var rangeUr, rangeTk, rangeGr, rangeBrg, rangeSat;
+
+    // --- SETUP DATA REFERENSI ---
+    if (type === 'TRANSAKSI') {
+      rangeUr  = createRefSheet("Uraian", refData.uraian);
+      rangeTk  = createRefSheet("Toko", refData.toko);
+      rangeGr  = createRefSheet("Pemesan", refData.guru); // Ref_Pemesan (Isinya data Guru)
+      rangeBrg = createRefSheet("Barang", refData.barang);
+      rangeSat = createRefSheet("Satuan", refData.satuan);
+    } 
+
+    // --- SETUP SHEET INPUT UTAMA ---
+    var inputSheet = ss.insertSheet("Input_Data");
+    var sheet1 = ss.getSheetByName("Sheet1");
+    if (sheet1) ss.deleteSheet(sheet1);
+
+    // Setup Header
+    var headers = [];
+    if (type === 'TRANSAKSI') {
+      headers = [
+        "No", "Tipe (TOKO/TUKANG/GURU)", "Uraian Pekerjaan", 
+        "Pihak Ketiga", "Pemesan", "Nama Barang", 
+        "Harga Satuan", "Satuan", "Volume", "Jumlah"
+      ];
+    } else {
+      headers = ["No", "Data"];
+    }
+
+    // Styling Header
+    inputSheet.getRange(1, 1, 1, headers.length)
+      .setValues([headers])
+      .setFontWeight("bold")
+      .setBackground("#DDDDDD")
+      .setHorizontalAlignment("center");
+
+    // --- KONFIGURASI VALIDASI (INTI PERMINTAAN ANDA) ---
+    var numRows = 500; 
+
+    if (type === 'TRANSAKSI') {
+      // 1. Tipe (B): Strict (Wajib pilih list)
+      var ruleTipe = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["TOKO", "TUKANG", "GURU"], true)
+        .setAllowInvalid(false) // DITOLAK jika salah
+        .setHelpText("Harap pilih tipe: TOKO, TUKANG, atau GURU.")
+        .build();
+      inputSheet.getRange(2, 2, numRows, 1).setDataValidation(ruleTipe);
+
+      // 2. Uraian Pekerjaan (C): Strict (Ref_Uraian)
+      if (rangeUr) {
+        var ruleUr = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeUr)
+          .setAllowInvalid(false) // WAJIB SESUAI LIST (Stop)
+          .setHelpText("Data wajib dipilih dari referensi Uraian.")
+          .build();
+        inputSheet.getRange(2, 3, numRows, 1).setDataValidation(ruleUr);
+      }
+
+      // 3. Pihak Ketiga (D): LOOSE/WARNING (Ref_Toko)
+      // Ini mengakomodir: Toko harus sesuai list (muncul warning jika beda), 
+      // tapi Guru boleh ketik manual (abaikan warning).
+      if (rangeTk) {
+        var ruleTk = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeTk)
+          .setAllowInvalid(true) // MUNCUL WARNING TAPI BISA LANJUT (Allow)
+          .setHelpText("Pilih dari list Toko. Jika Tipe = GURU, Anda boleh mengetik manual.")
+          .build();
+        inputSheet.getRange(2, 4, numRows, 1).setDataValidation(ruleTk);
+      }
+
+      // 4. Pemesan (E): Strict (Ref_Pemesan/Guru)
+      if (rangeGr) {
+        var ruleGr = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeGr)
+          .setAllowInvalid(false) // WAJIB SESUAI LIST (Stop)
+          .setHelpText("Nama Pemesan wajib dipilih dari referensi Guru.")
+          .build();
+        inputSheet.getRange(2, 5, numRows, 1).setDataValidation(ruleGr);
+      }
+      
+      // 5. Barang (F) & Satuan (H): Loose (Boleh ketik manual)
+      if (rangeBrg) {
+        var ruleBrg = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeBrg)
+          .setAllowInvalid(true)
+          .build();
+        inputSheet.getRange(2, 6, numRows, 1).setDataValidation(ruleBrg);
+      }
+      if (rangeSat) {
+        var ruleSat = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeSat)
+          .setAllowInvalid(true)
+          .build();
+        inputSheet.getRange(2, 8, numRows, 1).setDataValidation(ruleSat);
+      }
+    }
+    
+    // Auto Resize
+    inputSheet.autoResizeColumns(1, headers.length);
+    SpreadsheetApp.flush();
+
+    // --- DOWNLOAD EXCEL ---
+    var url = "https://docs.google.com/spreadsheets/d/" + ssId + "/export?format=xlsx";
+    var params = {
+      method: "get",
+      headers: { "Authorization": "Bearer " + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    };
+    
+    var blob = UrlFetchApp.fetch(url, params).getBlob();
+    var b64 = Utilities.base64Encode(blob.getBytes());
+    
+    // HAPUS FILE SEMENTARA
+    DriveApp.getFileById(ssId).setTrashed(true);
+    
+    return {
+      success: true,
+      base64: b64,
+      fileName: "Template_Import_" + type + ".xlsx"
+    };
+
+  } catch (e) {
+    try { DriveApp.getFileById(ssId).setTrashed(true); } catch(x){}
+    return { success: false, error: e.toString() };
+  }
+}
