@@ -11937,151 +11937,77 @@
           .getTemplateRefData(token);
       }
 
-      // Fungsi Internal Generate Excel
+      // --- 1. FUNGSI UTAMA DOWNLOAD TEMPLATE ---
       function generateExcelWithData(type, refData) {
-        try {
-          const wb = XLSX.utils.book_new();
-          let headers = [];
-          let wsInput;
-
-          // A. SETUP HEADER SESUAI TIPE
-          if (type === 'TRANSAKSI') {
-            // Index Kolom: 0=No, 1=Tipe, 2=Uraian, 3=Toko, 4=Pemesan, 5=Barang, 6=Harga, 7=Satuan, 8=Vol, 9=Jumlah
-            headers = [
-              "No", 
-              "Tipe (TOKO/TUKANG/GURU)", 
-              "Uraian Pekerjaan", 
-              "Pihak Ketiga", 
-              "Pemesan", 
-              "Nama Barang", 
-              "Harga Satuan", 
-              "Satuan", 
-              "Volume", 
-              "Jumlah"
-            ];
-          } else if (type === 'URAIAN') {
-            headers = ["No", "Nomor Bukti", "Uraian Pekerjaan"];
-          } else if (type === 'TOKO') {
-            headers = ["No", "Nama Toko", "Jenis Usaha", "Alamat", "No HP", "Nama Pemilik", "Kota/Tempat TTD"];
-          } else if (type === 'TUKANG') {
-            headers = ["No", "Nama Tukang", "Alamat Lengkap"];
-          } else if (type === 'GURU') {
-            headers = ["No", "Nama Guru", "NIP"];
+        // Tampilkan Loading
+        toggleLoading(true);
+        
+        // Gunakan SweetAlert untuk memberi info proses server
+        Swal.fire({
+          title: 'Sedang Membuat Template...',
+          text: 'Sistem sedang menyusun file Excel dengan validasi data terbaru. Mohon tunggu.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
           }
+        });
 
-          // B. BUAT SHEET INPUT UTAMA
-          wsInput = XLSX.utils.aoa_to_sheet([headers]);
-          
-          // Atur Lebar Kolom Biar Rapi
-          const colWidths = headers.map(() => ({ wch: 25 }));
-          wsInput['!cols'] = colWidths;
-          
-          XLSX.utils.book_append_sheet(wb, wsInput, "Input_Data");
-
-          // C. LOGIKA VALIDASI KHUSUS TRANSAKSI
-          let validations = [];
-
-          // Helper: Buat Range Excel (Baris 2 s.d 5000)
-          const getRangeStr = (colIdx) => {
-            const letter = XLSX.utils.encode_col(colIdx);
-            return `${letter}2:${letter}5000`; 
-          };
-
-          // Helper: Buat Sheet Referensi Tersembunyi
-          const createRefSheet = (sheetName, listData) => {
-            if (!listData || listData.length === 0) return null;
+        // Panggil Fungsi Server (Kode.gs)
+        google.script.run
+          .withSuccessHandler(function(res) {
+            toggleLoading(false); // Tutup loading overlay
             
-            // Header Sheet Ref
-            const content = [["Daftar Reference"]].concat(listData.map(d => [d]));
-            const wsRef = XLSX.utils.aoa_to_sheet(content);
-            
-            // Tambahkan ke Workbook & Sembunyikan
-            XLSX.utils.book_append_sheet(wb, wsRef, sheetName);
-            wb.Sheets[sheetName]['!protect'] = { password: "Admin", selectLockedCells: true }; // Opsional: Proteksi
-            
-            // Return Formula Referensi (Absolute Range)
-            // Contoh: 'Ref_Uraian'!$A$2:$A$500
-            return `'${sheetName}'!$A$2:$A$${listData.length + 1}`; 
-          };
+            if (res.success) {
+              // Jika Sukses: Jalankan Download
+              downloadBase64File(res.base64, res.fileName);
+              
+              Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Template Excel telah didownload. Dropdown list sudah aktif.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+            } else {
+              // Jika Server Error (Response success: false)
+              Swal.fire('Gagal Membuat Excel', res.error, 'error');
+            }
+          })
+          .withFailureHandler(function(err) {
+            // Jika Koneksi Error
+            toggleLoading(false);
+            console.error(err);
+            Swal.fire('Koneksi Gagal', 'Tidak dapat menghubungi server: ' + err.message, 'error');
+          })
+          .createExcelTemplateFromServer(type, refData);
+      }
 
-          // Helper: Buat Objek Validasi
-          const createValidation = (colIndex, formula, msg, strict = true) => {
-            return {
-              sqref: getRangeStr(colIndex),
-              type: 'list',
-              operator: 'equal',
-              formula1: formula,
-              showDropDown: true,
-              allowBlank: true,
-              // Konfigurasi Error
-              showErrorMessage: strict, // Jika true, muncul popup error
-              errorTitle: strict ? "Data Tidak Valid" : undefined,
-              error: strict ? (msg || "Pilih data dari list!") : undefined,
-              errorStyle: strict ? "stop" : undefined // "stop" blokir input manual
-            };
-          };
-
-          if (type === 'TRANSAKSI') {
-            // 1. Buat Sheet Referensi dari Data Server
-            const refUr = createRefSheet("Ref_Uraian", refData.uraian);
-            const refTk = createRefSheet("Ref_Toko", refData.toko);
-            const refGr = createRefSheet("Ref_Pemesan", refData.guru);
-            const refBrg = createRefSheet("Ref_Barang", refData.barang);
-            const refSat = createRefSheet("Ref_Satuan", refData.satuan);
-
-            // 2. Terapkan Validasi
-
-            // Kolom B (Index 1): Tipe -> Manual List (Strict)
-            validations.push({
-              sqref: getRangeStr(1),
-              type: 'list',
-              operator: 'equal',
-              formula1: '"TOKO,TUKANG,GURU"',
-              showDropDown: true,
-              showErrorMessage: true,
-              error: "Pilih TOKO, TUKANG, atau GURU.",
-              errorStyle: "stop"
-            });
-
-            // Kolom C (Index 2): Uraian -> Dropdown (Strict)
-            if (refUr) validations.push(createValidation(2, refUr, "Uraian wajib dipilih dari list!", true));
-
-            // Kolom D (Index 3): Pihak Ketiga -> Dropdown (Strict)
-            if (refTk) validations.push(createValidation(3, refTk, "Pihak ketiga wajib dari list Toko!", true));
-
-            // Kolom E (Index 4): Pemesan -> Dropdown (Strict)
-            if (refGr) validations.push(createValidation(4, refGr, "Pemesan wajib dari list Guru!", true));
-
-            // Kolom F (Index 5): Nama Barang -> Dropdown (LOOSE / Boleh Ketik)
-            if (refBrg) validations.push(createValidation(5, refBrg, "", false));
-
-            // Kolom H (Index 7): Satuan -> Dropdown (LOOSE / Boleh Ketik)
-            if (refSat) validations.push(createValidation(7, refSat, "", false));
-          }
-
-          // D. TERAPKAN VALIDASI KE WORKSHEET
-          if (validations.length > 0) {
-            wsInput['!dataValidation'] = validations;
-          }
-
-          // E. DOWNLOAD FILE
-          const fileName = `Template_Import_${type}.xlsx`;
-          XLSX.writeFile(wb, fileName);
-          
-          toggleLoading(false);
-          Swal.fire({
-            icon: 'success', 
-            title: 'Template Siap', 
-            text: 'Silakan buka Excel dan Aktifkan Editing (Enable Editing) agar dropdown berfungsi.',
-            timer: 3000,
-            showConfirmButton: false
-          });
-
-        } catch (e) {
-          toggleLoading(false);
-          console.error(e);
-          Swal.fire('Gagal Membuat Excel', e.message, 'error');
+      // --- 2. FUNGSI HELPER DOWNLOAD (WAJIB ADA) ---
+      function downloadBase64File(base64, fileName) {
+        // Konversi Base64 string kembali menjadi Binary Data (ArrayBuffer)
+        var binaryString = window.atob(base64);
+        var len = binaryString.length;
+        var bytes = new Uint8Array(len);
+        
+        for (var i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
+        
+        // Bungkus dalam Blob Excel
+        var blob = new Blob([bytes], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+        
+        // Buat Link Download virtual & klik otomatis
+        var link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Bersihkan memory
+        setTimeout(function(){
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(link.href);
+        }, 100);
       }
 
       // 3. Proses Upload File
