@@ -3983,6 +3983,8 @@
       let cacheRefUraian = [];  // Data dari Master Referensi (Sheet Uraian)
       let cacheRefLengkap = []; // Menyimpan data lengkap (A,B,C,D)
 
+      let currentImportType = "";
+
       // --- GLOBAL CACHE STORAGE (UPDATED) ---
       let DATA_CACHE = {
         toko: null,
@@ -11869,11 +11871,6 @@
         
         return tglStr + " " + bulanIndo[bln] + " " + thn;
       }
-
-      /* --- LOGIKA FITUR IMPORT --- */
-
-      // Variabel global untuk menyimpan tipe import saat ini
-      let currentImportType = '';
 
       /* --- LOGIKA FITUR IMPORT (VERSI PERBAIKAN) --- */
 
