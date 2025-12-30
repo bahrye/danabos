@@ -10629,50 +10629,6 @@
         syncPksToOthers();
       }
 
-      /* --- UPDATE: SIMPAN DATA PKS --- */
-      function simpanDataPksSaja(callbackSuccess = null) {
-        const token = localStorage.getItem('userToken');
-        const form = ambilFormPks(); // Helper ambil value input
-
-        // Validasi Sederhana
-        if(!form.namaSingkat) { Swal.fire('Gagal', 'Nama Singkat Sekolah wajib diisi!', 'warning'); return; }
-
-        const btn = document.getElementById('btnSimpanPks');
-        const txtAsli = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...'; 
-        btn.disabled = true;
-        
-        google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res){
-          btn.innerHTML = txtAsli; 
-          btn.disabled = false;
-
-          if(res.status === 'success') {
-            // Update Cache Lokal
-            if (DATA_CACHE.pks) {
-                // Merge data baru dengan data lama (agar ID file tidak hilang)
-                DATA_CACHE.pks = { ...DATA_CACHE.pks, ...form };
-            } else {
-                DATA_CACHE.pks = form;
-            }
-
-            // Tandai data sudah bersih (disimpan)
-            markPksClean();
-
-            // Jika ada callback (misal dari tombol Generate), jalankan
-            if (callbackSuccess && typeof callbackSuccess === 'function') {
-                callbackSuccess();
-            } else {
-                Swal.fire({
-                  toast: true, position: 'top-end', icon: 'success', 
-                  title: 'Data Tersimpan', showConfirmButton: false, timer: 1500
-                });
-            }
-          } else {
-            Swal.fire('Gagal', res.message, 'error');
-          }
-        }).simpanDataPKS(token, form);
-      }
-
       /* --- FIX FINAL: GENERATE PKS (ID SUDAH SESUAI) --- */
       function generatePks(e) {
         if (e) e.preventDefault(); // Mencegah reload halaman
@@ -11335,60 +11291,65 @@
           .getAllPencairanData(token);
       }
 
-      /* --- HELPER RENDER UI PENCAIRAN (UPDATE: TAMBAH LOGIKA SPTJM) --- */
       function renderTabPencairan(tabName) {
         const d = DATA_CACHE.pencairan_lengkap;
         if (!d) return;
-
         const files = d.fileStatus || {};
 
-        // --- LOGIKA PER TAB ---
-        if (tabName === 'pks') {
-            if (files.PKS_PDF) tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
-            else resetTombolPks();
-            applyPksData(d.pks, d.sekolah);
-            attachPksListeners(); // Re-attach listener
-            
-        } else if (tabName === 'permohonan') {
-            updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.PERMOHONAN_PDF, files.PERMOHONAN_DOC);
-            
-            // Data Read-Only
-            document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
-            document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
-            document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
-            document.getElementById('pmTahun').value = d.sekolah.tahunAnggaran || '';
-            const jml = d.sekolah.jumlahAnggaran || 0;
-            document.getElementById('pmJumlah').value = formatRupiahJS(jml);
-            document.getElementById('pmJumlahVal').value = jml;
+        // [LOGIC BARU] Prioritas Data dari PKS (d.pks.tahun / d.pks.jumlah)
+        // Jika PKS belum disetting, baru ambil dari Data Sekolah
+        const pksTahun = d.pks.tahun || d.sekolah.tahunAnggaran || "";
+        const pksJumlah = (d.pks.jumlah !== undefined && d.pks.jumlah !== "") ? d.pks.jumlah : (d.sekolah.jumlahAnggaran || 0);
 
-            // Data User
-            const pm = d.permohonan || {};
-            document.getElementById('pmNomorSurat').value = pm.nomorSurat || '';
-            document.getElementById('pmTempat').value = pm.tempat || d.sekolah.tempatTTD || '';
-            if (pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
-            else document.getElementById('pmTanggal').valueAsDate = new Date();
+        // --- RENDER SESUAI TAB ---
+        if (tabName === 'pks') {
+          if (files.PKS_PDF) tampilkanTombolHasilPks(files.PKS_PDF, files.PKS_DOC);
+          else resetTombolPks();
+          applyPksData(d.pks, d.sekolah);
+          
+          // Pastikan input PKS terisi data yang benar
+          document.getElementById('pksTahun').value = pksTahun;
+          document.getElementById('pksJumlah').value = formatRupiahJS(pksJumlah);
+          
+          attachPksListeners(); 
+
+        } else if (tabName === 'permohonan') {
+          updateBtnViewPencairan('btnLihatPmPdf', 'btnUnduhPmWord', 'btnGenPermohonan', 'valPmPdfId', 'valPmDocId', files.PERMOHONAN_PDF, files.PERMOHONAN_DOC);
+          
+          // Data Read-Only (Update disini agar mengikuti PKS)
+          document.getElementById('pmNomorPks').value = d.pks.nomorPks || '';
+          document.getElementById('pmNamaSekolah').value = d.pks.namaLengkap || d.sekolah.namaSekolah || '';
+          document.getElementById('pmDanaBos').value = d.pks.danaBos || d.sekolah.danaBOS || '';
+          
+          // [UPDATE] Gunakan data dari PKS
+          document.getElementById('pmTahun').value = pksTahun; 
+          document.getElementById('pmJumlah').value = formatRupiahJS(pksJumlah);
+          document.getElementById('pmJumlahVal').value = pksJumlah;
+
+          // Data User Input
+          const pm = d.permohonan || {};
+          if(pm.nomorSurat) document.getElementById('pmNomorSurat').value = pm.nomorSurat;
+          if(pm.tempat) document.getElementById('pmTempat').value = pm.tempat;
+          if(pm.tanggal) document.getElementById('pmTanggal').value = pm.tanggal;
 
         } else if (tabName === 'kuitansi') {
-            updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.KUITANSI_PDF, files.KUITANSI_DOC);
-            
-            if (!d.pks.nomorPks) {
-                Swal.fire('Data PKS Kosong', 'Lengkapi data PKS dulu.', 'warning').then(() => bukaTabPencairan('pks'));
-                return;
-            }
-            document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
-            document.getElementById('kwTanggalPks').value = d.pks.tanggalPks || '';
-            document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks || '';
-            document.getElementById('kwTahun').value = d.sekolah.tahunAnggaran || '';
-            const jml = d.sekolah.jumlahAnggaran || 0;
-            document.getElementById('kwJumlah').value = formatRupiahJS(jml);
-            document.getElementById('kwJumlahVal').value = jml;
+          updateBtnViewPencairan('btnLihatKwPdf', 'btnUnduhKwWord', 'btnGenKuitansi', 'valKwPdfId', 'valKwDocId', files.KUITANSI_PDF, files.KUITANSI_DOC);
+          
+          // Data Referensi PKS
+          document.getElementById('kwNomorPks').value = d.pks.nomorPks || '';
+          document.getElementById('kwTanggalPks').value = formatTanggalIndo(d.pks.tanggalPks);
+          document.getElementById('kwTanggalPksVal').value = d.pks.tanggalPks;
+          
+          // [UPDATE] Gunakan data dari PKS
+          document.getElementById('kwTahun').value = pksTahun;
+          document.getElementById('kwJumlah').value = formatRupiahJS(pksJumlah);
+          document.getElementById('kwJumlahVal').value = pksJumlah;
 
-            const kw = d.kuitansi || {};
-            document.getElementById('kwNomorSurat').value = kw.nomorSurat || '';
-            const defTempat = kw.tempat || (d.permohonan ? d.permohonan.tempat : '') || d.sekolah.tempatTTD || '';
-            document.getElementById('kwTempat').value = defTempat;
-            if (kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
-            else document.getElementById('kwTanggal').valueAsDate = new Date();
+          // Data User Input
+          const kw = d.kuitansi || {};
+          if(kw.nomorSurat) document.getElementById('kwNomorSurat').value = kw.nomorSurat;
+          if(kw.tempat) document.getElementById('kwTempat').value = kw.tempat;
+          if(kw.tanggal) document.getElementById('kwTanggal').value = kw.tanggal;
 
         } else if (tabName === 'sptjm') {
             
@@ -11705,6 +11666,57 @@
         // 4. Tembak ke Input SPTJM
         const sptjmTahun = document.getElementById('sptjmTahun');
         if (sptjmTahun) sptjmTahun.value = tahun;
+      }
+
+      function simpanDataPksSaja() {
+        const btn = document.getElementById('btnSimpanPks');
+        const txt = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        const formData = {
+          namaLengkap: document.getElementById('pksNamaLengkap').value,
+          kamad: document.getElementById('pksKamad').value,
+          danaBos: document.getElementById('pksDanaBos').value,
+          
+          // [PENTING] AMBIL DATA TAHUN & JUMLAH DARI INPUT PKS
+          tahun: document.getElementById('pksTahun').value,
+          jumlah: cleanRibuan(document.getElementById('pksJumlah').value),
+          
+          alamat: document.getElementById('pksAlamat').value,
+          namaSingkat: document.getElementById('pksNamaSingkat').value,
+          nomorPks: document.getElementById('pksNomorPks').value,
+          nomorSurat: document.getElementById('pksNomorSurat').value,
+          tanggalPks: document.getElementById('pksTanggal').value,
+          noRek: document.getElementById('pksNoRek').value,
+          namaRek: document.getElementById('pksNamaRek').value
+        };
+
+        const token = localStorage.getItem('userToken');
+        google.script.run
+          .withFailureHandler(function(err) {
+            btn.innerHTML = txt; 
+            btn.disabled = false;
+            Swal.fire('Gagal', err.message, 'error');
+          })
+          .withSuccessHandler(function(res) {
+            btn.innerHTML = txt;
+            btn.disabled = false;
+            if(res.status === 'success') {
+              markPksClean();
+              // [PENTING] Hapus Cache agar data tahun/jumlah terbaru terbaca di tab lain
+              DATA_CACHE.pencairan_lengkap = null; 
+              DATA_CACHE.pks = null;
+              
+              Swal.fire({
+                toast: true, position: 'top-end', icon: 'success', 
+                title: 'Data PKS Disimpan', showConfirmButton: false, timer: 1500
+              });
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .simpanDataPKS(token, formData);
       }
 
     </script>
