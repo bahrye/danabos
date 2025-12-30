@@ -11719,6 +11719,37 @@
           .simpanDataPKS(token, formData);
       }
 
+      /* --- TAMBAHAN FIX: FORMAT TANGGAL INDONESIA (CLIENT SIDE) --- */
+      function formatTanggalIndo(dateString) {
+        if (!dateString || dateString === "" || dateString === "-") return "-";
+        
+        // Konversi string tanggal
+        var date = new Date(dateString);
+        
+        // Jika format input YYYY-MM-DD, parse manual agar tidak kena pergeseran Timezone
+        if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            var parts = dateString.split('-');
+            date = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        
+        // Validasi tanggal valid
+        if (isNaN(date.getTime())) return "-";
+
+        var bulanIndo = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+
+        var tgl = date.getDate();
+        var bln = date.getMonth();
+        var thn = date.getFullYear();
+
+        // Tambahkan 0 di depan jika tanggal < 10 (Contoh: 01 Januari 2025)
+        var tglStr = (tgl < 10 ? '0' : '') + tgl;
+        
+        return tglStr + " " + bulanIndo[bln] + " " + thn;
+      }
+
     </script>
   </body>
 </html>
