@@ -11909,7 +11909,7 @@
       }
 
       // 2. Download Template (Client-Side Excel)
-      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED: Dropdown & First Sheet) --- */
+      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED: STRICT DROPDOWN VALIDATION) --- */
       async function downloadTemplateCurrent() {
         if (typeof XLSX === 'undefined') {
           Swal.fire('Error', 'Library Excel belum dimuat.', 'error');
@@ -11925,7 +11925,6 @@
           // 1. AMBIL DATA REFERENSI DARI SERVER
           let refData = { uraian: [], toko: [], guru: [], satuan: [], dataBarang: [] };
           
-          // Ambil referensi jika tipe import butuh referensi
           if (type === 'TRANSAKSI' || type === 'URAIAN') {
             try {
               refData = await new Promise((resolve, reject) => {
@@ -11951,37 +11950,37 @@
           let headers = [];
           let example = [];
           
-          // --- SETUP HEADER & CONTOH DATA ---
+          // --- SETUP HEADER ---
           if (type === 'TRANSAKSI') {
             headers = [
-              "Tanggal (YYYY-MM-DD)",       // A (Col 0)
-              "Tipe (TOKO/TUKANG/GURU)",    // B (Col 1)
-              "Uraian Pekerjaan",           // C (Col 2)
-              "Pihak Ketiga",               // D (Col 3)
-              "Pemesan",                    // E (Col 4)
-              "Nama Barang",                // F (Col 5)
-              "Volume",                     // G (Col 6)
-              "Satuan",                     // H (Col 7)
-              "Harga Satuan",               // I (Col 8)
-              "Nomor Surat Permintaan",     // J (Col 9)
-              "Tanggal Surat Permintaan",   // K (Col 10)
-              "Nomor Surat Penawaran",      // L (Col 11)
-              "Tanggal Surat Penawaran",    // M (Col 12)
-              "Nomor BA Pemeriksaan",       // N (Col 13)
-              "Tanggal BA Pemeriksaan",     // O (Col 14)
-              "Nomor BA Serah Terima",      // P (Col 15)
-              "Tanggal BA Serah Terima",    // Q (Col 16)
-              "Nomor BA Pembayaran",        // R (Col 17)
-              "Tanggal BA Pembayaran"       // S (Col 18)
+              "Tanggal (YYYY-MM-DD)",       // A (0)
+              "Tipe (TOKO/TUKANG/GURU)",    // B (1)
+              "Uraian Pekerjaan",           // C (2)
+              "Pihak Ketiga",               // D (3)
+              "Pemesan",                    // E (4)
+              "Nama Barang",                // F (5)
+              "Volume",                     // G (6)
+              "Satuan",                     // H (7)
+              "Harga Satuan",               // I (8)
+              "Nomor Surat Permintaan",     // J (9)
+              "Tanggal Surat Permintaan",   // K (10)
+              "Nomor Surat Penawaran",      // L (11)
+              "Tanggal Surat Penawaran",    // M (12)
+              "Nomor BA Pemeriksaan",       // N (13)
+              "Tanggal BA Pemeriksaan",     // O (14)
+              "Nomor BA Serah Terima",      // P (15)
+              "Tanggal BA Serah Terima",    // Q (16)
+              "Nomor BA Pembayaran",        // R (17)
+              "Tanggal BA Pembayaran"       // S (18)
             ];
-            // Baris Contoh (Row 2)
+            // Contoh Data (Baris 2)
             example = [
-              "2025-01-15", "TOKO", "Pilih Uraian...", "Pilih Toko...", "Pilih Guru...", "Pilih Barang...", 10, "Pilih Satuan...", 55000,
+              "2025-01-15", "TOKO", "", "", "", "", 10, "", 55000,
               "001/...", "2025-01-15", "", "", "", "", "", "", "", "" 
             ];
           } else if (type === 'URAIAN') {
             headers = ["Nomor Bukti", "Uraian Pekerjaan"];
-            example = ["01/BOS/2025", "Pilih Kegiatan..."];
+            example = ["01/BOS/2025", ""];
           } else {
             // Default
             if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
@@ -11989,23 +11988,22 @@
             else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
           }
 
-          // 3. BUAT SHEET INPUT UTAMA (Disini kita buat sheetnya DULUAN)
+          // 3. BUAT SHEET INPUT UTAMA (Sheet Pertama)
+          // Gunakan aoa_to_sheet untuk membuat sheet dari array
           const wsInput = XLSX.utils.aoa_to_sheet(example.length ? [headers, example] : [headers]);
           
           // Atur Lebar Kolom
           wsInput['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 5, 20) }));
 
-          // Tambahkan sheet Input ke workbook sebagai sheet PERTAMA
+          // Append Sheet Input DULUAN
           XLSX.utils.book_append_sheet(wb, wsInput, "Input_Data");
 
-          // 4. SETUP REFERENSI & BUAT VALIDASI
-          // Fungsi Helper: Buat range string (misal Col 2 -> "C2:C1000")
+          // 4. LOGIKA REFERENSI & VALIDASI STRICT
           const getRangeStr = (colIdx) => {
             const letter = XLSX.utils.encode_col(colIdx);
-            return `${letter}2:${letter}1000`; // Baris 2 sampai 1000
+            return `${letter}2:${letter}1000`; // Berlaku untuk Baris 2 s.d 1000
           };
 
-          // Fungsi Helper: Buat Sheet Referensi & Return Info untuk Validasi
           const createRefSheet = (sheetName, dataArray, headerTitle) => {
             if (!dataArray || dataArray.length === 0) return null;
             
@@ -12017,85 +12015,86 @@
             
             XLSX.utils.book_append_sheet(wb, wsRef, sheetName);
             
-            // Return range referensi absolut (misal 'Ref_Uraian'!$A$2:$A$100)
+            // Return Formula Referensi
+            // Format: 'NamaSheet'!$A$2:$A$100
             return `'${sheetName}'!$A$2:$A$${dataArray.length + 1}`;
+          };
+
+          // Fungsi Helper untuk membuat Object Validasi Strict
+          const createValidation = (colIndex, formulaRef, errorMsg) => {
+            return {
+              sqref: getRangeStr(colIndex),
+              type: 'list',
+              operator: 'equal',
+              formula1: formulaRef,
+              allowBlank: true,
+              showDropDown: true,      // Wajib: Tampilkan panah
+              showErrorMessage: true,  // Wajib: Tampilkan error jika input manual salah
+              errorTitle: "Data Tidak Valid",
+              error: errorMsg || "Anda harus memilih data dari daftar dropdown yang tersedia. Dilarang mengetik manual yang tidak sesuai.",
+              errorStyle: "stop"       // Wajib: Mencegah input salah (STOP)
+            };
           };
 
           let validations = [];
 
           if (type === 'TRANSAKSI') {
-            // --- Buat Sheet Referensi ---
+            // --- Buat Data Referensi ---
             const listUr  = (refData.uraian || []).map(u => u.uraian);
             const listTk  = (refData.toko || []).map(t => t.nama);
             const listGr  = (refData.guru || []).map(g => g.nama);
             const listBrg = (refData.dataBarang || []).map(b => b.nama);
             const listSat = refData.satuan || [];
 
-            const refFormulaUr  = createRefSheet("Ref_Uraian", listUr, "List Uraian");
-            const refFormulaTk  = createRefSheet("Ref_Toko", listTk, "List Toko");
-            const refFormulaGr  = createRefSheet("Ref_Pemesan", listGr, "List Guru");
-            const refFormulaBrg = createRefSheet("Ref_Barang", listBrg, "List Barang");
-            const refFormulaSat = createRefSheet("Ref_Satuan", listSat, "List Satuan");
+            // --- Buat Sheet Referensi ---
+            const refFormulaUr  = createRefSheet("Ref_Uraian", listUr, "Daftar Uraian");
+            const refFormulaTk  = createRefSheet("Ref_Toko", listTk, "Daftar Toko");
+            const refFormulaGr  = createRefSheet("Ref_Pemesan", listGr, "Daftar Guru");
+            const refFormulaBrg = createRefSheet("Ref_Barang", listBrg, "Daftar Barang");
+            const refFormulaSat = createRefSheet("Ref_Satuan", listSat, "Daftar Satuan");
 
-            // --- Pasang Validasi Dropdown ---
+            // --- Pasang Validasi ---
             
-            // 1. Kolom B (Tipe) - Manual List
+            // 1. Kolom B (Tipe) - Manual List "TOKO,TUKANG,GURU"
             validations.push({
-              sqref: getRangeStr(1), // Kolom B
+              sqref: getRangeStr(1),
               type: 'list',
               operator: 'equal',
-              formula1: '"TOKO,TUKANG,GURU"', // String literal untuk manual list
+              formula1: '"TOKO,TUKANG,GURU"',
+              showDropDown: true,
               showErrorMessage: true,
-              errorTitle: "Invalid",
-              error: "Pilih Tipe yang tersedia."
+              error: "Pilih tipe: TOKO, TUKANG, atau GURU.",
+              errorStyle: "stop"
             });
 
             // 2. Kolom C (Uraian)
-            if (refFormulaUr) validations.push({
-              sqref: getRangeStr(2), // Kolom C
-              type: 'list', operator: 'equal', formula1: refFormulaUr, allowBlank: true
-            });
+            if (refFormulaUr) validations.push(createValidation(2, refFormulaUr, "Pilih Uraian Pekerjaan dari daftar."));
 
-            // 3. Kolom D (Toko/Pihak Ketiga)
-            if (refFormulaTk) validations.push({
-              sqref: getRangeStr(3), // Kolom D
-              type: 'list', operator: 'equal', formula1: refFormulaTk, allowBlank: true
-            });
+            // 3. Kolom D (Toko)
+            if (refFormulaTk) validations.push(createValidation(3, refFormulaTk, "Pilih Pihak Ketiga (Toko) dari daftar."));
 
             // 4. Kolom E (Pemesan/Guru)
-            if (refFormulaGr) validations.push({
-              sqref: getRangeStr(4), // Kolom E
-              type: 'list', operator: 'equal', formula1: refFormulaGr, allowBlank: true
-            });
+            if (refFormulaGr) validations.push(createValidation(4, refFormulaGr, "Pilih Pemesan (Guru) dari daftar."));
 
             // 5. Kolom F (Barang)
-            if (refFormulaBrg) validations.push({
-              sqref: getRangeStr(5), // Kolom F
-              type: 'list', operator: 'equal', formula1: refFormulaBrg, allowBlank: true
-            });
+            if (refFormulaBrg) validations.push(createValidation(5, refFormulaBrg, "Pilih Nama Barang dari daftar."));
 
             // 6. Kolom H (Satuan)
-            if (refFormulaSat) validations.push({
-              sqref: getRangeStr(7), // Kolom H (Index 7)
-              type: 'list', operator: 'equal', formula1: refFormulaSat, allowBlank: true
-            });
+            if (refFormulaSat) validations.push(createValidation(7, refFormulaSat, "Pilih Satuan dari daftar."));
 
           } else if (type === 'URAIAN') {
-            // Setup referensi Uraian Master
+            // Referensi Uraian Master
             if (refData.masterUraian && refData.masterUraian.length > 0) {
               const listMaster = refData.masterUraian.map(m => m.uraian);
               const refFormulaMaster = createRefSheet("Ref_Master", listMaster, "Master Kegiatan");
               
               if (refFormulaMaster) {
-                validations.push({
-                  sqref: getRangeStr(1), // Kolom B (Uraian)
-                  type: 'list', operator: 'equal', formula1: refFormulaMaster, allowBlank: true
-                });
+                validations.push(createValidation(1, refFormulaMaster, "Pilih Kegiatan Standar dari daftar."));
               }
             }
           }
 
-          // Terapkan semua validasi ke wsInput
+          // Terapkan Validasi ke Sheet Input
           if (validations.length > 0) {
             wsInput['!dataValidation'] = validations;
           }
@@ -12108,7 +12107,7 @@
           Swal.fire({
             icon: 'success',
             title: 'Template Siap',
-            text: 'Silakan buka file Excel. Dropdown aktif dari baris ke-2.',
+            text: 'File berhasil didownload. Kolom referensi sekarang WAJIB menggunakan dropdown.',
             timer: 3000
           });
 
