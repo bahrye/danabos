@@ -4514,3 +4514,116 @@ function simpanOutputId(ss, key, val) {
   // Jika belum ada, buat baris baru
   if(!found) sheet.appendRow([key, val]);
 }
+
+/* --- FUNGSI IMPORT DATA (BATCH) --- */
+function importDataBatch(token, type, data) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    let sheetName = '';
+    let mapFunc = null;
+
+    // Tentukan Target Sheet & Mapping Data
+    if (type === 'URAIAN') {
+      sheetName = 'DataUraian';
+      mapFunc = (row) => {
+        const id = Utilities.getUuid();
+        // Pastikan nama kolom di Excel sesuai dengan key di row
+        // Key JSON dari SheetJS biasanya sesuai header Excel
+        return [id, "'" + (row['Nomor Bukti'] || ''), row['Uraian Pekerjaan'] || ''];
+      };
+    } 
+    else if (type === 'TOKO') {
+      sheetName = 'DataToko';
+      mapFunc = (row) => {
+        return [
+          Utilities.getUuid(),
+          row['Nama Toko'] || '',
+          row['Jenis Toko'] || '',
+          row['Alamat Lengkap'] || '',
+          "'" + (row['No Telp'] || ''), // Pakai kutip biar jadi teks
+          row['Nama Pemilik'] || '',
+          row['Tempat TTD'] || ''
+        ];
+      };
+    }
+    else if (type === 'TUKANG') {
+      sheetName = 'DataTukang';
+      mapFunc = (row) => {
+        return [
+          Utilities.getUuid(),
+          row['Nama Tukang'] || '',
+          row['Alamat Lengkap'] || ''
+        ];
+      };
+    }
+    else if (type === 'GURU') {
+      sheetName = 'DataGuru';
+      mapFunc = (row) => {
+        return [
+          Utilities.getUuid(),
+          row['Nama Lengkap'] || '',
+          "'" + (row['NIP'] || '')
+        ];
+      };
+    }
+    else if (type === 'TRANSAKSI') {
+      sheetName = 'DataTransaksi';
+      // Khusus transaksi, kita buat 1 baris excel = 1 transaksi dengan 1 item
+      mapFunc = (row) => {
+        const id = Utilities.getUuid();
+        const items = [{
+          nama: row['Nama Barang'] || '',
+          vol: row['Volume'] || 0,
+          sat: row['Satuan'] || '',
+          harga: row['Harga Satuan'] || 0,
+          jumlah: (row['Volume'] || 0) * (row['Harga Satuan'] || 0)
+        }];
+        const total = items[0].jumlah;
+        
+        // Format Tanggal Excel ke YYYY-MM-DD jika perlu, atau biarkan raw
+        // SheetJS biasanya sudah parsing tanggal jika diformat date, atau string.
+        // Kita asumsikan user input string YYYY-MM-DD
+        
+        return [
+          id,
+          "'" + (row['Tanggal (YYYY-MM-DD)'] || ''),
+          row['Tipe (TOKO/TUKANG/GURU)'] || 'TOKO',
+          row['Uraian Pekerjaan'] || '',
+          row['Pihak Ketiga'] || '',
+          row['Pemesan'] || '',
+          JSON.stringify(items),
+          total,
+          new Date()
+        ];
+      };
+    }
+
+    if (!sheetName) return { status: 'error', message: 'Tipe import tidak dikenali.' };
+
+    let sheet = ss.getSheetByName(sheetName);
+    // Buat sheet jika belum ada (Basic Columns)
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      // Header akan otomatis tertambah saat data masuk di bawahnya, 
+      // tapi idealnya sheet sudah ada dari fungsi lain.
+    }
+
+    // Proses Data menjadi Array
+    const rowsToAdd = data.map(mapFunc);
+
+    if (rowsToAdd.length > 0) {
+      // Tulis sekaligus (Batch Write) agar cepat
+      const lastRow = sheet.getLastRow();
+      sheet.getRange(lastRow + 1, 1, rowsToAdd.length, rowsToAdd[0].length).setValues(rowsToAdd);
+    }
+
+    return { 
+      status: 'success', 
+      message: 'Data berhasil diimport ke Database.',
+      count: rowsToAdd.length
+    };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal Import: ' + e.toString() };
+  }
+}
