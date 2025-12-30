@@ -1953,38 +1953,47 @@ function hapusKopSurat(token) {
 
 /* --- FUNGSI BANTUAN TRANSAKSI --- */
 
-// Cari fungsi ini dan update isinya
 function getAllOptions(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
     
-    // 1. Ambil Uraian, Toko, Tukang, Guru (Code Lama)
-    const uraian = getUraianList(token).data || [];
-    const toko = getTokoList(token).data || [];
-    const tukang = getTukangList(token).data || [];
-    const guru = getGuruList(token).data || [];
+    // 1. Uraian
+    const uraianData = getUraianList(token);
+    const listUraian = (uraianData.status === 'success') ? uraianData.data : [];
 
-    // 2. TAMBAHAN: Ambil Data Satuan
-    let satuan = [];
-    const sheetSatuan = ss.getSheetByName('Satuan');
-    if (sheetSatuan) {
-      const lastRow = sheetSatuan.getLastRow();
-      if (lastRow >= 2) {
-        // Ambil kolom A baris 2 sampai bawah
-        const dataSat = sheetSatuan.getRange(2, 1, lastRow - 1, 1).getValues();
-        // Flatten array dan filter yang kosong
-        satuan = dataSat.map(r => r[0]).filter(val => val !== ""); 
-      }
+    // 2. Toko
+    const tokoData = getTokoList(token);
+    const listToko = (tokoData.status === 'success') ? tokoData.data : [];
+
+    // 3. Guru
+    const guruData = getGuruList(token);
+    const listGuru = (guruData.status === 'success') ? guruData.data : [];
+
+    // 4. Satuan (Ambil dari sheet 'Satuan' Col A)
+    let listSatuan = [];
+    const sheetSat = ss.getSheetByName('Satuan');
+    if (sheetSat && sheetSat.getLastRow() > 1) {
+       listSatuan = sheetSat.getRange(2, 1, sheetSat.getLastRow()-1, 1).getValues()
+                    .flat().filter(v => v !== "");
+    }
+
+    // 5. Barang (Ambil dari sheet 'Data Barang' Col A)
+    let listBarang = [];
+    const sheetBarang = ss.getSheetByName('Data Barang');
+    if (sheetBarang && sheetBarang.getLastRow() > 1) {
+       // Kita ambil Col A sebagai nama barang
+       const rawBarang = sheetBarang.getRange(2, 1, sheetBarang.getLastRow()-1, 1).getValues();
+       listBarang = rawBarang.map(r => ({ nama: r[0] })).filter(r => r.nama !== "");
     }
 
     return {
       status: 'success',
       data: {
-        uraian: uraian,
-        toko: toko,
-        tukang: tukang,
-        guru: guru,
-        satuan: satuan // <--- Kirim data satuan ke Client
+        uraian: listUraian,
+        toko: listToko,
+        guru: listGuru,
+        satuan: listSatuan,
+        dataBarang: listBarang
       }
     };
   } catch (e) {
@@ -4568,9 +4577,15 @@ function importDataBatch(token, type, data) {
     }
     else if (type === 'TRANSAKSI') {
       sheetName = 'DataTransaksi';
-      // Khusus transaksi, kita buat 1 baris excel = 1 transaksi dengan 1 item
+      
+      // Pastikan kolom database lengkap (Data_Surat_JSON, dll)
+      // Kita panggil ensureColumn helper jika ada, atau pastikan header lewat 'perbaikiSemuaHeader'
+      // Untuk amannya, kita asumsikan struktur sudah benar atau akan dihandle oleh array panjang
+      
       mapFunc = (row) => {
         const id = Utilities.getUuid();
+        
+        // Item Belanja
         const items = [{
           nama: row['Nama Barang'] || '',
           vol: row['Volume'] || 0,
@@ -4579,11 +4594,28 @@ function importDataBatch(token, type, data) {
           jumlah: (row['Volume'] || 0) * (row['Harga Satuan'] || 0)
         }];
         const total = items[0].jumlah;
-        
-        // Format Tanggal Excel ke YYYY-MM-DD jika perlu, atau biarkan raw
-        // SheetJS biasanya sudah parsing tanggal jika diformat date, atau string.
-        // Kita asumsikan user input string YYYY-MM-DD
-        
+
+        // Data Surat (Construct JSON)
+        const dataSurat = {
+          permintaan: row['Nomor Surat Permintaan'] || '',
+          penawaran: row['Nomor Surat Penawaran'] || '',
+          baPemeriksaan: row['Nomor BA Pemeriksaan'] || '',
+          baSerahTerima: row['Nomor BA Serah Terima'] || '',
+          baPembayaran: row['Nomor BA Pembayaran'] || ''
+        };
+
+        // Data Tanggal (Construct JSON)
+        // Pastikan format di Excel YYYY-MM-DD
+        const dataTanggal = {
+          permintaan: row['Tanggal Surat Permintaan'] || '',
+          penawaran: row['Tanggal Surat Penawaran'] || '',
+          baPemeriksaan: row['Tanggal BA Pemeriksaan'] || '',
+          baSerahTerima: row['Tanggal BA Serah Terima'] || '',
+          baPembayaran: row['Tanggal BA Pembayaran'] || ''
+        };
+
+        // Return Array sesuai urutan kolom DB (Lihat DB_SCHEMA)
+        // Urutan: ID, Tanggal, Tipe, Uraian, Pihak, Pemesan, Items, Total, Waktu, Surat_JSON, Tgl_JSON, PDF_ID
         return [
           id,
           "'" + (row['Tanggal (YYYY-MM-DD)'] || ''),
@@ -4593,7 +4625,10 @@ function importDataBatch(token, type, data) {
           row['Pemesan'] || '',
           JSON.stringify(items),
           total,
-          new Date()
+          new Date(),
+          JSON.stringify(dataSurat),   // Kolom 10
+          JSON.stringify(dataTanggal), // Kolom 11
+          ""                           // Kolom 12 (PDF ID Kosong)
         ];
       };
     }
