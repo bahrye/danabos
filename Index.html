@@ -5,6 +5,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     
     <style>
       /* --- PERBAIKAN CSS SCROLL MOBILE --- */
@@ -1189,6 +1190,11 @@
             <li class="nav-item">
               <a onclick="navigasiKe('panel-guru', this)" class="nav-link" style="cursor: pointer;">
                 <i class="fas fa-user-tie me-2"></i> Data Pemesan/Guru
+              </a>
+            </li>
+            <li class="nav-item">
+              <a onclick="navigasiKe('panel-import', this)" class="nav-link" style="cursor: pointer;">
+                <i class="fas fa-file-import me-2"></i> Import Data
               </a>
             </li>
 
@@ -3840,6 +3846,120 @@
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-import" class="panel-content hidden">
+            <h2 class="mb-4"><i class="fas fa-file-import text-primary"></i> Import Data Excel</h2>
+            
+            <div class="alert alert-light border shadow-sm mb-4">
+              <i class="fas fa-info-circle text-info me-2"></i>
+              <strong>Panduan:</strong> Gunakan fitur ini untuk memasukkan banyak data sekaligus dari file Excel (.xlsx).
+              Pastikan Anda <b>Mendownload Template</b> terlebih dahulu agar format kolom sesuai.
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 text-center p-3 btn-card" onclick="bukaModalImport('URAIAN')" style="cursor:pointer; transition:0.3s;">
+                  <div class="card-body">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <i class="fas fa-list-ul fa-lg"></i>
+                    </div>
+                    <h5 class="card-title fw-bold">Uraian Pekerjaan</h5>
+                    <p class="text-muted small">Import data RKAM / Uraian Belanja</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 text-center p-3 btn-card" onclick="bukaModalImport('TOKO')" style="cursor:pointer; transition:0.3s;">
+                  <div class="card-body">
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <i class="fas fa-store fa-lg"></i>
+                    </div>
+                    <h5 class="card-title fw-bold">Data Toko</h5>
+                    <p class="text-muted small">Import daftar Toko / Rekanan</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 text-center p-3 btn-card" onclick="bukaModalImport('TUKANG')" style="cursor:pointer; transition:0.3s;">
+                  <div class="card-body">
+                    <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <i class="fas fa-hammer fa-lg"></i>
+                    </div>
+                    <h5 class="card-title fw-bold">Data Tukang</h5>
+                    <p class="text-muted small">Import daftar Pekerja / Tukang</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 text-center p-3 btn-card" onclick="bukaModalImport('GURU')" style="cursor:pointer; transition:0.3s;">
+                  <div class="card-body">
+                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <i class="fas fa-user-tie fa-lg"></i>
+                    </div>
+                    <h5 class="card-title fw-bold">Pemesan / Guru</h5>
+                    <p class="text-muted small">Import data Guru / Penerima Honor</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 text-center p-3 btn-card" onclick="bukaModalImport('TRANSAKSI')" style="cursor:pointer; transition:0.3s;">
+                  <div class="card-body">
+                    <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <i class="fas fa-shopping-cart fa-lg"></i>
+                    </div>
+                    <h5 class="card-title fw-bold">Transaksi Belanja</h5>
+                    <p class="text-muted small">Import rekapitulasi transaksi</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalImport" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                  <h5 class="modal-title"><i class="fas fa-upload me-2"></i> Import <span id="lblImportTitle">Data</span></h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                  
+                  <input type="hidden" id="importTypeTarget">
+
+                  <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Langkah 1: Siapkan Data</label>
+                    <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                      <span class="small text-dark">Belum punya format file?</span>
+                      <button class="btn btn-sm btn-outline-success fw-bold" onclick="downloadTemplateCurrent()">
+                        <i class="fas fa-file-excel me-1"></i> Download Template
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Langkah 2: Upload Excel</label>
+                    <input type="file" class="form-control" id="fileImportInput" accept=".xlsx, .xls">
+                    <div class="form-text mt-2"><i class="fas fa-info-circle me-1"></i> Gunakan file .xlsx. Pastikan header kolom sesuai template.</div>
+                  </div>
+
+                  <div id="importPreviewStatus" class="alert alert-info d-none">
+                    <small>File terdeteksi: <span id="fileNameDisplay" class="fw-bold"></span></small>
+                  </div>
+
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                  <button type="button" class="btn btn-primary px-4" id="btnProsesImport" onclick="prosesImportFile()">
+                    <i class="fas fa-cloud-upload-alt me-1"></i> Mulai Import
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -11748,6 +11868,176 @@
         var tglStr = (tgl < 10 ? '0' : '') + tgl;
         
         return tglStr + " " + bulanIndo[bln] + " " + thn;
+      }
+
+      /* --- LOGIKA FITUR IMPORT --- */
+
+      // Variabel global untuk menyimpan tipe import saat ini
+      let currentImportType = '';
+
+      /* --- LOGIKA FITUR IMPORT (VERSI PERBAIKAN) --- */
+
+      // 1. Buka Modal Import
+      function bukaModalImport(type) {
+        // Pastikan variabel diisi
+        currentImportType = type;
+        
+        // Ubah Judul Modal
+        let title = '';
+        if(type === 'URAIAN') title = 'Uraian Pekerjaan';
+        else if(type === 'TOKO') title = 'Data Toko';
+        else if(type === 'TUKANG') title = 'Data Tukang';
+        else if(type === 'GURU') title = 'Data Guru';
+        else if(type === 'TRANSAKSI') title = 'Transaksi Belanja';
+        
+        // Update UI Modal
+        const lblTitle = document.getElementById('lblImportTitle');
+        const inpTarget = document.getElementById('importTypeTarget');
+        const inpFile = document.getElementById('fileImportInput');
+        const statusDiv = document.getElementById('importPreviewStatus');
+
+        if(lblTitle) lblTitle.innerText = title;
+        if(inpTarget) inpTarget.value = type;
+        if(inpFile) inpFile.value = ''; // Reset file
+        if(statusDiv) statusDiv.classList.add('d-none');
+        
+        // Buka Modal Bootstrap
+        const modalEl = document.getElementById('modalImport');
+        if(modalEl) {
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+        } else {
+          console.error("Modal dengan ID 'modalImport' tidak ditemukan di HTML.");
+        }
+      }
+
+      // 2. Download Template (Client-Side Excel)
+      function downloadTemplateCurrent() {
+        // Cek apakah SheetJS sudah terload
+        if (typeof XLSX === 'undefined') {
+          Swal.fire('Error', 'Library Excel belum dimuat. Pastikan Anda sudah menambahkan script SheetJS di bagian <head>.', 'error');
+          return;
+        }
+
+        const type = currentImportType;
+        let headers = [];
+        let example = [];
+        let filename = "Template_Import_" + (type || "Data") + ".xlsx";
+
+        // Definisi Kolom Template
+        if (type === 'URAIAN') {
+          headers = ["Nomor Bukti", "Uraian Pekerjaan"];
+          example = ["01/BOS/2025", "Belanja ATK Kegiatan Ujian"];
+        } 
+        else if (type === 'TOKO') {
+          headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
+          example = ["Toko Abadi", "ATK & Fotocopy", "Jl. Merdeka No. 1", "08123456789", "H. Budi", "Jakarta"];
+        } 
+        else if (type === 'TUKANG') {
+          headers = ["Nama Tukang", "Alamat Lengkap"];
+          example = ["Pak Slamet", "Desa Sukamaju RT 01/02"];
+        } 
+        else if (type === 'GURU') {
+          headers = ["Nama Lengkap", "NIP"];
+          example = ["Drs. Ahmad, M.Pd.", "198001012000011001"];
+        } 
+        else if (type === 'TRANSAKSI') {
+          headers = ["Tanggal (YYYY-MM-DD)", "Tipe (TOKO/TUKANG/GURU)", "Uraian Pekerjaan", "Pihak Ketiga", "Pemesan", "Nama Barang", "Volume", "Satuan", "Harga Satuan"];
+          example = ["2025-01-15", "TOKO", "Belanja ATK", "Toko Abadi", "Ibu Guru Ani", "Kertas HVS A4", 5, "Rim", 50000];
+        }
+
+        // Generate File
+        const wb = XLSX.utils.book_new();
+        const wsData = [headers, example];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Auto-width kolom
+        const wscols = headers.map(h => ({wch: h.length + 10}));
+        ws['!cols'] = wscols;
+
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, filename);
+      }
+
+      // 3. Proses Upload File
+      function prosesImportFile() {
+        const fileInput = document.getElementById('fileImportInput');
+        
+        if (!fileInput || fileInput.files.length === 0) {
+          Swal.fire('Peringatan', 'Silakan pilih file Excel terlebih dahulu!', 'warning');
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        // Tombol Loading
+        const btn = document.getElementById('btnProsesImport');
+        const orgHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Membaca...';
+        btn.disabled = true;
+
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            if (jsonData.length === 0) {
+              throw new Error("File Excel kosong atau format tidak terbaca.");
+            }
+
+            // Kirim ke Backend
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Mengimport...';
+            const token = localStorage.getItem('userToken');
+            
+            google.script.run
+              .withSuccessHandler(function(res) {
+                btn.innerHTML = orgHtml;
+                btn.disabled = false;
+                if (res.status === 'success') {
+                  // Reset Cache Data
+                  if (currentImportType === 'TOKO') DATA_CACHE.toko = null;
+                  if (currentImportType === 'TUKANG') DATA_CACHE.tukang = null;
+                  if (currentImportType === 'GURU') DATA_CACHE.guru = null;
+                  if (currentImportType === 'URAIAN') DATA_CACHE.uraian = null;
+                  if (currentImportType === 'TRANSAKSI') {
+                    DATA_CACHE.transaksi_toko = null;
+                    DATA_CACHE.transaksi_tukang = null;
+                    DATA_CACHE.transaksi_guru = null;
+                    DATA_CACHE.dashboard = null;
+                  }
+
+                  // Tutup Modal
+                  const modalEl = document.getElementById('modalImport');
+                  const modal = bootstrap.Modal.getInstance(modalEl);
+                  if(modal) modal.hide();
+                  
+                  Swal.fire({
+                    icon: 'success', 
+                    title: 'Import Berhasil!', 
+                    text: res.message + ` (${res.count} data masuk)`
+                  });
+                } else {
+                  Swal.fire('Gagal Import', res.message, 'error');
+                }
+              })
+              .withFailureHandler(function(err) {
+                btn.innerHTML = orgHtml;
+                btn.disabled = false;
+                Swal.fire('Error Server', err.message, 'error');
+              })
+              .importDataBatch(token, currentImportType, jsonData);
+
+          } catch (err) {
+            btn.innerHTML = orgHtml;
+            btn.disabled = false;
+            Swal.fire('Error File', 'Gagal membaca file. Pastikan format .xlsx valid.<br>' + err.message, 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
       }
 
     </script>
