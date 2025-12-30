@@ -3197,13 +3197,17 @@
                             <label class="form-label small text-muted">Nama Dana BOS</label>
                             <input type="text" class="form-control" id="pksDanaBos" placeholder="Contoh : Tahap 1">
                           </div>
+                          
                           <div class="col-md-3">
-                            <label class="form-label small text-muted">Tahun</label>
-                            <input type="text" class="form-control bg-light" id="pksTahun" readonly>
+                            <label class="form-label small text-muted">Tahun Anggaran</label>
+                            <input type="text" class="form-control" id="pksTahun" placeholder="2025" 
+                                  oninput="syncPksToOthers()"> 
                           </div>
+
                           <div class="col-md-3">
                             <label class="form-label small text-muted">Jumlah Dana</label>
-                            <input type="text" class="form-control bg-light fw-bold text-success" id="pksJumlah" readonly>
+                            <input type="text" class="form-control fw-bold text-success" id="pksJumlah" placeholder="Rp 0" 
+                                  onkeyup="this.value = formatRibuanInput(this.value); syncPksToOthers()">
                           </div>
                         </div>
 
@@ -10583,36 +10587,46 @@
           .getDataPKS(token);
       }
 
-      // --- HELPER: MAPPING DATA KE INPUT FORM ---
+      /* --- 2. UPDATE: APPLY DATA & SYNC KE TAB LAIN --- */
       function applyPksData(saved, defaults) {
-        // Logika: Gunakan data tersimpan (saved). Jika kosong, gunakan data master sekolah (defaults).
-        
-        // 1. Data Editable (Bisa diedit user)
         const valNama = (saved.namaLengkap && saved.namaLengkap !== "") ? saved.namaLengkap : (defaults.namaSekolah || "");
         document.getElementById('pksNamaLengkap').value = valNama;
-        
+
         const valBos = (saved.danaBos && saved.danaBos !== "") ? saved.danaBos : (defaults.danaBOS || "");
         document.getElementById('pksDanaBos').value = valBos;
-        
-        // Alamat: Susun default jika saved kosong
+
         let defaultAlamat = `${defaults.alamat || ''}, ${defaults.kelurahan || ''}, ${defaults.kecamatan || ''}, ${defaults.kabupaten || ''}, ${defaults.provinsi || ''}`;
         defaultAlamat = defaultAlamat.replace(/^, |, $/g, '').replace(/, ,/g, ',').replace(/, ,/g, ',');
-        
         const valAlamat = (saved.alamat && saved.alamat !== "") ? saved.alamat : defaultAlamat;
         document.getElementById('pksAlamat').value = valAlamat;
 
-        // 2. Data Manual PKS (Murni dari inputan PKS)
+        // LOGIKA TAHUN & JUMLAH (Update agar bisa diedit & diprioritaskan)
+        const valTahun = (saved.tahun && saved.tahun !== "") ? saved.tahun : (defaults.tahunAnggaran || "");
+        document.getElementById('pksTahun').value = valTahun; // Hapus atribut readonly di HTML jika masih ada
+
+        const rawJumlah = (saved.jumlah && saved.jumlah !== "") ? saved.jumlah : (defaults.jumlahAnggaran || 0);
+        document.getElementById('pksJumlah').value = formatRupiahJS(rawJumlah);
+
+        // Isi data inputan manual PKS
         document.getElementById('pksNamaSingkat').value = saved.namaSingkat || '';
         document.getElementById('pksNomorPks').value = saved.nomorPks || '';
         document.getElementById('pksNomorSurat').value = saved.nomorSurat || '';
         document.getElementById('pksTanggal').value = saved.tanggalPks || '';
         document.getElementById('pksNoRek').value = saved.noRek || '';
         document.getElementById('pksNamaRek').value = saved.namaRek || '';
-        
-        // 3. Data Readonly (Hanya tampil, sumber dari Master Data Sekolah)
         document.getElementById('pksKamad').value = defaults.namaKepala || '';
-        document.getElementById('pksTahun').value = defaults.tahunAnggaran || '';
-        document.getElementById('pksJumlah').value = formatRupiahJS(defaults.jumlahAnggaran || 0);
+
+        // [BARU] SINKRONISASI KE TAB LAIN (PERMOHONAN, KUITANSI, SPTJM)
+        syncPksToOthers();
+      }
+
+      /* --- FUNGSI TRIGGER SYNC (Panggil ini saat mengetik) --- */
+      function triggerSyncPKS() {
+        const tahun = document.getElementById('pksTahun').value;
+        // Ambil raw value (hapus Rp dan titik) untuk logika, tapi tetap format untuk tampilan
+        const jumlahRaw = cleanRibuan(document.getElementById('pksJumlah').value);
+        
+        syncPksToOthers();
       }
 
       /* --- UPDATE: SIMPAN DATA PKS --- */
@@ -10822,15 +10836,21 @@
       }
 
       /* --- UTILS --- */
+      /* --- 1. UPDATE: AMBIL FORM PKS (Tambahkan tahun & jumlah) --- */
       function ambilFormPks() {
         return {
           namaLengkap: document.getElementById('pksNamaLengkap').value,
           danaBos: document.getElementById('pksDanaBos').value,
           alamat: document.getElementById('pksAlamat').value,
+          
+          // [BARU] Ambil Tahun & Jumlah (Bersihkan format Rp)
+          tahun: document.getElementById('pksTahun').value,
+          jumlah: cleanRibuan(document.getElementById('pksJumlah').value),
+
           namaSingkat: document.getElementById('pksNamaSingkat').value,
           nomorPks: document.getElementById('pksNomorPks').value,
           nomorSurat: document.getElementById('pksNomorSurat').value,
-          tanggalPks: document.getElementById('pksTanggal').value, 
+          tanggalPks: document.getElementById('pksTanggal').value,
           noRek: document.getElementById('pksNoRek').value,
           namaRek: document.getElementById('pksNamaRek').value
         };
@@ -11655,6 +11675,37 @@
               Swal.fire('Gagal', 'File belum digenerate atau ID tidak ditemukan.', 'error');
           }
       });
+
+      /* --- FUNGSI BARU: SINKRONISASI REALTIME PKS KE FORM LAIN --- */
+      function syncPksToOthers() {
+        // 1. Ambil Nilai dari Input PKS
+        const tahun = document.getElementById('pksTahun').value;
+        // Bersihkan format Rp untuk dapat angka murni
+        const jumlahRaw = cleanRibuan(document.getElementById('pksJumlah').value); 
+        const jumlahFmt = formatRupiahJS(jumlahRaw); // Format ulang ke Rp ...
+
+        // 2. Tembak ke Input Permohonan (Jika elemen ada)
+        const pmTahun = document.getElementById('pmTahun');
+        const pmJumlah = document.getElementById('pmJumlah');
+        const pmJumlahVal = document.getElementById('pmJumlahVal');
+        
+        if (pmTahun) pmTahun.value = tahun;
+        if (pmJumlah) pmJumlah.value = jumlahFmt;
+        if (pmJumlahVal) pmJumlahVal.value = jumlahRaw;
+
+        // 3. Tembak ke Input Kuitansi
+        const kwTahun = document.getElementById('kwTahun');
+        const kwJumlah = document.getElementById('kwJumlah');
+        const kwJumlahVal = document.getElementById('kwJumlahVal'); // Pastikan hidden input ini ada
+
+        if (kwTahun) kwTahun.value = tahun;
+        if (kwJumlah) kwJumlah.value = jumlahFmt;
+        if (kwJumlahVal) kwJumlahVal.value = jumlahRaw;
+
+        // 4. Tembak ke Input SPTJM
+        const sptjmTahun = document.getElementById('sptjmTahun');
+        if (sptjmTahun) sptjmTahun.value = tahun;
+      }
 
     </script>
   </body>
