@@ -11909,20 +11909,29 @@
       }
 
       // 2. Download Template (Client-Side Excel)
-      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED: FETCH SERVER & DROPDOWN) --- */
+      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED) --- */
       function downloadTemplateCurrent() {
         const type = document.getElementById('importTypeTarget').value;
         if (!type) return;
 
-        // 1. Tampilkan Loading & Ambil Token
-        toggleLoading(true, "Mengambil Data Referensi...");
+        // 1. Tentukan Pesan Loading Sesuai Tipe
+        let pesanLoading = "Mengambil Data...";
+        if (type === 'URAIAN') pesanLoading = "Menyiapkan Template Uraian...";
+        else if (type === 'TOKO') pesanLoading = "Menyiapkan Template Toko...";
+        else if (type === 'TUKANG') pesanLoading = "Menyiapkan Template Tukang...";
+        else if (type === 'GURU') pesanLoading = "Menyiapkan Template Guru...";
+        else if (type === 'TRANSAKSI') pesanLoading = "Menyiapkan Template Transaksi...";
+
+        // Tampilkan Loading dengan pesan spesifik
+        toggleLoading(true, pesanLoading);
+        
         const token = localStorage.getItem('userToken');
 
-        // 2. Panggil Server untuk Data Terbaru
+        // 2. Panggil Server
         google.script.run
           .withFailureHandler(function(err) {
             toggleLoading(false);
-            Swal.fire('Gagal', 'Gagal mengambil data referensi: ' + err, 'error');
+            Swal.fire('Gagal', 'Gagal menghubungi server: ' + err, 'error');
           })
           .withSuccessHandler(function(res) {
             if (res.status !== 'success') {
@@ -11930,58 +11939,47 @@
               Swal.fire('Error', res.message, 'error');
               return;
             }
-            
-            // Jika Sukses, Generate Excel dengan Data Server
+            // Lanjut ke pembuatan Excel
             generateExcelWithData(type, res.data);
           })
           .getTemplateRefData(token);
       }
 
       // --- 1. FUNGSI UTAMA DOWNLOAD TEMPLATE ---
-      /* --- FUNGSI UTAMA GENERATE TEMPLATE (PERBAIKAN: HANDLING 3 SHEET) --- */
+      /* --- FUNGSI UTAMA GENERATE TEMPLATE --- */
       function generateExcelWithData(type, refData) {
-        // 1. Tampilkan Loading
-        toggleLoading(true);
+        // 1. Update Pesan Loading agar user tahu proses berlanjut
+        let pesanProses = "Membuat File Excel...";
+        if(type === 'TRANSAKSI') pesanProses = "Menyusun Template 3 Sheet (Toko, Tukang, Guru)...";
         
-        Swal.fire({
-          title: 'Sedang Memproses...',
-          text: 'Sistem sedang menyusun Template 3 Sheet (Toko, Tukang, Guru). Mohon tunggu...',
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
+        // Update teks pada overlay loading yang sedang aktif
+        const txtEl = document.getElementById('loadingText');
+        if(txtEl) txtEl.innerText = pesanProses;
 
-        // 2. Panggil Server
+        // 2. Panggil Server untuk Create Spreadsheet
         google.script.run
           .withFailureHandler(function(err) {
             toggleLoading(false);
             Swal.fire('Koneksi Gagal', 'Error: ' + err.message, 'error');
           })
           .withSuccessHandler(function(res) {
-            toggleLoading(false);
-            
-            // 3. Cek Respon Server
-            // Kode server baru mengembalikan { status: 'success', url: '...' }
+            toggleLoading(false); // Selesai
+
             if (res.status === 'success') {
-              
               Swal.fire({
                 icon: 'success',
                 title: 'Template Siap!',
-                text: 'Template 3 Sheet berhasil dibuat. Klik tombol di bawah untuk membukanya.',
+                text: 'File berhasil dibuat. Klik tombol di bawah untuk membukanya.',
                 showCancelButton: true,
                 confirmButtonText: 'Buka Spreadsheet',
                 cancelButtonText: 'Tutup',
                 confirmButtonColor: '#198754'
               }).then((result) => {
                 if (result.isConfirmed) {
-                  // Buka Link Spreadsheet di Tab Baru
                   window.open(res.url, '_blank');
                 }
               });
-
             } else {
-              // Jika Server mengirim pesan error
               Swal.fire('Gagal', res.message || 'Terjadi kesalahan saat membuat template.', 'error');
             }
           })
