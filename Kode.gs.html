@@ -5252,3 +5252,130 @@ function importDataFromOnline(token, type) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI SINKRONISASI REFERENSI (PERBAIKAN: TARGET KE TEMPLATE TRANSAKSI) --- */
+function sinkronisasiRef(token) {
+  try {
+    const ssMaster = SpreadsheetApp.openById(token);
+    
+    // 1. Cari ID File Template Transaksi di DataPengaturan
+    // Sistem menyimpan ID file generate dengan key "SPREADSHEET_ID_TRANSAKSI"
+    const sheetSet = ssMaster.getSheetByName('DataPengaturan');
+    let templateId = null;
+    
+    if (sheetSet) {
+      const dataSet = sheetSet.getDataRange().getValues();
+      for (let i = 0; i < dataSet.length; i++) {
+        if (dataSet[i][0] === 'SPREADSHEET_ID_TRANSAKSI') {
+          templateId = dataSet[i][1];
+          break;
+        }
+      }
+    }
+
+    // Jika Template belum pernah dibuat
+    if (!templateId) {
+      return { 
+        status: 'error', 
+        message: 'File Template Transaksi tidak ditemukan. Silakan klik tombol "Generate Template" atau "Lihat Template" terlebih dahulu agar file terbentuk.' 
+      };
+    }
+
+    // 2. Buka File Template Transaksi
+    let ssTemplate;
+    try {
+      ssTemplate = SpreadsheetApp.openById(templateId);
+    } catch (err) {
+      return { status: 'error', message: 'Gagal membuka file Template. Mungkin file sudah dihapus dari Google Drive.' };
+    }
+
+    // 3. Konfigurasi Mapping Data (Dari Master -> Ke Template)
+    // srcCol: Index Kolom di Master (0=A, 1=B, 2=C)
+    const mappings = [
+      { srcSheet: 'DataGuru',   srcCol: 1, destSheet: 'Ref_Guru',   rangeName: 'List_Guru' },   // Ambil Nama (Kolom B)
+      { srcSheet: 'DataToko',   srcCol: 1, destSheet: 'Ref_Toko',   rangeName: 'List_Toko' },   // Ambil Nama (Kolom B)
+      { srcSheet: 'DataTukang', srcCol: 1, destSheet: 'Ref_Tukang', rangeName: 'List_Tukang'},  // Ambil Nama (Kolom B)
+      { srcSheet: 'DataUraian', srcCol: 2, destSheet: 'Ref_Uraian', rangeName: 'List_Uraian' }  // Ambil Uraian (Kolom C)
+    ];
+
+    // 4. Proses Update Data
+    mappings.forEach(map => {
+      try {
+        // A. Ambil Data dari Master
+        const sheetSumber = ssMaster.getSheetByName(map.srcSheet);
+        let dataBaru = [];
+        if (sheetSumber && sheetSumber.getLastRow() >= 2) {
+          // Ambil semua data di kolom target
+          const raw = sheetSumber.getRange(2, map.srcCol + 1, sheetSumber.getLastRow() - 1, 1).getValues();
+          // Filter data kosong dan duplikat
+          dataBaru = [...new Set(raw.flat().filter(String))].map(item => [item]);
+        }
+
+        // B. Buka/Buat Sheet di Template
+        let sheetDest = ssTemplate.getSheetByName(map.destSheet);
+        if (!sheetDest) {
+          sheetDest = ssTemplate.insertSheet(map.destSheet);
+          sheetDest.hideSheet(); // Sembunyikan agar rapi
+        }
+        
+        sheetDest.clear(); // Hapus data lama di Template
+
+        // C. Paste Data Baru ke Template
+        if (dataBaru.length > 0) {
+          sheetDest.getRange(1, 1).setValue("DATA REFERENSI (JANGAN DIHAPUS)").setFontWeight("bold");
+          sheetDest.getRange(2, 1, dataBaru.length, 1).setValues(dataBaru);
+        } else {
+          sheetDest.getRange(1, 1).setValue("- Kosong -");
+        }
+
+        // D. UPDATE NAMED RANGE (PENTING: DINAMIS A2:A)
+        // Ini yang membuat dropdown membaca sampai baris terakhir tak terbatas
+        ssTemplate.setNamedRange(map.rangeName, sheetDest.getRange("A2:A"));
+
+      } catch (e) {
+        console.error("Gagal sync " + map.destSheet + ": " + e.toString());
+      }
+    });
+
+    // 5. [OPSIONAL] PERBAIKI VALIDASI DI SHEET 'Data Transaksi' (Jika ada)
+    // Jika dropdown di sheet Transaksi masih error, kita paksa update aturannya
+    const sheetTrans = ssTemplate.getSheetByName('TOKO'); // Contoh target sheet TOKO
+    if (sheetTrans) {
+       // Update Validasi Kolom Uraian (Misal Kolom C / 3)
+       updateValidationRule(sheetTrans, 3, ssTemplate.getRangeByName('List_Uraian'));
+       // Update Validasi Kolom Toko (Misal Kolom D / 4)
+       updateValidationRule(sheetTrans, 4, ssTemplate.getRangeByName('List_Toko'));
+    }
+    
+    // Ulangi untuk Sheet TUKANG dan GURU jika perlu
+    const sheetTukang = ssTemplate.getSheetByName('TUKANG');
+    if (sheetTukang) {
+       updateValidationRule(sheetTukang, 3, ssTemplate.getRangeByName('List_Uraian'));
+       updateValidationRule(sheetTukang, 4, ssTemplate.getRangeByName('List_Tukang'));
+    }
+    
+    const sheetGuru = ssTemplate.getSheetByName('GURU');
+    if (sheetGuru) {
+       updateValidationRule(sheetGuru, 3, ssTemplate.getRangeByName('List_Uraian'));
+       updateValidationRule(sheetGuru, 5, ssTemplate.getRangeByName('List_Guru')); // Guru biasanya di kolom Pemesan
+    }
+
+    return { status: 'success', message: 'Template berhasil disinkronkan! Coba reload Spreadsheet Transaksi Anda.' };
+
+  } catch (e) {
+    return { status: 'error', message: 'Error: ' + e.toString() };
+  }
+}
+
+// Helper untuk update validasi kolom
+function updateValidationRule(sheet, colIndex, rangeSource) {
+  try {
+    if(!rangeSource) return;
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInRange(rangeSource)
+      .setAllowInvalid(true) // Bolehkan input manual jika perlu
+      .build();
+    // Terapkan ke baris 2 sampai 1000
+    sheet.getRange(2, colIndex, 999, 1).setDataValidation(rule);
+  } catch(e) {}
+}
