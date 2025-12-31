@@ -3933,15 +3933,7 @@
                   <input type="hidden" id="importTypeTarget">
                   
                   <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-end border-bottom mb-2 pb-1">
-                      <label class="form-label fw-bold small text-muted text-uppercase mb-0">Langkah 1: Siapkan Data</label>
-                      
-                      <button id="btnUpdateRef" class="btn btn-sm btn-outline-primary py-0 px-2 hidden" 
-                              onclick="handleUpdateReferensi()" 
-                              style="font-size: 0.7rem; border-radius: 20px;">
-                        <i class="fas fa-sync-alt me-1"></i> Update Referensi
-                      </button>
-                    </div>
+                    <label class="form-label fw-bold small text-muted text-uppercase border-bottom w-100 pb-1">Langkah 1: Siapkan Data</label>
                     <div class="p-3 bg-light rounded border text-center mt-2">
                       
                       <div id="areaGenerateBtn">
@@ -11981,12 +11973,6 @@
               
               // Aktifkan tombol import online
               if(btnOnline) btnOnline.classList.remove('disabled'); 
-              // [TAMBAHAN BARU] Tampilkan tombol Update Referensi KHUSUS TRANSAKSI
-              if (type === 'TRANSAKSI') {
-                  document.getElementById('btnUpdateRef').classList.remove('hidden');
-              } else {
-                  document.getElementById('btnUpdateRef').classList.add('hidden');
-              }
               
           } else {
               // KONDISI B: Template BELUM ADA
@@ -11997,7 +11983,6 @@
               
               // Disable tombol import online
               if(btnOnline) btnOnline.classList.add('disabled');
-              document.getElementById('btnUpdateRef').classList.add('hidden');
           }
         }).withFailureHandler(function(err){
             // Jika error koneksi, tampilkan tombol generate agar tidak blank
@@ -12097,54 +12082,6 @@
                   Swal.fire('Gagal Import', res.message, 'error');
               }
             }).importDataFromOnline(token, type);
-          }
-        });
-      }
-
-      // --- FUNGSI UPDATE REFERENSI TEMPLATE ---
-      function handleUpdateReferensi() {
-        const token = localStorage.getItem('userToken');
-        const btn = document.getElementById('btnUpdateRef');
-        
-        // Konfirmasi User
-        Swal.fire({
-          title: 'Update Referensi?',
-          text: "Data referensi (Barang, Toko, Uraian, dll) di file Template Excel Online akan diperbarui dengan data terbaru dari aplikasi.",
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: 'Ya, Update',
-          confirmButtonColor: '#0d6efd'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            
-            // Animasi Loading Tombol
-            const orgHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Proses...';
-            btn.disabled = true;
-
-            google.script.run
-              .withFailureHandler(function(err) {
-                btn.innerHTML = orgHtml;
-                btn.disabled = false;
-                Swal.fire('Gagal', err.message, 'error');
-              })
-              .withSuccessHandler(function(res) {
-                btn.innerHTML = orgHtml;
-                btn.disabled = false;
-                
-                if (res.status === 'success') {
-                  Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil!',
-                    text: res.message,
-                    timer: 2000,
-                    showConfirmButton: false
-                  });
-                } else {
-                  Swal.fire('Gagal', res.message, 'error');
-                }
-              })
-              .updateTemplateReferensi(token);
           }
         });
       }
