@@ -5108,29 +5108,44 @@ function generateSpreadsheetTemplate(token, type) {
         if(s1) newSS.deleteSheet(s1);
 
     } else {
-        // === LOGIKA STANDAR (NON-TRANSAKSI) ===
+        // === LOGIKA STANDAR (NON-TRANSAKSI: TOKO, TUKANG, GURU, URAIAN) ===
         const sheet = newSS.getSheets()[0];
         let headers = [];
+        
+        // Penentuan Header
         if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
         else if (type === 'TUKANG') headers = ["Nama Lengkap", "Alamat"];
         else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
         else if (type === 'URAIAN') headers = ["Nomor Bukti", "Uraian Pekerjaan"];
 
         if (headers.length > 0) {
+          // 1. Set Header
           sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-          sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#d9ead3").setBorder(true, true, true, true, true, true);
+          sheet.getRange(1, 1, 1, headers.length)
+               .setFontWeight("bold")
+               .setBackground("#d9ead3")
+               .setBorder(true, true, true, true, true, true);
+          
           sheet.setFrozenRows(1);
 
-          const protection = sheet.protect().setDescription('Proteksi Header');
-          const me = Session.getEffectiveUser();
-          protection.addEditor(me);
-          const editors = protection.getEditors();
-          const editorsToRemove = editors.filter(e => e.getEmail() !== me.getEmail());
-          if (editorsToRemove.length > 0) protection.removeEditors(editorsToRemove);
-          if (protection.canDomainEdit()) protection.setDomainEdit(false);
+          // 2. Atur Lebar Kolom agar rapi
+          headers.forEach((h, i) => sheet.setColumnWidth(i + 1, 200));
 
-          const editRange = sheet.getRange(2, 1, 2000, headers.length);
-          protection.setUnprotectedRanges([editRange]);
+          // 3. Tentukan Area Edit (PERBAIKAN: Ubah 2000 menjadi 900)
+          // File baru defaultnya 1000 baris. 900 baris sudah cukup untuk template.
+          const maxRows = 900; 
+          const editRange = sheet.getRange(2, 1, maxRows, headers.length);
+          
+          // Format text agar angka seperti "0812..." tidak hilang nol-nya
+          editRange.setNumberFormat("@"); 
+
+          // 4. Proteksi Sheet (Kunci Header, Buka Isi)
+          // Menggunakan logika simple seperti di Transaksi Belanja agar lebih stabil
+          const protection = sheet.protect().setDescription('Proteksi Header');
+          protection.setUnprotectedRanges([editRange]); // Area ini boleh diedit
+          protection.setWarningOnly(false);             // Benar-benar dikunci
+          protection.removeEditors(protection.getEditors()); // Hapus editor lain (kecuali pemilik)
+          if (protection.canDomainEdit()) protection.setDomainEdit(false);
         }
     }
     
