@@ -4831,3 +4831,183 @@ function createExcelTemplateFromServer(type, refData) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* ========================================================================= */
+/* MODUL IMPORT SPREADSHEET ONLINE (FITUR BARU) */
+/* ========================================================================= */
+
+// 1. Cek Status: Apakah Sekolah sudah punya file template untuk Tipe ini?
+function checkSpreadsheetTemplate(token, type) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheetSet = ss.getSheetByName('DataPengaturan');
+    let id = "";
+    
+    if (sheetSet) {
+      const data = sheetSet.getDataRange().getValues();
+      const key = "SPREADSHEET_ID_" + type;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === key) {
+          id = data[i][1];
+          break;
+        }
+      }
+    }
+    
+    // Validasi apakah file ID tersebut masih ada di Drive (tidak terhapus)
+    let valid = false;
+    if (id && id !== "") {
+      try {
+        const file = DriveApp.getFileById(id);
+        if (!file.isTrashed()) valid = true;
+      } catch (e) {
+        valid = false; // File mungkin sudah dihapus user
+      }
+    }
+    
+    return { status: 'success', exists: valid, id: valid ? id : "" };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+// 2. Generate Template: Buat Spreadsheet Baru & Simpan ID-nya
+function generateSpreadsheetTemplate(token, type) {
+  try {
+    const ss = SpreadsheetApp.openById(token); // Database Sekolah
+    // Ambil folder tempat Database berada, agar file template kumpul jadi satu
+    const parentFolder = DriveApp.getFileById(ss.getId()).getParents().next(); 
+    
+    const timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd_HHmm");
+    const fileName = "Template Input " + type + " (" + timestamp + ")";
+    
+    // Buat Spreadsheet Baru
+    const newSS = SpreadsheetApp.create(fileName);
+    const file = DriveApp.getFileById(newSS.getId());
+    
+    // Pindahkan ke folder sekolah
+    parentFolder.addFile(file);
+    DriveApp.getRootFolder().removeFile(file); // Hapus dari root
+    
+    // Setup Header Sesuai Tipe
+    const sheet = newSS.getSheets()[0];
+    let headers = [];
+    
+    if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
+    else if (type === 'TUKANG') headers = ["Nama Lengkap", "Alamat"];
+    else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
+    else if (type === 'URAIAN') headers = ["Nomor Bukti", "Uraian Pekerjaan"];
+    else if (type === 'TRANSAKSI') headers = ["Tanggal", "Tipe", "Uraian", "Pihak Ketiga", "Total"]; // Standar sederhana
+
+    if (headers.length > 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      // Styling Header
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#d9ead3").setBorder(true, true, true, true, true, true);
+      sheet.setFrozenRows(1);
+    }
+    
+    // Simpan ID File ke DataPengaturan agar besok bisa dibuka lagi
+    let sheetSet = ss.getSheetByName('DataPengaturan');
+    if (!sheetSet) {
+      sheetSet = ss.insertSheet('DataPengaturan');
+      sheetSet.appendRow(['KEY', 'VALUE']);
+    }
+    
+    // Upsert (Update or Insert) Key
+    const key = "SPREADSHEET_ID_" + type;
+    const data = sheetSet.getDataRange().getValues();
+    let found = false;
+    for(let i=0; i<data.length; i++) {
+      if(data[i][0] === key) {
+        sheetSet.getRange(i+1, 2).setValue(newSS.getId());
+        found = true;
+        break;
+      }
+    }
+    if(!found) sheetSet.appendRow([key, newSS.getId()]);
+    
+    return { status: 'success', id: newSS.getId() };
+    
+  } catch (e) {
+    return { status: 'error', message: "Gagal membuat template: " + e.toString() };
+  }
+}
+
+// 3. Import Data dari Spreadsheet Online
+function importDataFromOnline(token, type) {
+  try {
+    // A. Ambil ID Template dari Database
+    const resCheck = checkSpreadsheetTemplate(token, type);
+    if (!resCheck.exists) return { status: 'error', message: 'Template Online belum pernah dibuat/digenerate.' };
+    
+    const sourceSS = SpreadsheetApp.openById(resCheck.id);
+    const sourceSheet = sourceSS.getSheets()[0];
+    const lastRow = sourceSheet.getLastRow();
+    
+    if (lastRow < 2) return { status: 'error', message: 'File template masih kosong. Silakan isi data dulu.' };
+    
+    // Ambil semua data (Baris 2 sampai akhir)
+    const data = sourceSheet.getRange(2, 1, lastRow - 1, sourceSheet.getLastColumn()).getValues();
+    
+    // B. Proses Simpan ke Database Utama
+    const ssDB = SpreadsheetApp.openById(token);
+    let count = 0;
+    
+    if (type === 'TOKO') {
+      let sheetToko = ssDB.getSheetByName('DataToko');
+      if (!sheetToko) { 
+        sheetToko = ssDB.insertSheet('DataToko'); 
+        sheetToko.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]); 
+      }
+      
+      data.forEach(row => {
+        if (row[0]) { // Validasi Nama Toko Wajib Ada
+           const id = Utilities.getUuid();
+           // Format No Telp pakai kutip satu agar string
+           sheetToko.appendRow([id, row[0], row[1], row[2], "'" + row[3], row[4], row[5]]);
+           count++;
+        }
+      });
+    }
+    else if (type === 'TUKANG') {
+      let sheetTukang = ssDB.getSheetByName('DataTukang');
+      if (!sheetTukang) { sheetTukang = ssDB.insertSheet('DataTukang'); sheetTukang.appendRow(["ID", "Nama Tukang", "Alamat"]); }
+      
+      data.forEach(row => {
+        if (row[0]) {
+           const id = Utilities.getUuid();
+           sheetTukang.appendRow([id, row[0], row[1]]);
+           count++;
+        }
+      });
+    }
+    else if (type === 'GURU') {
+      let sheetGuru = ssDB.getSheetByName('DataGuru');
+      if (!sheetGuru) { sheetGuru = ssDB.insertSheet('DataGuru'); sheetGuru.appendRow(["ID", "Nama Guru", "NIP"]); }
+      
+      data.forEach(row => {
+        if (row[0]) {
+           const id = Utilities.getUuid();
+           sheetGuru.appendRow([id, row[0], "'" + row[1]]);
+           count++;
+        }
+      });
+    }
+    else if (type === 'URAIAN') {
+       let sheetUr = ssDB.getSheetByName('DataUraian');
+       if(!sheetUr) { sheetUr = ssDB.insertSheet('DataUraian'); sheetUr.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); }
+       data.forEach(row => {
+         if (row[1]) { // Validasi Uraian Wajib
+           const id = Utilities.getUuid();
+           sheetUr.appendRow([id, "'" + row[0], row[1]]);
+           count++;
+         }
+       });
+    }
+    
+    return { status: 'success', message: 'Berhasil mengimport <b>' + count + '</b> data dari Spreadsheet.' };
+    
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
