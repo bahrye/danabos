@@ -11938,46 +11938,52 @@
       }
 
       // --- 1. FUNGSI UTAMA DOWNLOAD TEMPLATE ---
+      /* --- FUNGSI UTAMA GENERATE TEMPLATE (PERBAIKAN: HANDLING 3 SHEET) --- */
       function generateExcelWithData(type, refData) {
-        // Tampilkan Loading
+        // 1. Tampilkan Loading
         toggleLoading(true);
         
-        // Gunakan SweetAlert untuk memberi info proses server
         Swal.fire({
-          title: 'Sedang Membuat Template...',
-          text: 'Sistem sedang menyusun file Excel dengan validasi data terbaru. Mohon tunggu.',
+          title: 'Sedang Memproses...',
+          text: 'Sistem sedang menyusun Template 3 Sheet (Toko, Tukang, Guru). Mohon tunggu...',
           allowOutsideClick: false,
           didOpen: () => {
             Swal.showLoading();
           }
         });
 
-        // Panggil Fungsi Server (Kode.gs)
+        // 2. Panggil Server
         google.script.run
+          .withFailureHandler(function(err) {
+            toggleLoading(false);
+            Swal.fire('Koneksi Gagal', 'Error: ' + err.message, 'error');
+          })
           .withSuccessHandler(function(res) {
-            toggleLoading(false); // Tutup loading overlay
+            toggleLoading(false);
             
-            if (res.success) {
-              // Jika Sukses: Jalankan Download
-              downloadBase64File(res.base64, res.fileName);
+            // 3. Cek Respon Server
+            // Kode server baru mengembalikan { status: 'success', url: '...' }
+            if (res.status === 'success') {
               
               Swal.fire({
                 icon: 'success',
-                title: 'Berhasil!',
-                text: 'Template Excel telah didownload. Dropdown list sudah aktif.',
-                timer: 3000,
-                showConfirmButton: false
+                title: 'Template Siap!',
+                text: 'Template 3 Sheet berhasil dibuat. Klik tombol di bawah untuk membukanya.',
+                showCancelButton: true,
+                confirmButtonText: 'Buka Spreadsheet',
+                cancelButtonText: 'Tutup',
+                confirmButtonColor: '#198754'
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  // Buka Link Spreadsheet di Tab Baru
+                  window.open(res.url, '_blank');
+                }
               });
+
             } else {
-              // Jika Server Error (Response success: false)
-              Swal.fire('Gagal Membuat Excel', res.error, 'error');
+              // Jika Server mengirim pesan error
+              Swal.fire('Gagal', res.message || 'Terjadi kesalahan saat membuat template.', 'error');
             }
-          })
-          .withFailureHandler(function(err) {
-            // Jika Koneksi Error
-            toggleLoading(false);
-            console.error(err);
-            Swal.fire('Koneksi Gagal', 'Tidak dapat menghubungi server: ' + err.message, 'error');
           })
           .createExcelTemplateFromServer(type, refData);
       }
