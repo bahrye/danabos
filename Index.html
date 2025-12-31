@@ -3947,6 +3947,19 @@
 
                       <div id="areaViewBtn" class="hidden">
                         <div class="d-grid gap-2">
+                          <div class="alert alert-warning py-2 mb-3 shadow-sm border-start border-5 border-warning">
+                            <div class="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 class="fw-bold mb-1"><i class="fas fa-sync text-warning me-2"></i>Sinkronisasi Referensi</h6>
+                                <small class="text-muted" style="font-size: 0.8rem; line-height: 1.2;">
+                                  Klik ini sebelum download template agar Dropdown (Guru, Toko, Uraian) terupdate dengan data terbaru.
+                                </small>
+                              </div>
+                              <button onclick="jalankanSyncRef()" id="btnSyncRef" class="btn btn-warning text-dark fw-bold btn-sm px-3">
+                                <i class="fas fa-sync me-1"></i> Update Data
+                              </button>
+                            </div>
+                          </div>
                           <button class="btn btn-success fw-bold py-2" onclick="handleLihatTemplate()">
                             <i class="fas fa-external-link-alt me-2"></i> Lihat / Edit Template
                           </button>
@@ -12084,6 +12097,45 @@
             }).importDataFromOnline(token, type);
           }
         });
+      }
+
+      /* --- FUNGSI SINKRONISASI REFERENSI --- */
+      function jalankanSyncRef() {
+        const token = localStorage.getItem('userToken');
+        const btn = document.getElementById('btnSyncRef');
+        const originalText = btn.innerHTML;
+        
+        // Ubah tombol jadi loading
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Proses...';
+        btn.disabled = true;
+        
+        google.script.run
+          .withFailureHandler(function(err) {
+            handleServerError(err);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          })
+          .withSuccessHandler(function(res) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            
+            if (res.status === 'success') {
+              Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: res.message,
+                timer: 2000,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: res.message
+              });
+            }
+          })
+          .sinkronisasiRef(token);
       }
 
     </script>
