@@ -4871,11 +4871,12 @@ function checkSpreadsheetTemplate(token, type) {
   }
 }
 
-// 2. Generate Template: Buat Spreadsheet Baru & Simpan ID-nya
+// GANTI FUNGSI generateSpreadsheetTemplate YANG LAMA DENGAN INI:
+
 function generateSpreadsheetTemplate(token, type) {
   try {
-    const ss = SpreadsheetApp.openById(token); // Database Sekolah
-    // Ambil folder tempat Database berada, agar file template kumpul jadi satu
+    const ss = SpreadsheetApp.openById(token); 
+    // Ambil folder tempat Database berada untuk menyimpan template
     const parentFolder = DriveApp.getFileById(ss.getId()).getParents().next(); 
     
     const timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd_HHmm");
@@ -4884,36 +4885,157 @@ function generateSpreadsheetTemplate(token, type) {
     // Buat Spreadsheet Baru
     const newSS = SpreadsheetApp.create(fileName);
     const file = DriveApp.getFileById(newSS.getId());
-    
-    // Pindahkan ke folder sekolah
     parentFolder.addFile(file);
-    DriveApp.getRootFolder().removeFile(file); // Hapus dari root
+    DriveApp.getRootFolder().removeFile(file); 
     
-    // Setup Header Sesuai Tipe
-    const sheet = newSS.getSheets()[0];
-    let headers = [];
-    
-    if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
-    else if (type === 'TUKANG') headers = ["Nama Lengkap", "Alamat"];
-    else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
-    else if (type === 'URAIAN') headers = ["Nomor Bukti", "Uraian Pekerjaan"];
-    else if (type === 'TRANSAKSI') headers = ["Tanggal", "Tipe", "Uraian", "Pihak Ketiga", "Total"]; // Standar sederhana
+    // === LOGIKA KHUSUS TRANSAKSI (3 SHEET) ===
+    if (type === 'TRANSAKSI') {
+        // 1. Ambil Data Referensi untuk Dropdown
+        const refResponse = getTemplateRefData(token);
+        const refData = (refResponse.status === 'success') ? refResponse.data : {};
 
-    if (headers.length > 0) {
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      // Styling Header
-      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#d9ead3").setBorder(true, true, true, true, true, true);
-      sheet.setFrozenRows(1);
+        // 2. Helper: Buat Sheet Referensi Tersembunyi (Untuk Dropdown)
+        const createRefSheet = (name, listData) => {
+            if (!listData || listData.length === 0) return null;
+            let refSheet = newSS.getSheetByName("Ref_" + name);
+            if (!refSheet) refSheet = newSS.insertSheet("Ref_" + name);
+            
+            // Konversi array 1D ke 2D
+            const values = listData.map(item => [item]);
+            refSheet.getRange(1, 1, values.length, 1).setValues(values);
+            refSheet.hideSheet();
+            return refSheet.getRange(1, 1, values.length, 1);
+        };
+
+        const rangeUraian = createRefSheet("Uraian", refData.uraian);
+        const rangeToko   = createRefSheet("Toko", refData.toko);
+        const rangeTukang = createRefSheet("Tukang", refData.tukang);
+        const rangeGuru   = createRefSheet("Guru", refData.guru);
+        const rangeBarang = createRefSheet("Barang", refData.barang);
+        const rangeSatuan = createRefSheet("Satuan", refData.satuan);
+
+        // 3. Definisi Header Dasar
+        const baseHeaders = [
+          "No", "Tipe", "Uraian Pekerjaan", "Pihak Ketiga / Keterangan", "Pemesan / Penanggung Jawab",
+          "Nomor Surat Permintaan", "Tanggal Surat Permintaan",
+          "Nomor Surat Penawaran", "Tanggal Surat Penawaran",
+          "Nomor BA Pemeriksaan", "Tanggal BA Pemeriksaan",
+          "Nomor BA Serah Terima", "Tanggal BA Serah Terima",
+          "Nomor BA Pembayaran", "Tanggal BA Pembayaran"
+        ];
+
+        // 4. Fungsi Setup Sheet Dinamis
+        const setupSheet = (sheetName, tipeDefault, rulePihak, rulePemesan, itemLabel) => {
+            let sheet = newSS.getSheetByName(sheetName);
+            if (!sheet) sheet = newSS.insertSheet(sheetName);
+            
+            const maxRows = 500; // Siapkan validasi untuk 500 baris
+
+            // Header Dinamis 32 Item
+            let dynamicHeaders = [];
+            for (let i = 1; i <= 32; i++) {
+                dynamicHeaders.push(itemLabel + " " + i);
+                dynamicHeaders.push("Volume " + i);
+                dynamicHeaders.push("Satuan " + i);
+                dynamicHeaders.push("Harga Satuan " + i);
+            }
+            const fullHeaders = baseHeaders.concat(dynamicHeaders);
+
+            // Set Header & Style
+            const headerRange = sheet.getRange(1, 1, 1, fullHeaders.length);
+            headerRange.setValues([fullHeaders]);
+            headerRange.setFontWeight("bold").setBackground("#e0e0e0").setBorder(true, true, true, true, true, true);
+            sheet.setFrozenRows(1);
+
+            // --- VALIDASI KOLOM UTAMA ---
+            // Tipe (Hidden value)
+            sheet.getRange(2, 2, maxRows, 1).setValue(tipeDefault).setFontColor("#808080");
+            
+            // Dropdown Uraian
+            if (rangeUraian) {
+                const rule = SpreadsheetApp.newDataValidation().requireValueInRange(rangeUraian).setAllowInvalid(true).build();
+                sheet.getRange(2, 3, maxRows, 1).setDataValidation(rule);
+            }
+            // Dropdown Pihak Ketiga (Toko/Tukang)
+            if (rulePihak) sheet.getRange(2, 4, maxRows, 1).setDataValidation(rulePihak);
+            // Dropdown Pemesan (Guru)
+            if (rulePemesan) sheet.getRange(2, 5, maxRows, 1).setDataValidation(rulePemesan);
+
+            // Validasi Tanggal (Kolom G, I, K, M, O -> Index 7,9,11,13,15)
+            const dateRule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText("Format Tanggal Salah (Gunakan DD/MM/YYYY)").build();
+            [7, 9, 11, 13, 15].forEach(col => sheet.getRange(2, col, maxRows, 1).setDataValidation(dateRule));
+
+            // --- VALIDASI 32 ITEM RINCIAN ---
+            for (let i = 1; i <= 32; i++) {
+                const colStart = 16 + (i - 1) * 4; // Mulai dari kolom 16
+                const colName = colStart; 
+                const colSat = colStart + 2;
+
+                // Validasi Nama Item (Barang / Tukang / Guru)
+                let ruleItem = null;
+                if (sheetName === 'TOKO' && rangeBarang) {
+                    ruleItem = SpreadsheetApp.newDataValidation().requireValueInRange(rangeBarang).setAllowInvalid(true).build();
+                } else if (sheetName === 'TUKANG' && rangeTukang) {
+                    ruleItem = SpreadsheetApp.newDataValidation().requireValueInRange(rangeTukang).setAllowInvalid(true).build();
+                } else if (sheetName === 'GURU' && rangeGuru) {
+                    ruleItem = SpreadsheetApp.newDataValidation().requireValueInRange(rangeGuru).setAllowInvalid(true).build();
+                }
+                
+                if (ruleItem) sheet.getRange(2, colName, maxRows, 1).setDataValidation(ruleItem);
+
+                // Validasi Satuan
+                if (rangeSatuan) {
+                    const ruleSat = SpreadsheetApp.newDataValidation().requireValueInRange(rangeSatuan).setAllowInvalid(true).build();
+                    sheet.getRange(2, colSat, maxRows, 1).setDataValidation(ruleSat);
+                }
+            }
+            
+            // Formatting Lebar Kolom agar rapi
+            sheet.setColumnWidth(1, 40);  // No
+            sheet.setColumnWidth(2, 60);  // Tipe
+            sheet.setColumnWidth(3, 250); // Uraian
+            sheet.setColumnWidth(4, 200); // Pihak Ketiga
+            sheet.setColumnWidth(5, 200); // Pemesan
+        };
+
+        // Buat Rule Validasi
+        const valToko = rangeToko ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeToko).setAllowInvalid(false).build() : null;
+        const valTukang = rangeTukang ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeTukang).setAllowInvalid(false).build() : null;
+        const valGuru = rangeGuru ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeGuru).setAllowInvalid(true).build() : null;
+
+        // EKSEKUSI: Buat 3 Sheet
+        setupSheet("TOKO", "TOKO", valToko, valGuru, "Nama Barang");
+        setupSheet("TUKANG", "TUKANG", valTukang, valGuru, "Nama Tukang");
+        setupSheet("GURU", "GURU", null, null, "Nama Guru / Penerima"); 
+
+        // Hapus Sheet1 default
+        const s1 = newSS.getSheetByName("Sheet1");
+        if(s1) newSS.deleteSheet(s1);
+
+    } else {
+        // === LOGIKA STANDAR (1 SHEET) UNTUK DATA MASTER ===
+        const sheet = newSS.getSheets()[0];
+        let headers = [];
+        
+        if (type === 'TOKO') headers = ["Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"];
+        else if (type === 'TUKANG') headers = ["Nama Lengkap", "Alamat"];
+        else if (type === 'GURU') headers = ["Nama Lengkap", "NIP"];
+        else if (type === 'URAIAN') headers = ["Nomor Bukti", "Uraian Pekerjaan"];
+
+        if (headers.length > 0) {
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+          sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#d9ead3").setBorder(true, true, true, true, true, true);
+          sheet.setFrozenRows(1);
+        }
     }
     
-    // Simpan ID File ke DataPengaturan agar besok bisa dibuka lagi
+    // Simpan ID File ke DataPengaturan agar tersimpan
     let sheetSet = ss.getSheetByName('DataPengaturan');
     if (!sheetSet) {
       sheetSet = ss.insertSheet('DataPengaturan');
       sheetSet.appendRow(['KEY', 'VALUE']);
     }
     
-    // Upsert (Update or Insert) Key
     const key = "SPREADSHEET_ID_" + type;
     const data = sheetSet.getDataRange().getValues();
     let found = false;
@@ -4933,79 +5055,82 @@ function generateSpreadsheetTemplate(token, type) {
   }
 }
 
-// 3. Import Data dari Spreadsheet Online
+// GANTI FUNGSI importDataFromOnline YANG LAMA DENGAN INI:
+
 function importDataFromOnline(token, type) {
   try {
-    // A. Ambil ID Template dari Database
+    // 1. Cek ID Template
     const resCheck = checkSpreadsheetTemplate(token, type);
     if (!resCheck.exists) return { status: 'error', message: 'Template Online belum pernah dibuat/digenerate.' };
     
     const sourceSS = SpreadsheetApp.openById(resCheck.id);
-    const sourceSheet = sourceSS.getSheets()[0];
-    const lastRow = sourceSheet.getLastRow();
-    
-    if (lastRow < 2) return { status: 'error', message: 'File template masih kosong. Silakan isi data dulu.' };
-    
-    // Ambil semua data (Baris 2 sampai akhir)
-    const data = sourceSheet.getRange(2, 1, lastRow - 1, sourceSheet.getLastColumn()).getValues();
-    
-    // B. Proses Simpan ke Database Utama
     const ssDB = SpreadsheetApp.openById(token);
     let count = 0;
+
+    // Helper: Konversi data sheet ke Array of Objects (agar sesuai dengan importDataBatch)
+    const sheetToObj = (sheet) => {
+        if (!sheet || sheet.getLastRow() < 2) return [];
+        const data = sheet.getDataRange().getDisplayValues(); // Gunakan DisplayValues agar format tanggal/angka aman
+        const headers = data[0];
+        const results = [];
+        for (let i = 1; i < data.length; i++) {
+            let obj = {};
+            let hasData = false;
+            headers.forEach((h, idx) => {
+                obj[h] = data[i][idx];
+                if(data[i][idx] !== "") hasData = true;
+            });
+            if(hasData) results.push(obj);
+        }
+        return results;
+    };
+
+    // === LOGIKA KHUSUS TRANSAKSI (GABUNG 3 SHEET) ===
+    if (type === 'TRANSAKSI') {
+        let allData = [];
+        const targetSheets = ['TOKO', 'TUKANG', 'GURU'];
+        
+        targetSheets.forEach(name => {
+            const s = sourceSS.getSheetByName(name);
+            if (s) {
+                const rows = sheetToObj(s);
+                allData = allData.concat(rows);
+            }
+        });
+
+        if (allData.length === 0) return { status: 'error', message: 'File template masih kosong di semua sheet (TOKO/TUKANG/GURU).' };
+
+        // Panggil fungsi batch processing yang sudah ada
+        return importDataBatch(token, 'TRANSAKSI', allData);
+    } 
     
-    if (type === 'TOKO') {
-      let sheetToko = ssDB.getSheetByName('DataToko');
-      if (!sheetToko) { 
-        sheetToko = ssDB.insertSheet('DataToko'); 
-        sheetToko.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]); 
-      }
-      
-      data.forEach(row => {
-        if (row[0]) { // Validasi Nama Toko Wajib Ada
-           const id = Utilities.getUuid();
-           // Format No Telp pakai kutip satu agar string
-           sheetToko.appendRow([id, row[0], row[1], row[2], "'" + row[3], row[4], row[5]]);
-           count++;
+    // === LOGIKA DATA MASTER LAINNYA (1 SHEET) ===
+    else {
+        const sourceSheet = sourceSS.getSheets()[0];
+        const data = sourceSheet.getRange(2, 1, sourceSheet.getLastRow() - 1, sourceSheet.getLastColumn()).getValues();
+        
+        if (type === 'TOKO') {
+          let sheetToko = ssDB.getSheetByName('DataToko');
+          if (!sheetToko) { sheetToko = ssDB.insertSheet('DataToko'); sheetToko.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]); }
+          data.forEach(row => { if (row[0]) { sheetToko.appendRow([Utilities.getUuid(), row[0], row[1], row[2], "'" + row[3], row[4], row[5]]); count++; } });
         }
-      });
-    }
-    else if (type === 'TUKANG') {
-      let sheetTukang = ssDB.getSheetByName('DataTukang');
-      if (!sheetTukang) { sheetTukang = ssDB.insertSheet('DataTukang'); sheetTukang.appendRow(["ID", "Nama Tukang", "Alamat"]); }
-      
-      data.forEach(row => {
-        if (row[0]) {
-           const id = Utilities.getUuid();
-           sheetTukang.appendRow([id, row[0], row[1]]);
-           count++;
+        else if (type === 'TUKANG') {
+          let sheetTukang = ssDB.getSheetByName('DataTukang');
+          if (!sheetTukang) { sheetTukang = ssDB.insertSheet('DataTukang'); sheetTukang.appendRow(["ID", "Nama Tukang", "Alamat"]); }
+          data.forEach(row => { if (row[0]) { sheetTukang.appendRow([Utilities.getUuid(), row[0], row[1]]); count++; } });
         }
-      });
-    }
-    else if (type === 'GURU') {
-      let sheetGuru = ssDB.getSheetByName('DataGuru');
-      if (!sheetGuru) { sheetGuru = ssDB.insertSheet('DataGuru'); sheetGuru.appendRow(["ID", "Nama Guru", "NIP"]); }
-      
-      data.forEach(row => {
-        if (row[0]) {
-           const id = Utilities.getUuid();
-           sheetGuru.appendRow([id, row[0], "'" + row[1]]);
-           count++;
+        else if (type === 'GURU') {
+          let sheetGuru = ssDB.getSheetByName('DataGuru');
+          if (!sheetGuru) { sheetGuru = ssDB.insertSheet('DataGuru'); sheetGuru.appendRow(["ID", "Nama Guru", "NIP"]); }
+          data.forEach(row => { if (row[0]) { sheetGuru.appendRow([Utilities.getUuid(), row[0], "'" + row[1]]); count++; } });
         }
-      });
+        else if (type === 'URAIAN') {
+           let sheetUr = ssDB.getSheetByName('DataUraian');
+           if(!sheetUr) { sheetUr = ssDB.insertSheet('DataUraian'); sheetUr.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); }
+           data.forEach(row => { if (row[1]) { sheetUr.appendRow([Utilities.getUuid(), "'" + row[0], row[1]]); count++; } });
+        }
+        return { status: 'success', message: 'Berhasil mengimport <b>' + count + '</b> data.' };
     }
-    else if (type === 'URAIAN') {
-       let sheetUr = ssDB.getSheetByName('DataUraian');
-       if(!sheetUr) { sheetUr = ssDB.insertSheet('DataUraian'); sheetUr.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); }
-       data.forEach(row => {
-         if (row[1]) { // Validasi Uraian Wajib
-           const id = Utilities.getUuid();
-           sheetUr.appendRow([id, "'" + row[0], row[1]]);
-           count++;
-         }
-       });
-    }
-    
-    return { status: 'success', message: 'Berhasil mengimport <b>' + count + '</b> data dari Spreadsheet.' };
     
   } catch (e) {
     return { status: 'error', message: e.toString() };
