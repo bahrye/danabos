@@ -3947,10 +3947,6 @@
 
                       <div id="areaViewBtn" class="hidden">
                         <div class="d-grid gap-2">
-                          <button id="btnUpdateRef" class="btn btn-warning fw-bold py-2 hidden" onclick="handleUpdateReferensi()">
-                            <i class="fas fa-sync me-2"></i> Update Referensi
-                          </button>
-                          
                           <button class="btn btn-success fw-bold py-2" onclick="handleLihatTemplate()">
                             <i class="fas fa-external-link-alt me-2"></i> Lihat / Edit Template
                           </button>
@@ -11916,116 +11912,85 @@
         return tglStr + " " + bulanIndo[bln] + " " + thn;
       }
 
-      // --- UPDATE FUNGSI BUKA MODAL IMPORT ---
+      // --- FUNGSI BUKA MODAL UTAMA ---
       function bukaModalImport(type) {
-        console.log("Membuka modal import untuk: " + type); 
-
-        // 1. Reset UI
+        console.log("Membuka modal import untuk: " + type); // Debugging
+        
+        // 1. Reset UI ke kondisi awal
         var inputTarget = document.getElementById('importTypeTarget');
         var lblTitle = document.getElementById('lblImportTitle');
         var fileInput = document.getElementById('fileImportInput');
         var progress = document.getElementById('importProgress');
         
+        // Pastikan elemen ditemukan sebelum diakses
         if(inputTarget) inputTarget.value = type;
         if(lblTitle) lblTitle.innerText = type;
         if(fileInput) fileInput.value = "";
         if(progress) progress.classList.add('hidden');
-
-        // 2. Hide Tombol & Loading State
+        
+        // 2. Sembunyikan dulu kedua tombol Langkah 1 (Loading State)
         var areaGen = document.getElementById('areaGenerateBtn');
         var areaView = document.getElementById('areaViewBtn');
         var btnOnline = document.getElementById('btnImportOnline');
-        var btnUpdateRef = document.getElementById('btnUpdateRef'); // Tombol Update Ref
 
         if(areaGen) areaGen.classList.add('hidden');
         if(areaView) areaView.classList.add('hidden');
         
-        // Reset tombol update ref (hide dulu)
-        if(btnUpdateRef) btnUpdateRef.classList.add('hidden');
-
+        // 3. Set tombol Import Online ke mode loading
         if(btnOnline) {
           btnOnline.classList.add('disabled');
           btnOnline.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cek Template...';
         }
 
-        // 3. Tampilkan Modal
+        // 4. Tampilkan Modal
         var elModal = document.getElementById('modalImport');
         if(elModal) {
           var modal = new bootstrap.Modal(elModal);
           modal.show();
         }
 
-        // 4. Cek Status Template
+        // 5. Cek Status Template ke Server
         var token = localStorage.getItem('userToken');
+        
         google.script.run.withSuccessHandler(function(res) {
+          console.log("Hasil Cek Template:", res); // Debugging
           
-          // Reset Tombol Import Online
+          // Kembalikan Teks Tombol Import
+          var btnOnline = document.getElementById('btnImportOnline');
+          var areaGen = document.getElementById('areaGenerateBtn');
+          var areaView = document.getElementById('areaViewBtn');
+
           if(btnOnline) {
-            btnOnline.innerHTML = '<i class="fas fa-cloud-download-alt me-2"></i> Ambil Data dari Spreadsheet Online';
+              btnOnline.innerHTML = '<i class="fas fa-cloud-download-alt me-2"></i> Ambil Data dari Spreadsheet Online';
           }
 
           if (res.status === 'success' && res.exists) {
-            // TEMPLATE ADA
-            currentTemplateId = res.id;
-            if(areaGen) areaGen.classList.add('hidden');
-            if(areaView) areaView.classList.remove('hidden');
-            if(btnOnline) btnOnline.classList.remove('disabled');
-
-            // --- LOGIKA MENAMPILKAN TOMBOL UPDATE REFERENSI ---
-            // Hanya muncul jika Tipe == TRANSAKSI
-            if (type === 'TRANSAKSI' && btnUpdateRef) {
-              btnUpdateRef.classList.remove('hidden');
-            }
-
+              // KONDISI A: Template SUDAH ADA
+              currentTemplateId = res.id; // Simpan ID ke variabel global
+              
+              if(areaGen) areaGen.classList.add('hidden');
+              if(areaView) areaView.classList.remove('hidden');
+              
+              // Aktifkan tombol import online
+              if(btnOnline) btnOnline.classList.remove('disabled'); 
+              
           } else {
-            // TEMPLATE BELUM ADA
-            currentTemplateId = "";
-            if(areaGen) areaGen.classList.remove('hidden');
-            if(areaView) areaView.classList.add('hidden');
-            if(btnOnline) btnOnline.classList.add('disabled');
+              // KONDISI B: Template BELUM ADA
+              currentTemplateId = "";
+              
+              if(areaGen) areaGen.classList.remove('hidden'); // TAMPILKAN TOMBOL GENERATE
+              if(areaView) areaView.classList.add('hidden');
+              
+              // Disable tombol import online
+              if(btnOnline) btnOnline.classList.add('disabled');
           }
-
         }).withFailureHandler(function(err){
-          console.error("Error Cek Template:", err);
-          var areaGen = document.getElementById('areaGenerateBtn');
-          if(areaGen) areaGen.classList.remove('hidden');
-          alert("Gagal mengecek template: " + err);
+            // Jika error koneksi, tampilkan tombol generate agar tidak blank
+            console.error("Error Cek Template:", err);
+            var areaGen = document.getElementById('areaGenerateBtn');
+            if(areaGen) areaGen.classList.remove('hidden');
+            alert("Gagal mengecek template: " + err);
         }).checkSpreadsheetTemplate(token, type);
-      }
-
-      // --- FUNGSI BARU: HANDLE UPDATE REFERENSI ---
-      function handleUpdateReferensi() {
-        const token = localStorage.getItem('userToken');
-        const btn = document.getElementById('btnUpdateRef');
-        const originalHtml = btn.innerHTML;
-
-        // Set Loading
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memproses...';
-        btn.disabled = true;
-
-        google.script.run
-          .withFailureHandler(function(err) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            Swal.fire('Gagal', err.message, 'error');
-          })
-          .withSuccessHandler(function(res) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-
-            if (res.status === 'success') {
-              Swal.fire({
-                icon: 'success',
-                title: 'Referensi Diperbarui',
-                text: 'Dropdown data (Toko, Barang, Uraian, dll) di file Template Transaksi telah diupdate dengan data terbaru.',
-                timer: 3000,
-                showConfirmButton: false
-              });
-            } else {
-              Swal.fire({ icon: 'error', title: 'Gagal', html: res.message });
-            }
-          })
-          .updateTemplateReferensi(token);
       }
 
       // --- FUNGSI GENERATE TEMPLATE ---
