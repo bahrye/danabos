@@ -3930,35 +3930,74 @@
                   <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                  
                   <input type="hidden" id="importTypeTarget">
-
+                  
                   <div class="mb-4">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Langkah 1: Siapkan Data</label>
-                    <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
-                      <span class="small text-dark">Belum punya format file?</span>
-                      <button class="btn btn-sm btn-outline-success fw-bold" onclick="downloadTemplateCurrent()">
-                        <i class="fas fa-file-excel me-1"></i> Download Template
-                      </button>
+                    <label class="form-label fw-bold small text-muted text-uppercase border-bottom w-100 pb-1">Langkah 1: Siapkan Data</label>
+                    <div class="p-3 bg-light rounded border text-center mt-2">
+                      
+                      <div id="areaGenerateBtn">
+                        <button class="btn btn-outline-success fw-bold w-100 mb-2 py-2" onclick="handleGenerateTemplate()">
+                          <i class="fas fa-magic me-2"></i> Generate Template
+                        </button>
+                        <small class="text-muted d-block" style="font-size: 0.8rem;">
+                          Klik untuk membuat file Spreadsheet baru di Google Drive Anda.
+                        </small>
+                      </div>
+
+                      <div id="areaViewBtn" class="hidden">
+                        <div class="d-grid gap-2">
+                          <button class="btn btn-success fw-bold py-2" onclick="handleLihatTemplate()">
+                            <i class="fas fa-external-link-alt me-2"></i> Lihat / Edit Template
+                          </button>
+                          <button class="btn btn-sm btn-outline-secondary" onclick="handleDownloadTemplate()">
+                            <i class="fas fa-download me-1"></i> Download File Excel (.xlsx)
+                          </button>
+                        </div>
+                        <div class="mt-2 text-success" style="font-size: 0.8rem;">
+                          <i class="fas fa-check-circle me-1"></i> File Template Tersedia
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
                   <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Langkah 2: Upload Excel</label>
-                    <input type="file" class="form-control" id="fileImportInput" accept=".xlsx, .xls">
-                    <div class="form-text mt-2"><i class="fas fa-info-circle me-1"></i> Gunakan file .xlsx. Pastikan header kolom sesuai template.</div>
-                  </div>
+                    <label class="form-label fw-bold small text-muted text-uppercase border-bottom w-100 pb-1">Langkah 2: Proses Import</label>
+                    
+                    <div class="mt-2 mb-3">
+                      <button id="btnImportOnline" class="btn btn-primary w-100 py-2 disabled" onclick="handleImportOnline()">
+                        <i class="fas fa-cloud-download-alt me-2"></i> Ambil Data dari Spreadsheet Online
+                      </button>
+                      <div class="form-text mt-1 text-center" style="font-size: 0.8rem;">
+                        Mengambil data langsung dari template yang Anda isi di Langkah 1.
+                      </div>
+                    </div>
 
-                  <div id="importPreviewStatus" class="alert alert-info d-none">
-                    <small>File terdeteksi: <span id="fileNameDisplay" class="fw-bold"></span></small>
+                    <div class="position-relative my-3 text-center">
+                      <hr class="border-secondary opacity-25">
+                      <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 text-muted small">ATAU UPLOAD MANUAL</span>
+                    </div>
+                    
+                    <div class="input-group">
+                      <input type="file" class="form-control" id="fileImportInput" accept=".xlsx, .xls">
+                      <button class="btn btn-secondary" onclick="handleImportFile()" title="Upload File Excel">
+                        <i class="fas fa-upload"></i>
+                      </button>
+                    </div>
+                    <div class="form-text mt-1"><i class="fas fa-info-circle me-1"></i> Upload file .xlsx manual dari komputer.</div>
+
+                  </div>
+                  
+                  <div id="importProgress" class="hidden mt-3">
+                    <div class="progress" style="height: 20px;">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%">Sedang Memproses Data...</div>
+                    </div>
                   </div>
 
                 </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                  <button type="button" class="btn btn-primary px-4" id="btnProsesImport" onclick="prosesImportFile()">
-                    <i class="fas fa-cloud-upload-alt me-1"></i> Mulai Import
-                  </button>
+                <div class="modal-footer bg-light">
+                  <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
                 </div>
               </div>
             </div>
@@ -3984,6 +4023,7 @@
       let cacheRefLengkap = []; // Menyimpan data lengkap (A,B,C,D)
 
       let currentImportType = "";
+      var currentTemplateId = ""; 
 
       // --- GLOBAL CACHE STORAGE (UPDATED) ---
       let DATA_CACHE = {
@@ -11872,227 +11912,178 @@
         return tglStr + " " + bulanIndo[bln] + " " + thn;
       }
 
-      /* --- LOGIKA FITUR IMPORT (VERSI PERBAIKAN) --- */
-
-      // 1. Buka Modal Import
+      // --- FUNGSI BUKA MODAL UTAMA ---
       function bukaModalImport(type) {
-        // Pastikan variabel diisi
-        currentImportType = type;
+        console.log("Membuka modal import untuk: " + type); // Debugging
         
-        // Ubah Judul Modal
-        let title = '';
-        if(type === 'URAIAN') title = 'Uraian Pekerjaan';
-        else if(type === 'TOKO') title = 'Data Toko';
-        else if(type === 'TUKANG') title = 'Data Tukang';
-        else if(type === 'GURU') title = 'Data Guru';
-        else if(type === 'TRANSAKSI') title = 'Transaksi Belanja';
+        // 1. Reset UI ke kondisi awal
+        var inputTarget = document.getElementById('importTypeTarget');
+        var lblTitle = document.getElementById('lblImportTitle');
+        var fileInput = document.getElementById('fileImportInput');
+        var progress = document.getElementById('importProgress');
         
-        // Update UI Modal
-        const lblTitle = document.getElementById('lblImportTitle');
-        const inpTarget = document.getElementById('importTypeTarget');
-        const inpFile = document.getElementById('fileImportInput');
-        const statusDiv = document.getElementById('importPreviewStatus');
+        // Pastikan elemen ditemukan sebelum diakses
+        if(inputTarget) inputTarget.value = type;
+        if(lblTitle) lblTitle.innerText = type;
+        if(fileInput) fileInput.value = "";
+        if(progress) progress.classList.add('hidden');
+        
+        // 2. Sembunyikan dulu kedua tombol Langkah 1 (Loading State)
+        var areaGen = document.getElementById('areaGenerateBtn');
+        var areaView = document.getElementById('areaViewBtn');
+        var btnOnline = document.getElementById('btnImportOnline');
 
-        if(lblTitle) lblTitle.innerText = title;
-        if(inpTarget) inpTarget.value = type;
-        if(inpFile) inpFile.value = ''; // Reset file
-        if(statusDiv) statusDiv.classList.add('d-none');
+        if(areaGen) areaGen.classList.add('hidden');
+        if(areaView) areaView.classList.add('hidden');
         
-        // Buka Modal Bootstrap
-        const modalEl = document.getElementById('modalImport');
-        if(modalEl) {
-          const modal = new bootstrap.Modal(modalEl);
+        // 3. Set tombol Import Online ke mode loading
+        if(btnOnline) {
+          btnOnline.classList.add('disabled');
+          btnOnline.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cek Template...';
+        }
+
+        // 4. Tampilkan Modal
+        var elModal = document.getElementById('modalImport');
+        if(elModal) {
+          var modal = new bootstrap.Modal(elModal);
           modal.show();
-        } else {
-          console.error("Modal dengan ID 'modalImport' tidak ditemukan di HTML.");
-        }
-      }
-
-      // 2. Download Template (Client-Side Excel)
-      /* --- LOGIKA DOWNLOAD TEMPLATE EXCEL (FIXED) --- */
-      function downloadTemplateCurrent() {
-        const type = document.getElementById('importTypeTarget').value;
-        if (!type) return;
-
-        // 1. Tentukan Pesan Loading Sesuai Tipe
-        let pesanLoading = "Mengambil Data...";
-        if (type === 'URAIAN') pesanLoading = "Menyiapkan Template Uraian...";
-        else if (type === 'TOKO') pesanLoading = "Menyiapkan Template Toko...";
-        else if (type === 'TUKANG') pesanLoading = "Menyiapkan Template Tukang...";
-        else if (type === 'GURU') pesanLoading = "Menyiapkan Template Guru...";
-        else if (type === 'TRANSAKSI') pesanLoading = "Menyiapkan Template Transaksi...";
-
-        // Tampilkan Loading dengan pesan spesifik
-        toggleLoading(true, pesanLoading);
-        
-        const token = localStorage.getItem('userToken');
-
-        // 2. Panggil Server
-        google.script.run
-          .withFailureHandler(function(err) {
-            toggleLoading(false);
-            Swal.fire('Gagal', 'Gagal menghubungi server: ' + err, 'error');
-          })
-          .withSuccessHandler(function(res) {
-            if (res.status !== 'success') {
-              toggleLoading(false);
-              Swal.fire('Error', res.message, 'error');
-              return;
-            }
-            // Lanjut ke pembuatan Excel
-            generateExcelWithData(type, res.data);
-          })
-          .getTemplateRefData(token);
-      }
-
-      // --- 1. FUNGSI UTAMA DOWNLOAD TEMPLATE ---
-      /* --- FUNGSI UTAMA GENERATE TEMPLATE --- */
-      function generateExcelWithData(type, refData) {
-        // 1. Update Pesan Loading agar user tahu proses berlanjut
-        let pesanProses = "Membuat File Excel...";
-        if(type === 'TRANSAKSI') pesanProses = "Menyusun Template 3 Sheet (Toko, Tukang, Guru)...";
-        
-        // Update teks pada overlay loading yang sedang aktif
-        const txtEl = document.getElementById('loadingText');
-        if(txtEl) txtEl.innerText = pesanProses;
-
-        // 2. Panggil Server untuk Create Spreadsheet
-        google.script.run
-          .withFailureHandler(function(err) {
-            toggleLoading(false);
-            Swal.fire('Koneksi Gagal', 'Error: ' + err.message, 'error');
-          })
-          .withSuccessHandler(function(res) {
-            toggleLoading(false); // Selesai
-
-            if (res.status === 'success') {
-              Swal.fire({
-                icon: 'success',
-                title: 'Template Siap!',
-                text: 'File berhasil dibuat. Klik tombol di bawah untuk membukanya.',
-                showCancelButton: true,
-                confirmButtonText: 'Buka Spreadsheet',
-                cancelButtonText: 'Tutup',
-                confirmButtonColor: '#198754'
-              }).then((result) => {
-                if (result.isConfirmed) {
-                  window.open(res.url, '_blank');
-                }
-              });
-            } else {
-              Swal.fire('Gagal', res.message || 'Terjadi kesalahan saat membuat template.', 'error');
-            }
-          })
-          .createExcelTemplateFromServer(type, refData);
-      }
-
-      // --- 2. FUNGSI HELPER DOWNLOAD (WAJIB ADA) ---
-      function downloadBase64File(base64, fileName) {
-        // Konversi Base64 string kembali menjadi Binary Data (ArrayBuffer)
-        var binaryString = window.atob(base64);
-        var len = binaryString.length;
-        var bytes = new Uint8Array(len);
-        
-        for (var i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        // Bungkus dalam Blob Excel
-        var blob = new Blob([bytes], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-        
-        // Buat Link Download virtual & klik otomatis
-        var link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Bersihkan memory
-        setTimeout(function(){
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(link.href);
-        }, 100);
-      }
-
-      // 3. Proses Upload File
-      function prosesImportFile() {
-        const fileInput = document.getElementById('fileImportInput');
-        
-        if (!fileInput || fileInput.files.length === 0) {
-          Swal.fire('Peringatan', 'Silakan pilih file Excel terlebih dahulu!', 'warning');
-          return;
         }
 
-        const file = fileInput.files[0];
-        const reader = new FileReader();
+        // 5. Cek Status Template ke Server
+        var token = localStorage.getItem('userToken');
+        
+        google.script.run.withSuccessHandler(function(res) {
+          console.log("Hasil Cek Template:", res); // Debugging
+          
+          // Kembalikan Teks Tombol Import
+          var btnOnline = document.getElementById('btnImportOnline');
+          var areaGen = document.getElementById('areaGenerateBtn');
+          var areaView = document.getElementById('areaViewBtn');
 
-        // Tombol Loading
-        const btn = document.getElementById('btnProsesImport');
-        const orgHtml = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Membaca...';
+          if(btnOnline) {
+              btnOnline.innerHTML = '<i class="fas fa-cloud-download-alt me-2"></i> Ambil Data dari Spreadsheet Online';
+          }
+
+          if (res.status === 'success' && res.exists) {
+              // KONDISI A: Template SUDAH ADA
+              currentTemplateId = res.id; // Simpan ID ke variabel global
+              
+              if(areaGen) areaGen.classList.add('hidden');
+              if(areaView) areaView.classList.remove('hidden');
+              
+              // Aktifkan tombol import online
+              if(btnOnline) btnOnline.classList.remove('disabled'); 
+              
+          } else {
+              // KONDISI B: Template BELUM ADA
+              currentTemplateId = "";
+              
+              if(areaGen) areaGen.classList.remove('hidden'); // TAMPILKAN TOMBOL GENERATE
+              if(areaView) areaView.classList.add('hidden');
+              
+              // Disable tombol import online
+              if(btnOnline) btnOnline.classList.add('disabled');
+          }
+        }).withFailureHandler(function(err){
+            // Jika error koneksi, tampilkan tombol generate agar tidak blank
+            console.error("Error Cek Template:", err);
+            var areaGen = document.getElementById('areaGenerateBtn');
+            if(areaGen) areaGen.classList.remove('hidden');
+            alert("Gagal mengecek template: " + err);
+        }).checkSpreadsheetTemplate(token, type);
+      }
+
+      // --- FUNGSI GENERATE TEMPLATE ---
+      function handleGenerateTemplate() {
+        var type = document.getElementById('importTypeTarget').value;
+        var token = localStorage.getItem('userToken');
+        
+        var btn = document.querySelector('#areaGenerateBtn button');
+        var orgHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Membuat File...';
         btn.disabled = true;
 
-        reader.onload = function(e) {
-          try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-            if (jsonData.length === 0) {
-              throw new Error("File Excel kosong atau format tidak terbaca.");
-            }
-
-            // Kirim ke Backend
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Mengimport...';
-            const token = localStorage.getItem('userToken');
+        google.script.run.withSuccessHandler(function(res) {
+          btn.innerHTML = orgHtml;
+          btn.disabled = false;
+          
+          if(res.status === 'success') {
+            currentTemplateId = res.id;
             
-            google.script.run
-              .withSuccessHandler(function(res) {
-                btn.innerHTML = orgHtml;
-                btn.disabled = false;
-                if (res.status === 'success') {
-                  // Reset Cache Data
-                  if (currentImportType === 'TOKO') DATA_CACHE.toko = null;
-                  if (currentImportType === 'TUKANG') DATA_CACHE.tukang = null;
-                  if (currentImportType === 'GURU') DATA_CACHE.guru = null;
-                  if (currentImportType === 'URAIAN') DATA_CACHE.uraian = null;
-                  if (currentImportType === 'TRANSAKSI') {
-                    DATA_CACHE.transaksi_toko = null;
-                    DATA_CACHE.transaksi_tukang = null;
-                    DATA_CACHE.transaksi_guru = null;
-                    DATA_CACHE.dashboard = null;
-                  }
+            // Ubah UI menjadi Mode "Lihat Template"
+            document.getElementById('areaGenerateBtn').classList.add('hidden');
+            document.getElementById('areaViewBtn').classList.remove('hidden');
+            document.getElementById('btnImportOnline').classList.remove('disabled');
+            
+            Swal.fire({
+              icon: 'success',
+              title: 'Template Berhasil Dibuat!',
+              text: 'Silakan klik "Lihat Template", isi data disana, lalu kembali kesini untuk klik "Ambil Data".',
+              confirmButtonText: 'Oke, Paham'
+            });
+          } else {
+            Swal.fire('Gagal', res.message, 'error');
+          }
+        }).generateSpreadsheetTemplate(token, type);
+      }
 
-                  // Tutup Modal
-                  const modalEl = document.getElementById('modalImport');
-                  const modal = bootstrap.Modal.getInstance(modalEl);
+      // --- FUNGSI LIHAT & DOWNLOAD ---
+      function handleLihatTemplate() {
+        if(currentTemplateId) {
+          window.open("https://docs.google.com/spreadsheets/d/" + currentTemplateId + "/edit", "_blank");
+        } else {
+          Swal.fire('Error', 'ID Template tidak ditemukan. Coba refresh halaman.', 'error');
+        }
+      }
+
+      function handleDownloadTemplate() {
+        if(currentTemplateId) {
+          window.open("https://docs.google.com/spreadsheets/d/" + currentTemplateId + "/export?format=xlsx", "_blank");
+        }
+      }
+
+      // --- FUNGSI PROSES IMPORT ONLINE ---
+      function handleImportOnline() {
+        var type = document.getElementById('importTypeTarget').value;
+        var token = localStorage.getItem('userToken');
+        
+        Swal.fire({
+          title: 'Import Data Online?',
+          text: "Sistem akan membaca data dari Spreadsheet Template Anda dan menyimpannya ke database aplikasi.",
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#0d6efd',
+          confirmButtonText: '<i class="fas fa-cloud-download-alt me-1"></i> Ya, Import Data',
+          cancelButtonText: 'Batal'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            document.getElementById('importProgress').classList.remove('hidden');
+            document.getElementById('btnImportOnline').disabled = true;
+            
+            google.script.run.withSuccessHandler(function(res) {
+              document.getElementById('importProgress').classList.add('hidden');
+              document.getElementById('btnImportOnline').disabled = false;
+              
+              if(res.status === 'success') {
+                  Swal.fire({ icon: 'success', title: 'Import Berhasil', html: res.message });
+                  
+                  // Refresh Tabel (Pastikan fungsi loadData tersedia di kode asli Anda)
+                  if(typeof loadTokoData === 'function' && type === 'TOKO') loadTokoData(true);
+                  if(typeof loadTukangData === 'function' && type === 'TUKANG') loadTukangData(true);
+                  if(typeof loadGuruData === 'function' && type === 'GURU') loadGuruData(true);
+                  if(typeof loadUraianData === 'function' && type === 'URAIAN') loadUraianData(true);
+                  if(typeof loadTransaksiData === 'function' && type === 'TRANSAKSI') loadTransaksiData(true);
+                  
+                  var elModal = document.getElementById('modalImport');
+                  var modal = bootstrap.Modal.getInstance(elModal);
                   if(modal) modal.hide();
                   
-                  Swal.fire({
-                    icon: 'success', 
-                    title: 'Import Berhasil!', 
-                    text: res.message + ` (${res.count} data masuk)`
-                  });
-                } else {
+              } else {
                   Swal.fire('Gagal Import', res.message, 'error');
-                }
-              })
-              .withFailureHandler(function(err) {
-                btn.innerHTML = orgHtml;
-                btn.disabled = false;
-                Swal.fire('Error Server', err.message, 'error');
-              })
-              .importDataBatch(token, currentImportType, jsonData);
-
-          } catch (err) {
-            btn.innerHTML = orgHtml;
-            btn.disabled = false;
-            Swal.fire('Error File', 'Gagal membaca file. Pastikan format .xlsx valid.<br>' + err.message, 'error');
+              }
+            }).importDataFromOnline(token, type);
           }
-        };
-        reader.readAsArrayBuffer(file);
+        });
       }
 
     </script>
