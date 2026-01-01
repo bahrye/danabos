@@ -4667,10 +4667,10 @@ function getTemplateRefData(token) {
   }
 }
 
-/* --- FUNGSI GENERATE TEMPLATE EXCEL OFFLINE (FIXED) --- */
+/* --- FUNGSI GENERATE TEMPLATE EXCEL OFFLINE (FIXED: STRICT VALIDATION) --- */
 function createExcelTemplateFromServer(type, refData) {
   
-  // 1. GENERATE TEMPLATE MASTER DATA (URAIAN, TOKO, TUKANG, GURU) - BAGIAN INI TETAP
+  // 1. GENERATE TEMPLATE MASTER DATA (Tidak Berubah)
   if (type !== 'TRANSAKSI') {
     var timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd_HHmm");
     var fileName = "Template_" + type + "_" + timestamp;
@@ -4690,12 +4690,12 @@ function createExcelTemplateFromServer(type, refData) {
       headerRange.setFontWeight("bold").setBackground("#fff2cc").setBorder(true, true, true, true, true, true);
       headers.forEach(function(h, i) { sheet.setColumnWidth(i + 1, 200); });
       sheet.setFrozenRows(1);
-      sheet.getRange(2, 1, 2000, headers.length).setNumberFormat("@"); 
+      sheet.getRange(2, 1, 1000, headers.length).setNumberFormat("@"); 
     }
     return { status: 'success', url: ss.getUrl() };
   }
 
-  // 2. GENERATE TEMPLATE TRANSAKSI (PERBAIKAN VALIDASI & FORMULA)
+  // 2. GENERATE TEMPLATE TRANSAKSI (UPDATE VALIDASI KETAT & RUMUS)
   var ss = SpreadsheetApp.create("Template_Transaksi_" + Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd_HHmm"));
   
   try {
@@ -4705,10 +4705,12 @@ function createExcelTemplateFromServer(type, refData) {
       var newSheet = ss.insertSheet("Ref_" + name);
       var values = data.map(function(item) { return [item]; });
       newSheet.getRange(1, 1, values.length, 1).setValues(values);
+      
       var protection = newSheet.protect().setDescription('System Ref');
       protection.setWarningOnly(false);
       protection.removeEditors(protection.getEditors());
       if (protection.canDomainEdit()) protection.setDomainEdit(false);
+      
       newSheet.hideSheet(); 
       return newSheet.getRange(1, 1, values.length, 1);
     };
@@ -4724,15 +4726,16 @@ function createExcelTemplateFromServer(type, refData) {
     var setupSheet = function(sheetName, tipeDefault) {
       var sheet = ss.getSheetByName(sheetName);
       if (!sheet) sheet = ss.insertSheet(sheetName);
-      var maxRows = 2000; 
+      var maxRows = 1000; // Batas 1000 Baris
 
+      // --- SUSUN HEADER ---
       var currentHeaders = ["No", "Tipe", "Uraian Pekerjaan"]; 
       if (sheetName === 'GURU') {
-        currentHeaders.push("Keterangan"); // Col 4
-        currentHeaders.push("Pemesan / Penanggung Jawab"); // Col 5
+        currentHeaders.push("Keterangan"); // Kolom 4 (Bebas Ketik)
+        currentHeaders.push("Pemesan / Penanggung Jawab"); // Kolom 5
       } else {
-        currentHeaders.push("Pihak Ketiga / Keterangan");  // Col 4
-        currentHeaders.push("Pemesan / Penanggung Jawab"); // Col 5
+        currentHeaders.push("Pihak Ketiga / Keterangan");  // Kolom 4
+        currentHeaders.push("Pemesan / Penanggung Jawab"); // Kolom 5
       }
 
       var suratHeaders = [
@@ -4767,27 +4770,45 @@ function createExcelTemplateFromServer(type, refData) {
       headerRange.setFontWeight("bold").setBackground("#e0e0e0").setBorder(true, true, true, true, true, true);
       sheet.setFrozenRows(1);
 
-      // --- VALIDASI DATA ---
+      // --- VALIDASI DATA (STRICT: setAllowInvalid(false)) ---
+      
+      // 1. Tipe (Readonly)
       sheet.getRange(2, 2, maxRows, 1).setValue(tipeDefault).setFontColor("#808080");
 
+      // 2. Uraian (Wajib Dropdown)
       if (rangeUraian) {
-        var ruleUraian = SpreadsheetApp.newDataValidation().requireValueInRange(rangeUraian).setAllowInvalid(false).build();
+        var ruleUraian = SpreadsheetApp.newDataValidation()
+          .requireValueInRange(rangeUraian)
+          .setAllowInvalid(false) // <--- TOLAK INPUT
+          .setHelpText("Wajib pilih Uraian dari dropdown.")
+          .build();
         sheet.getRange(2, 3, maxRows, 1).setDataValidation(ruleUraian);
       }
 
+      // 3. Pihak Ketiga (Hanya Toko & Tukang yang Dropdown)
       if (sheetName !== 'GURU') {
         var rangePihak = (sheetName === 'TOKO') ? rangeToko : rangeTukang;
         if (rangePihak) {
-           var rulePihak = SpreadsheetApp.newDataValidation().requireValueInRange(rangePihak).setAllowInvalid(false).build();
+           var rulePihak = SpreadsheetApp.newDataValidation()
+             .requireValueInRange(rangePihak)
+             .setAllowInvalid(false) // <--- TOLAK INPUT
+             .setHelpText("Wajib pilih Pihak Ketiga dari dropdown.")
+             .build();
            sheet.getRange(2, 4, maxRows, 1).setDataValidation(rulePihak);
         }
       }
 
+      // 4. Pemesan (Wajib Dropdown Semua Sheet)
       if (rangeGuru) {
-         var rulePemesan = SpreadsheetApp.newDataValidation().requireValueInRange(rangeGuru).setAllowInvalid(false).build();
+         var rulePemesan = SpreadsheetApp.newDataValidation()
+           .requireValueInRange(rangeGuru)
+           .setAllowInvalid(false) // <--- TOLAK INPUT
+           .setHelpText("Wajib pilih Pemesan dari dropdown.")
+           .build();
          sheet.getRange(2, 5, maxRows, 1).setDataValidation(rulePemesan);
       }
 
+      // 5. Tanggal
       var dateRule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText("Format: DD/MM/YYYY").build();
       currentHeaders.forEach(function(h, idx) {
         if (h.includes("Tanggal")) {
@@ -4795,11 +4816,15 @@ function createExcelTemplateFromServer(type, refData) {
         }
       });
 
+      // 6. Rincian Item (Dropdown Barang/Tukang/Guru tapi AllowInvalid true agar fleksibel)
       var colIdx = startItemIndex + 1; 
       for (var i = 1; i <= 32; i++) {
          var colName = colIdx;
          var colSat = colIdx + 2;
          var ruleItem = null;
+         
+         // Note: Untuk Item rincian, biasanya dibiarkan AllowInvalid(true) agar bisa tambah barang baru manual
+         // Jika ingin strict juga, ubah jadi false. Default di sini true (Warning only).
          if (sheetName === 'TOKO' && rangeBarang) {
             ruleItem = SpreadsheetApp.newDataValidation().requireValueInRange(rangeBarang).setAllowInvalid(true).build();
          } else if (sheetName === 'TUKANG' && rangeTukang) {
@@ -4816,33 +4841,45 @@ function createExcelTemplateFromServer(type, refData) {
          colIdx += 4; 
       }
 
-      // --- [PERBAIKAN] SINKRONISASI DATA (FORMULA) ---
-      // Nama Item 1 (startItemIndex + 1) disamakan dengan Pihak Ketiga / Pemesan
-      
-      // 1. TUKANG: Nama Tukang 1 = Pihak Ketiga (Kolom D / 4)
+      // --- RUMUS OTOMATIS (TUKANG & GURU) ---
       if (sheetName === 'TUKANG') {
-         // Kolom 4 (D) adalah Pihak Ketiga/Tukang
-         // R[0]C4 artinya Row yang sama, Kolom Absolute 4 (D)
+         // Nama Tukang 1 = Pihak Ketiga (Kolom D/4)
          var targetRange = sheet.getRange(2, startItemIndex + 1, maxRows, 1);
          targetRange.setFormulaR1C1("=R[0]C4"); 
-         targetRange.setBackground('#f8f9fa'); // Visual: Abu muda (Otomatis)
+         targetRange.setBackground('#f8f9fa');
       }
-      
-      // 2. GURU: Nama Guru 1 = Pemesan (Kolom E / 5)
       if (sheetName === 'GURU') {
-         // Kolom 5 (E) adalah Pemesan/Guru
-         // R[0]C5 artinya Row yang sama, Kolom Absolute 5 (E)
+         // Nama Guru 1 = Pemesan (Kolom E/5)
          var targetRange = sheet.getRange(2, startItemIndex + 1, maxRows, 1);
          targetRange.setFormulaR1C1("=R[0]C5");
          targetRange.setBackground('#f8f9fa');
       }
 
-      sheet.setColumnWidth(3, 250); // Uraian
-      sheet.setColumnWidth(4, 200); // Pihak Ketiga
+      sheet.setColumnWidth(3, 250); 
+      sheet.setColumnWidth(4, 200); 
       
+      // --- PROTEKSI SHEET (LOCK TIPE) ---
       var protection = sheet.protect().setDescription('Proteksi ' + sheetName);
-      var editableRange = sheet.getRange(2, 1, maxRows, currentHeaders.length);
-      protection.setUnprotectedRanges([editableRange]);
+      var unprotectedRanges = [];
+
+      // 1. Buka Kolom No (1)
+      unprotectedRanges.push(sheet.getRange(2, 1, maxRows, 1));
+
+      // 2. Buka Kolom Data (Mulai 3, Lewati 2/Tipe)
+      if (sheetName === 'GURU' || sheetName === 'TUKANG') {
+         // Buka Col 3 s/d Sebelum Item 1
+         unprotectedRanges.push(sheet.getRange(2, 3, maxRows, startItemIndex - 2)); 
+         
+         // Buka Item Detail (Mulai Item 1 Vol, dst) - Lewati Item 1 Name karena Rumus
+         // StartItem 1 Name = startItemIndex + 1
+         // Start Unprotect = startItemIndex + 2
+         unprotectedRanges.push(sheet.getRange(2, startItemIndex + 2, maxRows, currentHeaders.length - (startItemIndex + 1)));
+      } else {
+         // TOKO: Buka semua mulai col 3
+         unprotectedRanges.push(sheet.getRange(2, 3, maxRows, currentHeaders.length - 2));
+      }
+
+      protection.setUnprotectedRanges(unprotectedRanges);
       protection.setWarningOnly(false);
       protection.removeEditors(protection.getEditors());
       if (protection.canDomainEdit()) protection.setDomainEdit(false);
@@ -4901,7 +4938,7 @@ function checkSpreadsheetTemplate(token, type) {
   }
 }
 
-/* --- FUNGSI GENERATE TEMPLATE SPREADSHEET ONLINE (FIXED) --- */
+/* --- FUNGSI GENERATE TEMPLATE SPREADSHEET ONLINE (FIXED: STRICT VALIDATION) --- */
 function generateSpreadsheetTemplate(token, type) {
   try {
     const ss = SpreadsheetApp.openById(token); 
@@ -4950,7 +4987,7 @@ function generateSpreadsheetTemplate(token, type) {
         const setupSheet = (sheetName, tipeDefault, rulePihak, rulePemesan, itemLabel) => {
           let sheet = newSS.getSheetByName(sheetName);
           if (!sheet) sheet = newSS.insertSheet(sheetName);
-          const maxRows = 500; 
+          const maxRows = 1000; // Batas 1000 Baris
 
           let currentHeaders = ["No", "Tipe", "Uraian Pekerjaan"];
           if (sheetName === 'GURU') {
@@ -4993,19 +5030,35 @@ function generateSpreadsheetTemplate(token, type) {
           headerRange.setFontWeight("bold").setBackground("#e0e0e0").setBorder(true, true, true, true, true, true);
           sheet.setFrozenRows(1);
           
+          // --- VALIDASI (STRICT: setAllowInvalid(false)) ---
           sheet.getRange(2, 2, maxRows, 1).setValue(tipeDefault).setFontColor("#808080"); 
           
+          // Uraian
           if (rangeUraian) {
-            const rule = SpreadsheetApp.newDataValidation().requireValueInRange(rangeUraian).setAllowInvalid(true).build();
+            const rule = SpreadsheetApp.newDataValidation()
+                .requireValueInRange(rangeUraian)
+                .setAllowInvalid(false) // <--- TOLAK INPUT
+                .setHelpText("Wajib pilih dari dropdown.")
+                .build();
             sheet.getRange(2, 3, maxRows, 1).setDataValidation(rule);
           }
+
+          // Pihak Ketiga
           if (sheetName !== 'GURU' && rulePihak) {
+            // rulePihak dibuat di bawah, pastikan builder-nya juga strict
+            // Kita rebuild rule di sini agar pasti strict
+            // Ambil range source dari rulePihak
+            // (Opsional, tapi lebih aman kita definisikan ulang saat pembuatan 'valToko' dll)
+            // Namun karena rulePihak dipassing, kita pastikan pembuatan rulePihak di bawah menggunakan false
             sheet.getRange(2, 4, maxRows, 1).setDataValidation(rulePihak);
           }
+
+          // Pemesan
           if (rulePemesan) {
              sheet.getRange(2, 5, maxRows, 1).setDataValidation(rulePemesan);
           }
           
+          // Tanggal
           const dateRule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText("Format DD/MM/YYYY").build();
           suratHeaders.forEach((h, idx) => {
             if (h.includes("Tanggal")) sheet.getRange(2, startColSurat + idx, maxRows, 1).setDataValidation(dateRule);
@@ -5027,17 +5080,12 @@ function generateSpreadsheetTemplate(token, type) {
             }
           }
 
-          // --- [PERBAIKAN] SINKRONISASI DATA (FORMULA) DI SPREADSHEET ONLINE ---
-          // Sama seperti Excel, kita pasang rumus R1C1
-          
-          // 1. TUKANG: Nama Tukang 1 (startColItem) = Pihak Ketiga (Col 4)
+          // --- RUMUS OTOMATIS (TUKANG & GURU) ---
           if (sheetName === 'TUKANG') {
              var targetRange = sheet.getRange(2, startColItem, maxRows - 1, 1);
              targetRange.setFormulaR1C1("=R[0]C4"); 
              targetRange.setBackground('#f8f9fa');
           }
-          
-          // 2. GURU: Nama Guru 1 (startColItem) = Pemesan (Col 5)
           if (sheetName === 'GURU') {
              var targetRange = sheet.getRange(2, startColItem, maxRows - 1, 1);
              targetRange.setFormulaR1C1("=R[0]C5");
@@ -5061,9 +5109,24 @@ function generateSpreadsheetTemplate(token, type) {
           if (protection.canDomainEdit()) protection.setDomainEdit(false);
         };
 
-        const valToko = rangeToko ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeToko).setAllowInvalid(true).build() : null;
-        const valTukang = rangeTukang ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeTukang).setAllowInvalid(true).build() : null;
-        const valGuru = rangeGuru ? SpreadsheetApp.newDataValidation().requireValueInRange(rangeGuru).setAllowInvalid(true).build() : null;
+        // PEMBUATAN RULE VALIDASI (PASTIKAN STRICT / FALSE)
+        const valToko = rangeToko ? SpreadsheetApp.newDataValidation()
+            .requireValueInRange(rangeToko)
+            .setAllowInvalid(false) // <--- STRICT
+            .setHelpText("Wajib pilih Toko.")
+            .build() : null;
+            
+        const valTukang = rangeTukang ? SpreadsheetApp.newDataValidation()
+            .requireValueInRange(rangeTukang)
+            .setAllowInvalid(false) // <--- STRICT
+            .setHelpText("Wajib pilih Tukang.")
+            .build() : null;
+            
+        const valGuru = rangeGuru ? SpreadsheetApp.newDataValidation()
+            .requireValueInRange(rangeGuru)
+            .setAllowInvalid(false) // <--- STRICT
+            .setHelpText("Wajib pilih Guru/Penerima.")
+            .build() : null;
 
         setupSheet("TOKO", "TOKO", valToko, valGuru, "Nama Barang");
         setupSheet("TUKANG", "TUKANG", valTukang, valGuru, "Nama Tukang");
@@ -5085,10 +5148,11 @@ function generateSpreadsheetTemplate(token, type) {
                .setFontWeight("bold").setBackground("#d9ead3").setBorder(true, true, true, true, true, true);
           sheet.setFrozenRows(1);
           headers.forEach((h, i) => sheet.setColumnWidth(i + 1, 200));
-          sheet.getRange(2, 1, 900, headers.length).setNumberFormat("@"); 
+          sheet.getRange(2, 1, 1000, headers.length).setNumberFormat("@"); 
         }
     }
     
+    // Simpan ID File
     let sheetSet = ss.getSheetByName('DataPengaturan');
     if (!sheetSet) { sheetSet = ss.insertSheet('DataPengaturan'); sheetSet.appendRow(['KEY', 'VALUE']); }
     
