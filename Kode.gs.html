@@ -5471,36 +5471,120 @@ function switchFiscalYear(dbId, targetYear) {
   }
 }
 
-function processExcelData(data, filename) {
+/* --- PERBAIKAN FUNGSI PROCESS EXCEL DATA --- */
+function processExcelData(token, data, filename, type) {
+  var newFile;
   try {
+    // 1. Validasi
+    if (!token) return { status: 'error', message: 'Sesi valid tidak ditemukan. Silakan login ulang.' };
+
+    // 2. Konversi Base64 Excel ke Blob
     var blob = Utilities.newBlob(Utilities.base64Decode(data), MimeType.MICROSOFT_EXCEL, filename);
     
-    // Opsional: Simpan file ke Drive (untuk backup/debug)
-    // DriveApp.createFile(blob);
-
-    // Konversi Blob Excel ke Google Sheets agar bisa dibaca
+    // 3. Konversi ke Google Sheet (Temp) via Advanced Drive Service
+    // Pastikan "Drive API" sudah aktif di menu Services (tanda + di kiri)
     var resource = {
-      title: filename.replace(/.xlsx?/, "") + " [Temp]",
+      title: "[TEMP_IMPORT] " + filename,
       mimeType: MimeType.GOOGLE_SHEETS
     };
+    newFile = Drive.Files.insert(resource, blob);
     
-    // Upload file Excel sebagai Google Sheet sementara
-    var newFile = Drive.Files.insert(resource, blob);
-    var ss = SpreadsheetApp.openById(newFile.id);
-    var sheet = ss.getSheets()[0]; // Ambil sheet pertama
-    var values = sheet.getDataRange().getValues();
+    // 4. Baca Data dari File Temp
+    var ssTemp = SpreadsheetApp.openById(newFile.id);
+    var sheetTemp = ssTemp.getSheets()[0]; // Ambil sheet pertama
+    var rows = sheetTemp.getDataRange().getDisplayValues(); // Gunakan DisplayValues agar format angka/tanggal aman
+    
+    // 5. Hapus file temp SEGERA (Agar Drive tidak penuh sampah)
+    Drive.Files.remove(newFile.id);
 
-    // --- PROSES DATA DI SINI ---
-    // Contoh: Log data baris pertama
-    // Logger.log(values[0]);
-    
-    // Hapus file sementara agar Drive tidak penuh
-    Drive.Files.remove(newFile.id); 
+    // Cek Data Kosong (Hanya Header atau kosong total)
+    if (rows.length < 2) {
+      return { status: 'error', message: 'File Excel kosong atau tidak ada data isian.' };
+    }
 
-    return "Sukses memproses " + values.length + " baris.";
-    
+    // 6. Buka Database Tujuan (Spreadsheet Sekolah)
+    var ssDB = SpreadsheetApp.openById(token);
+    var targetSheet;
+    var count = 0;
+
+    // 7. Logika Mapping & Insert Berdasarkan Tipe Data
+    if (type === 'TOKO') {
+      targetSheet = ssDB.getSheetByName('DataToko');
+      if (!targetSheet) {
+        targetSheet = ssDB.insertSheet('DataToko');
+        targetSheet.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]);
+      }
+      
+      // Loop data (Mulai index 1 untuk melewati Header baris pertama)
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        // Pastikan kolom Nama (Index 0) ada isinya
+        if (r[0] && r[0] !== "") {
+          targetSheet.appendRow([
+            Utilities.getUuid(), // Generate ID Baru
+            r[0], // Kolom A Excel -> Nama Toko
+            r[1], // Kolom B Excel -> Jenis Toko
+            r[2], // Kolom C Excel -> Alamat
+            "'" + r[3], // Kolom D Excel -> Telp (Pakai kutip biar jadi Text)
+            r[4], // Kolom E Excel -> Pemilik
+            r[5]  // Kolom F Excel -> Tempat TTD
+          ]);
+          count++;
+        }
+      }
+    } 
+    else if (type === 'TUKANG') {
+      targetSheet = ssDB.getSheetByName('DataTukang');
+      if (!targetSheet) {
+        targetSheet = ssDB.insertSheet('DataTukang');
+        targetSheet.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]);
+      }
+      
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (r[0] && r[0] !== "") {
+          targetSheet.appendRow([
+            Utilities.getUuid(),
+            r[0], // Kolom A -> Nama Tukang
+            r[1]  // Kolom B -> Alamat
+          ]);
+          count++;
+        }
+      }
+    }
+    else if (type === 'GURU') {
+      targetSheet = ssDB.getSheetByName('DataGuru');
+      if (!targetSheet) {
+        targetSheet = ssDB.insertSheet('DataGuru');
+        targetSheet.appendRow(["ID", "Nama Lengkap", "NIP"]);
+      }
+      
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (r[0] && r[0] !== "") {
+          targetSheet.appendRow([
+            Utilities.getUuid(),
+            r[0], // Kolom A -> Nama Guru
+            "'" + r[1] // Kolom B -> NIP (Pakai kutip)
+          ]);
+          count++;
+        }
+      }
+    } 
+    else if (type === 'TRANSAKSI') {
+        return { status: 'error', message: 'Import Transaksi via Upload Excel belum didukung. Silakan gunakan fitur Import Online.' };
+    }
+    else {
+      return { status: 'error', message: 'Tipe import tidak dikenali: ' + type };
+    }
+
+    return { status: 'success', message: 'Berhasil mengimport ' + count + ' data ' + type + '.' };
+
   } catch (e) {
-    Logger.log("Error: " + e.toString());
-    throw new Error(e.toString());
+    // Safety: Coba hapus file temp jika error terjadi sebelum clean up
+    if (newFile && newFile.id) {
+       try { Drive.Files.remove(newFile.id); } catch(err){}
+    }
+    return { status: 'error', message: 'Gagal Memproses: ' + e.toString() };
   }
 }
