@@ -321,7 +321,7 @@ function clearSessionCache(email) {
   cache.remove('SESI_' + email.toLowerCase());
 }
 
-/* --- 1. LOGIN USER (LOGIKA ANTI-DOUBLE LOGIN) --- */
+/* --- 1. LOGIN USER (UPDATE: DENGAN PILIH TAHUN ANGGARAN) --- */
 function loginUser(form) {
   const lock = LockService.getScriptLock();
   try {
@@ -353,46 +353,52 @@ function loginUser(form) {
 
     if (inputHash === storedHash) {
       const email = form.email.trim().toLowerCase();
+      const dbId = userData[4]; // Ambil ID Database Sekolah
       const now = new Date().getTime();
       
-      // --- PENGECEKAN LOGIN GANDA DIMULAI DISINI ---
+      // --- PENGECEKAN LOGIN GANDA (ANTI-DOUBLE LOGIN) ---
       const cachedSession = getSessionCache(email);
       
       if (cachedSession) {
         const lastPing = cachedSession.lastPing || 0;
-        const diffSec = (now - lastPing) / 1000; // Selisih waktu dalam detik
+        const diffSec = (now - lastPing) / 1000; 
 
-        // LOGIKA ANDA:
-        // Jika selisih waktu < 60 detik, berarti ada perangkat lain yang BARU SAJA aktif.
-        // Maka kita TOLAK login baru ini.
+        // Jika user masih aktif < 60 detik lalu, tolak login baru
         if (diffSec < ACTIVE_THRESHOLD_SEC) { 
            return { 
             status: 'error', 
-            message: '<b>Login Ganda Terdeteksi!</b><br>Akun ini sedang aktif digunakan di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu 1 menit.' 
+            message: '<b>Login Ganda Terdeteksi!</b><br>Akun ini sedang aktif di perangkat lain.<br>Harap logout dari perangkat sebelumnya atau tunggu 1 menit.' 
           };
         }
-        
-        // JIKA LEBIH DARI 60 DETIK:
-        // Berarti sesi lama sudah "bangkai" (orangnya tutup tab/idle lama).
-        // Kita BIARKAN login ini masuk, dan sesi lama otomatis tertimpa (terhapus).
       }
-      // ---------------------------------------------
+      // --------------------------------------------------
 
-      // 3. BUAT SESI BARU (Menimpa sesi lama jika ada)
+      // 3. [FITUR BARU] PERSIAPKAN DATABASE SESUAI TAHUN YANG DIPILIH
+      // Jika user memilih tahun saat login, kita siapkan sheet-nya
+      if (form.tahun) {
+        try {
+          switchFiscalYear(dbId, form.tahun);
+        } catch (err) {
+          console.error("Gagal ganti tahun anggaran: " + err);
+          // Kita lanjut login saja meski gagal swap, nanti user bisa cek manual
+        }
+      }
+
+      // 4. BUAT SESI BARU (Menimpa sesi lama)
       const newSessionId = Utilities.getUuid();
       
-      // Simpan ke Cache Server (Agar fungsi heartbeat/updateUserActivity bisa jalan)
+      // Simpan ke Cache Server
       setSessionCache(email, {
         token: newSessionId,
         lastPing: now
       });
 
-      // Simpan Token ke Database Spreadsheet (Agar persist)
+      // Simpan Token ke Database Spreadsheet
       ssMaster.getRange(rowIdx, 6).setValue(newSessionId);
 
       return { 
         status: 'success', 
-        token: userData[4],        
+        token: dbId,        
         namaSekolah: userData[1],  
         sessionToken: newSessionId 
       };
@@ -5380,5 +5386,87 @@ function sinkronisasiRef(token) {
 
   } catch (e) {
     return { status: 'error', message: 'Error Sinkronisasi: ' + e.toString() };
+  }
+}
+
+/* --- FUNGSI MANAGEMEN TAHUN ANGGARAN (SWAP SHEET) --- */
+function switchFiscalYear(dbId, targetYear) {
+  const ss = SpreadsheetApp.openById(dbId);
+  const targetStr = String(targetYear);
+  
+  // 1. Cek Tahun Aktif Saat Ini di Sheet DataSekolah
+  let sheetSekolah = ss.getSheetByName('DataSekolah');
+  let currentActiveYear = '2025'; // Default fallback
+  
+  if (sheetSekolah && sheetSekolah.getLastRow() >= 2) {
+    // Ambil Kolom R (Index 18) -> Tahun Anggaran
+    const val = sheetSekolah.getRange(2, 18).getValue(); 
+    if (val) currentActiveYear = String(val);
+    else {
+       // Jika kosong, set ke target
+       sheetSekolah.getRange(2, 18).setValue(targetStr);
+       currentActiveYear = targetStr;
+    }
+  } else if (!sheetSekolah) {
+    return; // Sheet master belum ada
+  }
+
+  // Jika tahun aktif sudah sama dengan tahun target login, selesai.
+  if (currentActiveYear === targetStr) return;
+
+  // 2. PROSES SWAP (Tukar Sheet)
+  // A. Arsipkan Sheet Aktif saat ini menjadi "NamaSheet_Tahun"
+  const sheetTrans = ss.getSheetByName('Transaksi') || ss.getSheetByName('DataTransaksi');
+  
+  // Rename sheet aktif saat ini agar tersimpan sebagai arsip
+  if (sheetSekolah) sheetSekolah.setName('DataSekolah_' + currentActiveYear);
+  if (sheetTrans) sheetTrans.setName('DataTransaksi_' + currentActiveYear);
+  
+  // B. Aktifkan Sheet Target (Jika ada rename jadi aktif, jika tidak buat baru)
+  const targetSekolahName = 'DataSekolah_' + targetStr;
+  const targetTransName = 'DataTransaksi_' + targetStr;
+  
+  const existingSekolah = ss.getSheetByName(targetSekolahName);
+  const existingTrans = ss.getSheetByName(targetTransName);
+  
+  // --- Handle Data Sekolah ---
+  if (existingSekolah) {
+    // Jika data tahun tersebut sudah ada, aktifkan kembali jadi 'DataSekolah'
+    existingSekolah.setName('DataSekolah');
+  } else {
+    // Jika belum ada, COPY dari arsip terakhir agar profil sekolah terbawa
+    const archived = ss.getSheetByName('DataSekolah_' + currentActiveYear);
+    if (archived) {
+      const newSheet = archived.copyTo(ss).setName('DataSekolah');
+      // Update Cell Tahun Anggaran (Kolom R / 18)
+      newSheet.getRange(2, 18).setValue(targetStr);
+      // Reset Jumlah Anggaran (Kolom Q / 17) jadi 0 untuk diisi ulang
+      newSheet.getRange(2, 17).setValue(0); 
+    } else {
+      // Fallback buat baru (jarang terjadi)
+      const ns = ss.insertSheet('DataSekolah');
+      ns.getRange(2, 18).setValue(targetStr);
+    }
+  }
+  
+  // --- Handle Transaksi ---
+  if (existingTrans) {
+    existingTrans.setName('DataTransaksi');
+  } else {
+    // Buat Sheet Transaksi Kosong untuk tahun baru
+    const newTrans = ss.insertSheet('DataTransaksi');
+    
+    // Copy Header dari sheet lama agar format konsisten
+    const archivedTrans = ss.getSheetByName('DataTransaksi_' + currentActiveYear);
+    if(archivedTrans) {
+       const lastCol = archivedTrans.getLastColumn();
+       if(lastCol > 0) {
+         const rangeHeader = archivedTrans.getRange(1, 1, 1, lastCol);
+         rangeHeader.copyTo(newTrans.getRange(1,1));
+       }
+    } else {
+       // Header Default jika tidak ada arsip
+       newTrans.appendRow(["ID_Transaksi", "Tanggal", "Tipe", "Uraian", "Pihak_Ketiga", "Pemesan", "Items_JSON", "Total_Biaya", "Waktu_Input", "Data_Surat_JSON", "Data_Tanggal_JSON", "File_PDF_ID"]);
+    }
   }
 }
