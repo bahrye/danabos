@@ -1024,6 +1024,11 @@
               </span>
             </div>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Tahun Anggaran</label>
+            <select class="form-select" id="loginTahun" required>
+              </select>
+          </div>
           <button type="submit" class="btn btn-primary w-100">Masuk</button>
           <div class="text-end mb-3">
             <small><span class="text-muted cursor-pointer" onclick="switchView('view-reset')">Lupa Password?</span></small>
@@ -4210,22 +4215,6 @@
 
       /* --- LOGIKA APLIKASI --- */
 
-      window.onload = function() {
-        loadCacheFromLocal();
-
-        const token = localStorage.getItem('userToken');
-        if(token) {
-          switchView('view-admin');
-          document.getElementById('schoolNameDisplay').innerText = "(" + localStorage.getItem('userName') + ")";
-          
-          // Tambahkan ini agar saat login/refresh, data dashboard langsung muncul
-          loadDashboardStats(); 
-          
-        } else {
-          switchView('view-login');
-        }
-      };
-
       /**
        * Fungsi Loading dengan Pesan Dinamis
        * @param {boolean} show - Tampilkan (true) atau Sembunyikan (false)
@@ -4271,14 +4260,22 @@
 
       /* --- UPDATE PADA INDEX.HTML --- */
 
+      /* --- UPDATE HANDLER LOGIN (DENGAN TAHUN ANGGARAN) --- */
       function handleLogin(e) {
         e.preventDefault();
-        toggleLoading(true, "Memverifikasi Akun...");
         
-        const emailInput = document.getElementById('loginEmail').value; 
+        // Update pesan loading agar user tahu sistem sedang menyiapkan database tahunan
+        toggleLoading(true, "Memverifikasi & Menyiapkan Database...");
+        
+        const emailInput = document.getElementById('loginEmail').value;
+        
+        // [BARU] Ambil Tahun Anggaran yang dipilih user
+        const tahunInput = document.getElementById('loginTahun').value; 
+        
         const form = {
           email: emailInput,
-          password: document.getElementById('loginPass').value
+          password: document.getElementById('loginPass').value,
+          tahun: tahunInput // [BARU] Kirim parameter tahun ke server (Kode.gs)
         };
 
         google.script.run
@@ -4308,19 +4305,22 @@
               document.getElementById('schoolNameDisplay').innerText = "";
               document.getElementById('dashNamaSekolah').innerText = "-";
               
-              // [PERBAIKAN 2] BARU SIMPAN DATA USER BARU (USER B)
+              // [PERBAIKAN 2] BARU SIMPAN DATA USER BARU
               localStorage.setItem('userToken', res.token);
               localStorage.setItem('userName', res.namaSekolah);
               localStorage.setItem('userEmail', emailInput);
               localStorage.setItem('sessionToken', res.sessionToken);
               
+              // [BARU] Simpan Tahun Anggaran ke Local Storage untuk referensi aplikasi
+              localStorage.setItem('userYear', tahunInput);
+              
               const elName = document.getElementById('schoolNameDisplay');
               if(elName) elName.innerText = "(" + res.namaSekolah + ")";
               
-              // Pindah View
+              // Pindah View ke Admin Panel
               switchView('view-admin');
               
-              // Load Data Baru (Fresh dari Server milik User B)
+              // Load Data Baru (Fresh dari Server yang sudah diswap sheet-nya oleh server)
               loadDashboardStats(true); // Gunakan true untuk force refresh
               
               // Mulai Monitor Sesi
@@ -7827,6 +7827,7 @@
 
       /* --- UPDATE di window.onload --- */
       window.onload = function() {
+        populateLoginYears();
         initFilterTahun(); 
 
         const token = localStorage.getItem('userToken');
@@ -12147,6 +12148,36 @@
             }
           })
           .sinkronisasiRef(token);
+      }
+
+      /* --- FUNGSI BARU: POPULASI TAHUN ANGGARAN --- */
+      function populateLoginYears() {
+        const select = document.getElementById('loginTahun');
+        if(!select) return;
+        
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        
+        // Logika: Start 2025. Jika masuk bulan 7, munculkan tahun depan.
+        let maxYear = currentYear;
+        if (currentMonth >= 7) {
+          maxYear = currentYear + 1;
+        }
+        
+        const startYear = 2025;
+        // Validasi agar tidak mundur
+        if (maxYear < startYear) maxYear = startYear;
+
+        select.innerHTML = '';
+        for (let y = startYear; y <= maxYear; y++) {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.text = y;
+          // Default pilih tahun saat ini (atau tahun depan jika bulan > 7 disesuaikan kebutuhan)
+          if (y === maxYear) opt.selected = true; 
+          select.appendChild(opt);
+        }
       }
 
     </script>
