@@ -12202,6 +12202,65 @@
         }
       }
 
+      function handleImportFile() {
+        // PERBAIKAN: Gunakan ID 'fileImportInput' sesuai dengan yang ada di HTML
+        var fileInput = document.getElementById('fileImportInput'); 
+        
+        // Validasi apakah file sudah dipilih
+        if (fileInput.files.length === 0) {
+          Swal.fire('Peringatan', 'Silakan pilih file Excel terlebih dahulu!', 'warning');
+          return;
+        }
+
+        var file = fileInput.files[0];
+        var reader = new FileReader();
+
+        // Tampilkan loading saat proses upload dimulai
+        // Pastikan Anda memiliki fungsi toggleLoading, jika tidak ganti dengan alert/console.log
+        if (typeof toggleLoading === 'function') {
+            toggleLoading(true, "Mengupload & Memproses Data...");
+        }
+
+        reader.onload = function(e) {
+          var data = e.target.result; // Data file dalam format base64
+          
+          // Bersihkan header base64 (misal: "data:application/vnd...;base64,")
+          var content = data.split(',')[1]; 
+
+          // Panggil fungsi server (di Kode.gs)
+          google.script.run
+            .withSuccessHandler(function(response) {
+              if (typeof toggleLoading === 'function') toggleLoading(false);
+              
+              // Tampilkan sukses
+              Swal.fire({
+                  icon: 'success',
+                  title: 'Berhasil Import',
+                  text: response
+              });
+              
+              // Reset input file
+              fileInput.value = ''; 
+              
+              // Opsional: Refresh data yang relevan sesuai tab yang aktif
+              // if (typeof loadUraianData === 'function') loadUraianData(true);
+            })
+            .withFailureHandler(function(error) {
+              if (typeof toggleLoading === 'function') toggleLoading(false);
+              
+              Swal.fire({
+                  icon: 'error',
+                  title: 'Gagal Import',
+                  text: error.message
+              });
+            })
+            .processExcelData(content, file.name); // Nama fungsi di Kode.gs
+        };
+
+        // Baca file sebagai Data URL (Base64)
+        reader.readAsDataURL(file);
+      }
+
     </script>
   </body>
 </html>
