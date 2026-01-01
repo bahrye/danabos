@@ -11555,7 +11555,7 @@
 
             // 3. Nama Kepala (Read Only / Default)
             document.getElementById('sptjmNamaKepala').value = d.sekolah.namaKepala || '';
-            document.getElementById('sptjmTahun').value = d.sekolah.tahunAnggaran || new Date().getFullYear();
+            document.getElementById('sptjmTahun').value = pksTahun || new Date().getFullYear();
 
             // 4. Data Isian User (NIK, Tempat, Tanggal) - Ambil dari cache tersimpan
             const sp = d.sptjm || {};
