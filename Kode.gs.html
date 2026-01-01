@@ -300,8 +300,8 @@ function confirmResetOtp(form) {
 // Jika browser mengirim sinyal dalam 60 detik terakhir, dianggap masih aktif.
 const ACTIVE_THRESHOLD_SEC = 60; 
 
-// Batas waktu sesi di database (30 menit)
-const MAX_IDLE_TIME_MINUTES = 30; 
+// Batas waktu sesi di database (6 jam)
+const MAX_IDLE_TIME_MINUTES = 360; 
 
 /* HELPER: CACHE SERVICE */
 function setSessionCache(email, data) {
