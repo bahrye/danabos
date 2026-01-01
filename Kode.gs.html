@@ -5470,3 +5470,37 @@ function switchFiscalYear(dbId, targetYear) {
     }
   }
 }
+
+function processExcelData(data, filename) {
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(data), MimeType.MICROSOFT_EXCEL, filename);
+    
+    // Opsional: Simpan file ke Drive (untuk backup/debug)
+    // DriveApp.createFile(blob);
+
+    // Konversi Blob Excel ke Google Sheets agar bisa dibaca
+    var resource = {
+      title: filename.replace(/.xlsx?/, "") + " [Temp]",
+      mimeType: MimeType.GOOGLE_SHEETS
+    };
+    
+    // Upload file Excel sebagai Google Sheet sementara
+    var newFile = Drive.Files.insert(resource, blob);
+    var ss = SpreadsheetApp.openById(newFile.id);
+    var sheet = ss.getSheets()[0]; // Ambil sheet pertama
+    var values = sheet.getDataRange().getValues();
+
+    // --- PROSES DATA DI SINI ---
+    // Contoh: Log data baris pertama
+    // Logger.log(values[0]);
+    
+    // Hapus file sementara agar Drive tidak penuh
+    Drive.Files.remove(newFile.id); 
+
+    return "Sukses memproses " + values.length + " baris.";
+    
+  } catch (e) {
+    Logger.log("Error: " + e.toString());
+    throw new Error(e.toString());
+  }
+}
