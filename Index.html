@@ -1160,7 +1160,10 @@
 
         <div class="row g-0"> <div id="sidebarMenu" class="col-md-3 col-lg-3 col-xl-2 sidebar p-3">
           <div class="d-flex justify-content-between align-items-center">
-              <h4 class="text-center py-3 border-bottom w-100"><i class="fas fa-user-shield"></i> Versi 1.0</h4>
+              <h4 class="text-center py-3 border-bottom w-100">
+                <i class="fas fa-calendar-check me-2"></i> 
+                <span id="sidebarLabelTahun">Tahun -</span>
+              </h4>
               <button class="btn btn-sm text-white d-md-none" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
           </div>
           <ul class="nav flex-column mt-4">
@@ -4313,6 +4316,8 @@
               
               // [BARU] Simpan Tahun Anggaran ke Local Storage untuk referensi aplikasi
               localStorage.setItem('userYear', tahunInput);
+
+              updateTampilanTahun();
               
               const elName = document.getElementById('schoolNameDisplay');
               if(elName) elName.innerText = "(" + res.namaSekolah + ")";
@@ -7849,6 +7854,7 @@
                   switchView('view-admin');
                   const savedName = localStorage.getItem('userName');
                   if(savedName) document.getElementById('schoolNameDisplay').innerText = "(" + savedName + ")";
+                  updateTampilanTahun();
                   loadDashboardStats(); 
                   startSessionMonitor();
               } else {
@@ -12179,6 +12185,20 @@
           // Default pilih tahun saat ini (atau tahun depan jika bulan > 7 disesuaikan kebutuhan)
           if (y === maxYear) opt.selected = true; 
           select.appendChild(opt);
+        }
+      }
+
+      /* --- FUNGSI UPDATE TAMPILAN TAHUN DI SIDEBAR --- */
+      function updateTampilanTahun() {
+        const year = localStorage.getItem('userYear'); // Ambil tahun dari login
+        const el = document.getElementById('sidebarLabelTahun');
+        
+        if (el) {
+          if (year && year !== 'undefined') {
+            el.innerText = "Tahun " + year;
+          } else {
+            el.innerText = "Versi 1.0"; // Fallback jika tahun tidak ditemukan
+          }
         }
       }
 
