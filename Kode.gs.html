@@ -1951,12 +1951,11 @@ function hapusKopSurat(token) {
   }
 }
 
-/* --- FUNGSI BANTUAN TRANSAKSI --- */
-
+/* --- FUNGSI BANTUAN TRANSAKSI (DIPERBAIKI) --- */
 function getAllOptions(token) {
   try {
     const ss = SpreadsheetApp.openById(token);
-    
+
     // 1. Uraian
     const uraianData = getUraianList(token);
     const listUraian = (uraianData.status === 'success') ? uraianData.data : [];
@@ -1969,33 +1968,40 @@ function getAllOptions(token) {
     const guruData = getGuruList(token);
     const listGuru = (guruData.status === 'success') ? guruData.data : [];
 
-    // 4. Satuan (Ambil dari sheet 'Satuan' Col A)
+    // 4. [PERBAIKAN] Tambahkan Data Tukang Disini
+    const tukangData = getTukangList(token);
+    const listTukang = (tukangData.status === 'success') ? tukangData.data : [];
+
+    // 5. Satuan (Ambil dari sheet 'Satuan' Col A)
     let listSatuan = [];
     const sheetSat = ss.getSheetByName('Satuan');
     if (sheetSat && sheetSat.getLastRow() > 1) {
-       listSatuan = sheetSat.getRange(2, 1, sheetSat.getLastRow()-1, 1).getValues()
-                    .flat().filter(v => v !== "");
+      listSatuan = sheetSat.getRange(2, 1, sheetSat.getLastRow()-1, 1).getValues()
+      .flat().filter(v => v !== "");
     }
 
-    // 5. Barang (Ambil dari sheet 'Data Barang' Col A)
+    // 6. Barang (Ambil dari sheet 'Data Barang' Col A)
     let listBarang = [];
     const sheetBarang = ss.getSheetByName('Data Barang');
     if (sheetBarang && sheetBarang.getLastRow() > 1) {
-       // Kita ambil Col A sebagai nama barang
-       const rawBarang = sheetBarang.getRange(2, 1, sheetBarang.getLastRow()-1, 1).getValues();
-       listBarang = rawBarang.map(r => ({ nama: r[0] })).filter(r => r.nama !== "");
+      // Kita ambil Col A sebagai nama barang
+      const rawBarang = sheetBarang.getRange(2, 1, sheetBarang.getLastRow()-1, 1).getValues();
+      listBarang = rawBarang.map(r => ({ nama: r[0] })).filter(r => r.nama !== "");
     }
 
-    return {
-      status: 'success',
-      data: {
-        uraian: listUraian,
-        toko: listToko,
-        guru: listGuru,
-        satuan: listSatuan,
-        dataBarang: listBarang
-      }
+    // [PENTING] Masukkan 'tukang: listTukang' ke dalam return object
+    return { 
+      status: 'success', 
+      data: { 
+        uraian: listUraian, 
+        toko: listToko, 
+        guru: listGuru, 
+        tukang: listTukang, // <-- Ini yang sebelumnya hilang
+        satuan: listSatuan, 
+        dataBarang: listBarang 
+      } 
     };
+
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
