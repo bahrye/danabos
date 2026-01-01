@@ -3841,7 +3841,7 @@
 
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Tahun Anggaran</label>
-                      <input type="number" class="form-control" id="dsTahun" placeholder="2025">
+                      <input type="number" class="form-control bg-light" id="dsTahun" readonly>
                     </div>
                   </div>
 
@@ -4621,11 +4621,13 @@
         cekPeriodeBos();
         
         document.getElementById('dsJumlahAnggaran').value = formatRibuanInput(d.jumlahAnggaran);
-        // --- MODIFIKASI: Default Tahun Berjalan ---
-        // Jika d.tahunAnggaran ada isinya (user lama), gunakan itu.
-        // Jika kosong (user baru), gunakan tahun dari sistem komputer (Date).
-        const tahunSekarang = new Date().getFullYear();
-        document.getElementById('dsTahun').value = d.tahunAnggaran || tahunSekarang;
+
+        // --- MODIFIKASI: Kunci Tahun Anggaran Sesuai Login Sesi ---
+        // Ambil tahun yang dipilih user saat login (tersimpan di LocalStorage)
+        const sessionYear = localStorage.getItem('userYear');
+
+        // Prioritas: Tahun Sesi Login > Data Database > Tahun Komputer
+        document.getElementById('dsTahun').value = sessionYear || d.tahunAnggaran || new Date().getFullYear();
       }
 
       // --- SIMPAN DATA SEKOLAH (INVALIDATE CACHE) ---
