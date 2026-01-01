@@ -12202,62 +12202,78 @@
         }
       }
 
+      /* --- PERBAIKAN FUNGSI IMPORT FILE --- */
       function handleImportFile() {
-        // PERBAIKAN: Gunakan ID 'fileImportInput' sesuai dengan yang ada di HTML
-        var fileInput = document.getElementById('fileImportInput'); 
-        
-        // Validasi apakah file sudah dipilih
+        const fileInput = document.getElementById('fileImportInput');
+        const type = document.getElementById('importTypeTarget').value; // Ambil tipe (TOKO/TUKANG/GURU)
+        const token = localStorage.getItem('userToken'); // Ambil ID Database
+
+        // 1. Validasi Input
         if (fileInput.files.length === 0) {
-          Swal.fire('Peringatan', 'Silakan pilih file Excel terlebih dahulu!', 'warning');
+          Swal.fire('Peringatan', 'Silakan pilih file Excel (.xlsx) terlebih dahulu.', 'warning');
           return;
         }
 
-        var file = fileInput.files[0];
-        var reader = new FileReader();
-
-        // Tampilkan loading saat proses upload dimulai
-        // Pastikan Anda memiliki fungsi toggleLoading, jika tidak ganti dengan alert/console.log
-        if (typeof toggleLoading === 'function') {
-            toggleLoading(true, "Mengupload & Memproses Data...");
+        const file = fileInput.files[0];
+        
+        // Validasi Ekstensi
+        if (!file.name.match(/\.(xlsx|xls)$/)) {
+          Swal.fire('Format Salah', 'Harap upload file Excel dengan format .xlsx', 'error');
+          return;
         }
 
+        // 2. Tampilan Loading
+        document.getElementById('importProgress').classList.remove('hidden');
+        
+        // Kunci tombol agar tidak diklik 2x
+        const btnUpload = document.querySelector('button[onclick="handleImportFile()"]');
+        if(btnUpload) btnUpload.disabled = true;
+
+        // 3. Baca File & Kirim ke Server
+        const reader = new FileReader();
         reader.onload = function(e) {
-          var data = e.target.result; // Data file dalam format base64
+          const content = e.target.result.split(',')[1]; // Ambil data Base64
           
-          // Bersihkan header base64 (misal: "data:application/vnd...;base64,")
-          var content = data.split(',')[1]; 
-
-          // Panggil fungsi server (di Kode.gs)
           google.script.run
-            .withSuccessHandler(function(response) {
-              if (typeof toggleLoading === 'function') toggleLoading(false);
-              
-              // Tampilkan sukses
-              Swal.fire({
-                  icon: 'success',
-                  title: 'Berhasil Import',
-                  text: response
-              });
-              
-              // Reset input file
-              fileInput.value = ''; 
-              
-              // Opsional: Refresh data yang relevan sesuai tab yang aktif
-              // if (typeof loadUraianData === 'function') loadUraianData(true);
-            })
-            .withFailureHandler(function(error) {
-              if (typeof toggleLoading === 'function') toggleLoading(false);
-              
-              Swal.fire({
-                  icon: 'error',
-                  title: 'Gagal Import',
-                  text: error.message
-              });
-            })
-            .processExcelData(content, file.name); // Nama fungsi di Kode.gs
-        };
+            .withSuccessHandler(function(res) {
+              // Matikan Loading
+              document.getElementById('importProgress').classList.add('hidden');
+              if(btnUpload) btnUpload.disabled = false;
 
-        // Baca file sebagai Data URL (Base64)
+              if (res.status === 'success') {
+                Swal.fire({ 
+                  icon: 'success', 
+                  title: 'Import Berhasil', 
+                  text: res.message,
+                  timer: 2000,
+                  showConfirmButton: false
+                });
+                
+                // Refresh Tabel Data sesuai Tipe agar data langsung muncul
+                if(type === 'TOKO') loadTokoData(true);
+                if(type === 'TUKANG') loadTukangData(true);
+                if(type === 'GURU') loadGuruData(true);
+                
+                // Tutup Modal Import
+                const modalEl = document.getElementById('modalImport');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if(modalInstance) modalInstance.hide();
+                
+                // Reset Input File
+                fileInput.value = '';
+              } else {
+                Swal.fire({ icon: 'error', title: 'Gagal Import', html: res.message });
+              }
+            })
+            .withFailureHandler(function(err) {
+              document.getElementById('importProgress').classList.add('hidden');
+              if(btnUpload) btnUpload.disabled = false;
+              Swal.fire('Error Sistem', err.message, 'error');
+            })
+            // PENTING: Kirim parameter lengkap (token, content, nama file, tipe)
+            .processExcelData(token, content, file.name, type); 
+        };
+        
         reader.readAsDataURL(file);
       }
 
