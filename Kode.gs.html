@@ -4739,7 +4739,7 @@ function getTemplateRefData(token) {
   }
 }
 
-/* --- FUNGSI GENERATE TEMPLATE EXCEL OFFLINE (V11: FLUSH & FORCE UI FIX) --- */
+/* --- FUNGSI GENERATE TEMPLATE EXCEL OFFLINE (V12: VALIDATION WARNING + FORCE UI) --- */
 function createExcelTemplateFromServer(type, refData) {
   
   // A. NON-TRANSAKSI (Tetap sama)
@@ -4768,9 +4768,9 @@ function createExcelTemplateFromServer(type, refData) {
 
   // B. TRANSAKSI (SISTEM MASTER COPY + FORCE PROTECT)
   try {
-    // 1. Cek Master Template V11 (UBAH KE V11 AGAR RESET MASTER)
+    // 1. Cek Master Template V12 (GANTI KE V12 AGAR RESET MASTER BARU)
     var props = PropertiesService.getScriptProperties();
-    var masterId = props.getProperty('MASTER_TEMPLATE_OFFLINE_ID_V11'); 
+    var masterId = props.getProperty('MASTER_TEMPLATE_OFFLINE_ID_V12'); 
     var masterFile;
 
     if (masterId) {
@@ -4779,9 +4779,8 @@ function createExcelTemplateFromServer(type, refData) {
 
     // 2. Jika Master belum ada, Buat Baru
     if (!masterId) {
-      // Pastikan fungsi setupMasterTransactionTemplate() juga ada di kode Anda
-      masterId = setupMasterTransactionTemplate(); 
-      props.setProperty('MASTER_TEMPLATE_OFFLINE_ID_V11', masterId);
+      masterId = setupMasterTransactionTemplate();
+      props.setProperty('MASTER_TEMPLATE_OFFLINE_ID_V12', masterId);
       masterFile = DriveApp.getFileById(masterId);
     }
 
@@ -4793,27 +4792,29 @@ function createExcelTemplateFromServer(type, refData) {
     // 4. Update Dropdown
     updateRefSheets(ssCopy, refData);
 
-    // 5. TERAPKAN PROTEKSI & PENGATURAN UI
+    // 5. TERAPKAN PROTEKSI & VALIDASI (KUNCI)
     applyFinalProtection(ssCopy);
 
-    // 6. LANGKAH EKSTRA: PASTIKAN 'TOKO' MUNCUL PERTAMA & REF TERSEMBUNYI
+    // 6. FINISHING: URUTAN SHEET & AKTIVASI
     var sheets = ssCopy.getSheets();
-    var tokoSheet = ssCopy.getSheetByName("TOKO");
     
-    // Sembunyikan semua sheet Ref secara eksplisit sekali lagi
+    // A. Sembunyikan semua Ref_
     sheets.forEach(function(s) {
       if (s.getName().startsWith("Ref_")) {
-        try { s.hideSheet(); } catch(e) {}
+        s.hideSheet();
       }
     });
 
-    // Aktifkan sheet TOKO dan pindahkan ke posisi 1
+    // B. Pastikan TOKO di posisi 1 dan Aktif
+    var tokoSheet = ssCopy.getSheetByName("TOKO");
     if (tokoSheet) {
+      // Pindahkan ke index 1 (Posisi paling kiri)
+      // Perhatikan: moveActiveSheet memindahkan sheet yang sedang aktif
       tokoSheet.activate();
       ssCopy.moveActiveSheet(1);
     }
 
-    // 7. PAKSA SIMPAN PERUBAHAN (FLUSH)
+    // 7. PAKSA SIMPAN (FLUSH)
     SpreadsheetApp.flush(); 
 
     return { status: 'success', id: ssCopy.getId(), url: ssCopy.getUrl() };
@@ -4934,11 +4935,9 @@ function updateRefSheets(ss, refData) {
   update("Satuan", refData.satuan);
 }
 
-/* --- HELPER 3: FINAL PROTECTION (DENGAN FLUSHING) --- */
+/* --- HELPER 3: FINAL PROTECTION (DENGAN VALIDASI DATA WARNING) --- */
 function applyFinalProtection(ss) {
-  // Pastikan semua perubahan sebelumnya tersimpan agar kita bisa membaca Header dengan benar
   SpreadsheetApp.flush(); 
-
   var sheets = ss.getSheets();
   
   sheets.forEach(function(sheet) {
@@ -4947,14 +4946,10 @@ function applyFinalProtection(ss) {
 
     // 1. HIDDEN & LOCK SHEET REF
     if (name.startsWith("Ref_")) {
-      try {
-        sheet.hideSheet(); // Sembunyikan Sheet
-      } catch (e) {}
-
-      // Lindungi sheet referensi sepenuhnya (Hard Lock)
+      try { sheet.hideSheet(); } catch (e) {}
       var p = sheet.protect().setDescription('REF_LOCKED_SYSTEM');
-      p.setWarningOnly(false); // User TIDAK BISA edit
-      p.removeEditors(p.getEditors()); // Hapus semua editor kecuali pemilik
+      p.setWarningOnly(false);
+      p.removeEditors(p.getEditors());
       if (p.canDomainEdit()) p.setDomainEdit(false);
       return; 
     }
@@ -4962,58 +4957,58 @@ function applyFinalProtection(ss) {
     // 2. PROTEKSI SHEET INPUT (TOKO, TUKANG, GURU)
     if (name === 'TOKO' || name === 'TUKANG' || name === 'GURU') {
        
-       // Hapus proteksi lama jika ada (Reset bersih)
+       // Hapus proteksi lama
        var oldProtections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
        for (var i = 0; i < oldProtections.length; i++) { oldProtections[i].remove(); }
 
        // Hitung posisi kolom
        var lastCol = sheet.getLastColumn();
        var headers = [];
-       // Ambil header baris 1 untuk mencari posisi kolom
-       if (lastCol > 0) {
-         headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+       if (lastCol > 0) headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+       var colVol1 = headers.indexOf("Volume 1") + 1; 
+       if (colVol1 <= 1) return; 
+       var baseColItem = colVol1 - 1; 
+
+       // --- A. VALIDASI DATA "FAKE" UNTUK PERINGATAN (Anti-Edit Visual) ---
+       // Kita beri validasi =TRUE (selalu benar) tapi set HelpText agar muncul popup merah saat disentuh.
+       
+       var lockWarningRule = SpreadsheetApp.newDataValidation()
+         .requireFormulaSatisfied('=TRUE') // Selalu valid agar rumus tidak error
+         .setAllowInvalid(true) // Biarkan apapun masuk (karena ini hanya untuk warning text)
+         .setHelpText("⛔ RUMUS OTOMATIS SISTEM\nMohon jangan diedit atau dihapus manual!")
+         .build();
+
+       // 1. Terapkan Warning di Kolom Tipe (Kolom B / 2)
+       sheet.getRange(2, 2, maxRows, 1).setDataValidation(lockWarningRule);
+
+       // 2. Terapkan Warning di Kolom Nama Item Otomatis (Khusus Tukang/Guru)
+       if (name === 'TUKANG' || name === 'GURU') {
+          sheet.getRange(2, baseColItem, maxRows, 1).setDataValidation(lockWarningRule);
        }
 
-       // Cari kolom "Volume 1" sebagai patokan batas area statis vs dinamis
-       var colVol1 = headers.indexOf("Volume 1") + 1; // Index menjadi 1-based
-       
-       // Jika header tidak ditemukan, lewati (safety)
-       if (colVol1 <= 1) return; 
-
-       var baseColItem = colVol1 - 1; // Posisi Kolom "Nama Barang 1" atau "Nama Tukang 1"
-       
-       // Buat Proteksi Baru
+       // --- B. PROTEKSI FISIK (HARD LOCK) ---
        var protection = sheet.protect().setDescription('PROTECTED_SHEET_' + name);
        var unprotectedRanges = [];
 
-       // --- TENTUKAN AREA YANG *BOLEH* DIEDIT (UNLOCKED) ---
-
-       // A. Kolom No (Kolom A / 1) - Boleh Edit
+       // Buka Kunci: Kolom No (A)
        unprotectedRanges.push(sheet.getRange(2, 1, maxRows, 1));
 
-       // B. Kolom Tipe (Kolom B / 2) -> JANGAN DIMASUKKAN KE SINI. 
-       // Biarkan Kolom B TERKUNCI karena isinya rumus otomatis.
-
-       // C. Area Utama (Mulai Kolom C / 3 sampai sebelum Item 1) - Boleh Edit
-       // Ini mencakup: Uraian, Pihak Ketiga, Pemesan, Nomor Surat, Tanggal, dll.
-       // Rumus: StartRow=2, StartCol=3, NumRows=max, NumCols=(baseColItem - 3)
+       // Buka Kunci: Area Utama (Mulai C sampai sebelum Item 1)
+       // Kolom B (Tipe) TIDAK DIMASUKKAN -> TERKUNCI
        if (baseColItem > 3) {
          unprotectedRanges.push(sheet.getRange(2, 3, maxRows, baseColItem - 3));
        }
 
-       // D. Area Item (Rincian Barang/Jasa)
+       // Buka Kunci: Area Item
        if (name === 'TUKANG' || name === 'GURU') {
-          // KHUSUS TUKANG/GURU:
-          // Kolom Nama Item 1 (baseColItem) mengandung rumus otomatis (=PihakKetiga/Pemesan) -> HARUS TERKUNCI.
-          // Kita buka kunci mulai dari Volume 1 (baseColItem + 1)
-          var startUnlock = baseColItem + 1;
+          // Kolom Nama Item (baseColItem) TIDAK DIMASUKKAN -> TERKUNCI (Ada Rumus)
+          var startUnlock = baseColItem + 1; // Mulai dari Volume 1
           var numCols = lastCol - startUnlock + 1;
           if (numCols > 0) {
             unprotectedRanges.push(sheet.getRange(2, startUnlock, maxRows, numCols));
           }
        } else {
-          // KHUSUS TOKO:
-          // Nama Item 1 (baseColItem) adalah input manual/dropdown -> BOLEH DIEDIT.
+          // TOKO: Nama Item (baseColItem) BOLEH DIEDIT (Dropdown)
           var startUnlock = baseColItem;
           var numCols = lastCol - startUnlock + 1;
           if (numCols > 0) {
@@ -5021,12 +5016,9 @@ function applyFinalProtection(ss) {
           }
        }
 
-       // Terapkan Range yang Boleh Diedit
        protection.setUnprotectedRanges(unprotectedRanges);
-       
-       // SET HARD LOCK (User selain pemilik tidak bisa edit range yang terkunci)
-       protection.setWarningOnly(false); 
-       protection.removeEditors(protection.getEditors()); 
+       protection.setWarningOnly(false); // Blokir total
+       protection.removeEditors(protection.getEditors()); // Hapus editor lain
        if (protection.canDomainEdit()) protection.setDomainEdit(false);
     }
   });
