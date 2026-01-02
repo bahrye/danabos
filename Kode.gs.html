@@ -5683,7 +5683,14 @@ function hapusBanyakTransaksi(token, idListJson) {
   try {
     lock.waitLock(10000); // Tunggu antrean 10 detik
     const ss = SpreadsheetApp.openById(token);
-    const sheet = ss.getSheetByName('Transaksi');
+    
+    // PERBAIKAN: Ubah 'Transaksi' menjadi 'DataTransaksi'
+    const sheet = ss.getSheetByName('DataTransaksi'); 
+    
+    // Validasi jika sheet tidak ditemukan (Mencegah error sistem)
+    if (!sheet) {
+      return { status: 'error', message: 'Sheet DataTransaksi tidak ditemukan di database.' };
+    }
     
     // Parse list ID yang dikirim dari klien
     const idsToDelete = JSON.parse(idListJson); // Array of ID strings
@@ -5693,11 +5700,16 @@ function hapusBanyakTransaksi(token, idListJson) {
     const rowsToDelete = [];
 
     // Loop data (Mulai dari baris 2/index 1 karena header)
-    // Kita simpan index baris yang mau dihapus
     for (let i = 1; i < data.length; i++) {
-      if (idSet.has(String(data[i][0]))) { // Kolom A adalah ID
+      // Kolom A (Index 0) adalah ID_Transaksi
+      if (idSet.has(String(data[i][0]))) { 
         rowsToDelete.push(i + 1); // Simpan nomor baris (bukan index)
       }
+    }
+
+    // Cek jika tidak ada data yang cocok
+    if (rowsToDelete.length === 0) {
+      return { status: 'error', message: 'Data tidak ditemukan atau sudah terhapus.' };
     }
 
     // PENTING: Hapus dari BAWAH ke ATAS agar nomor baris tidak bergeser
