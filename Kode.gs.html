@@ -5783,3 +5783,15 @@ function hapusBanyakTransaksi(token, idListJson) {
     lock.releaseLock();
   }
 }
+
+/* --- FUNGSI BARU: HAPUS FILE TEMP (Dipanggil Client setelah Download) --- */
+function hapusFileTemp(fileId) {
+  try {
+    // Hapus file (pindahkan ke sampah) agar tidak menumpuk di Drive
+    DriveApp.getFileById(fileId).setTrashed(true);
+    return { status: 'success' };
+  } catch (e) {
+    // Abaikan error jika file sudah terhapus
+    return { status: 'error', message: e.toString() };
+  }
+}
