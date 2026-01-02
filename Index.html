@@ -6097,25 +6097,46 @@
       // --- HAPUS TRANSAKSI (INVALIDATE CACHE) ---
       function hapusTransaksi(id, tipe) {
         Swal.fire({
-          title: 'Hapus Transaksi?', text: "Data tidak bisa dikembalikan.",
-          icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus'
+          title: 'Hapus Transaksi?',
+          text: "Data tidak bisa dikembalikan.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'Ya, Hapus'
         }).then((result) => {
           if (result.isConfirmed) {
-            const token = localStorage.getItem('userToken');
-            google.script.run.withFailureHandler(handleServerError).withSuccessHandler(function(res) {
-              if(res.status === 'success') {
-                Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
-                
-                // --- UPDATE PENTING: INVALIDATE CACHE ---
-                DATA_CACHE['transaksi_' + tipe] = null;
-                DATA_CACHE.dashboard = null;
-                // ---------------------------------------
-
-                loadTransaksiData(tipe.toUpperCase());
-              } else {
-                Swal.fire({ icon: 'error', title: 'Gagal Menghapus', html: res.message });
+            
+            // --- PERBAIKAN: TAMPILKAN LOADING POP-UP ---
+            Swal.fire({
+              title: 'Menghapus...',
+              text: 'Sedang memproses penghapusan data.',
+              allowOutsideClick: false, // Mencegah user menutup paksa
+              didOpen: () => {
+                Swal.showLoading(); // Menampilkan animasi loading
               }
-            }).hapusTransaksiItem(token, id);
+            });
+            // -------------------------------------------
+
+            const token = localStorage.getItem('userToken');
+            google.script.run
+              .withFailureHandler(function(error) {
+                  // Jika gagal, loading akan tertimpa oleh alert error ini
+                  handleServerError(error); 
+              })
+              .withSuccessHandler(function(res) {
+                if(res.status === 'success') {
+                  // Jika sukses, loading akan tertimpa oleh alert sukses ini
+                  Swal.fire('Terhapus!', 'Transaksi dihapus.', 'success');
+                  
+                  // --- UPDATE PENTING: INVALIDATE CACHE ---
+                  DATA_CACHE['transaksi_' + tipe] = null;
+                  DATA_CACHE.dashboard = null;
+                  // ---------------------------------------
+                  loadTransaksiData(tipe.toUpperCase());
+                } else {
+                  Swal.fire({ icon: 'error', title: 'Gagal Menghapus', html: res.message });
+                }
+              }).hapusTransaksiItem(token, id);
           }
         });
       }
