@@ -6379,7 +6379,7 @@
         tambahBaris(tipe);
       }
 
-      // --- FUNGSI POPUP DETAIL TRANSAKSI (FINAL REVISI: LAYOUT TABEL PRESISI) ---
+      // --- FUNGSI POPUP DETAIL TRANSAKSI (UPDATE: TAMBAH KOLOM HARGA) ---
       function lihatDetailTransaksi(encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         
@@ -6389,84 +6389,77 @@
 
         // Helper Format Tanggal
         const fmtDate = (dStr) => {
-            if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Kosong -</span>';
-            const d = new Date(dStr);
-            if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Error -</span>';
-            
-            const dd = String(d.getDate()).padStart(2, '0');
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const yyyy = d.getFullYear();
-            return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
+          if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Kosong -</span>';
+          const d = new Date(dStr);
+          if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Error -</span>';
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
         };
 
         // Helper Format Nomor
         const fmtNo = (val) => {
-            return val ? val : '<span class="text-muted fst-italic small fw-normal">- Belum diatur -</span>';
+          return val ? val : '<span class="text-muted fst-italic small fw-normal">- Belum diatur -</span>';
         };
 
         // --- LOGIKA TAMPILAN KHUSUS (GURU vs TOKO/TUKANG) ---
         let labelPihak = "Pihak Ketiga";
-        let valPihak   = data.pihakKetiga;
+        let valPihak = data.pihakKetiga;
         let labelBawah = "Pemesan";
-        let valBawah   = data.pemesan;
+        let valBawah = data.pemesan;
 
         // JIKA TIPE ADALAH GURU
         if (data.tipe === 'GURU') {
-            if (data.items && data.items.length > 0) {
-               valPihak = data.items[0].nama;
-            } else {
-               valPihak = "-";
-            }
-            labelBawah = "Keterangan";
-            valBawah = data.pihakKetiga; 
+          if (data.items && data.items.length > 0) {
+            valPihak = data.items[0].nama;
+          } else {
+            valPihak = "-";
+          }
+          labelBawah = "Keterangan";
+          valBawah = data.pihakKetiga;
         }
 
-        // 1. Header Info Dasar (UPDATE: Rata Kiri, Vertikal, Satu Baris, Scrollable)
+        // 1. Header Info Dasar
         let htmlContent = `
           <div class="mb-3">
-             <div class="table-responsive border rounded">
-                <table class="table table-bordered table-sm mb-0 align-middle text-nowrap" style="font-size: 0.9rem;">
-                  <tbody>
-                    
-                    <tr>
-                      <td class="bg-light fw-bold text-secondary text-start" style="width: 30%; min-width: 140px;">
-                        <i class="fas fa-clipboard-list text-primary me-2"></i>Uraian
-                      </td>
-                      <td class="fw-bold text-dark text-start">
-                        ${data.uraian}
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td class="bg-light fw-bold text-secondary text-start">
-                        <i class="fas fa-store text-success me-2"></i>${labelPihak}
-                      </td>
-                      <td class="text-start">
-                        ${valPihak} 
-                        <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.7rem;">${data.tipe}</span>
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td class="bg-light fw-bold text-secondary text-start">
-                        <i class="fas fa-user-tie text-info me-2"></i>${labelBawah}
-                      </td>
-                      <td class="text-start">
-                        ${valBawah}
-                      </td>
-                    </tr>
-
-                  </tbody>
-                </table>
-             </div>
-             
-             <div class="text-center text-muted fst-italic mt-1" style="font-size: 0.75rem;">
-               <small><i class="fas fa-arrows-alt-h me-1"></i> Geser tabel ke samping jika teks terpotong</small>
-             </div>
+            <div class="table-responsive border rounded">
+              <table class="table table-bordered table-sm mb-0 align-middle text-nowrap" style="font-size: 0.9rem;">
+                <tbody>
+                  <tr>
+                    <td class="bg-light fw-bold text-secondary text-start" style="width: 30%; min-width: 140px;">
+                      <i class="fas fa-clipboard-list text-primary me-2"></i>Uraian
+                    </td>
+                    <td class="fw-bold text-dark text-start">
+                      ${data.uraian}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="bg-light fw-bold text-secondary text-start">
+                      <i class="fas fa-store text-success me-2"></i>${labelPihak}
+                    </td>
+                    <td class="text-start">
+                      ${valPihak} <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.7rem;">${data.tipe}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="bg-light fw-bold text-secondary text-start">
+                      <i class="fas fa-user-tie text-info me-2"></i>${labelBawah}
+                    </td>
+                    <td class="text-start">
+                      ${valBawah}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-center text-muted fst-italic mt-1" style="font-size: 0.75rem;">
+              <small><i class="fas fa-arrows-alt-h me-1"></i> Geser tabel ke samping jika teks terpotong</small>
+            </div>
           </div>
         `;
 
-        // 2. Tabel Rincian Barang
+        // 2. Tabel Rincian Barang (UPDATE KOLOM HARGA DISINI)
         htmlContent += `
           <h6 class="fw-bold mb-2 text-secondary" style="font-size: 0.85rem;"><i class="fas fa-box me-1"></i> Rincian Item</h6>
           <div class="table-responsive mb-4">
@@ -6476,7 +6469,7 @@
                   <th>Nama Barang / Item</th>
                   <th width="10%">Vol</th>
                   <th width="10%">Sat</th>
-                  <th width="25%">Jumlah</th>
+                  <th width="15%">Harga</th> <th width="20%">Jumlah</th>
                 </tr>
               </thead>
               <tbody>
@@ -6484,24 +6477,28 @@
 
         if (data.items && data.items.length > 0) {
           data.items.forEach(item => {
+            // Pastikan item.harga ada valuenya, jika tidak 0
+            const hargaSatuan = item.harga || 0; 
+            
             htmlContent += `
               <tr>
                 <td class="text-start">${item.nama}</td>
                 <td class="text-center">${item.vol}</td>
                 <td class="text-center">${item.sat}</td>
-                <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
+                <td class="text-end text-muted">${formatRupiahJS(hargaSatuan)}</td> <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
               </tr>
             `;
           });
         } else {
-          htmlContent += `<tr><td colspan="4" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
+          // Colspan diubah jadi 5 karena ada tambahan kolom harga
+          htmlContent += `<tr><td colspan="5" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
         }
 
         htmlContent += `
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                  <td colspan="4" class="text-end fw-bold">TOTAL:</td>
                   <td class="text-end fw-bold fs-6 text-success">${formatRupiahJS(data.total)}</td>
                 </tr>
               </tfoot>
@@ -6509,14 +6506,12 @@
           </div>
         `;
 
-        // 3. Status Dokumen Surat & Tanggal (PERBAIKAN: DIGESER SAMPING / SCROLLABLE)
+        // 3. Status Dokumen Surat & Tanggal
         htmlContent += `
           <h6 class="fw-bold mb-2 text-primary" style="font-size: 0.85rem;">
             <i class="fas fa-file-signature me-1"></i> Status Dokumen & Tanggal
           </h6>
-          
           <div class="table-responsive">
-            
             <table class="table table-bordered table-sm align-middle text-nowrap mb-0" style="font-size: 0.85rem;">
               <thead class="bg-primary text-white bg-opacity-10">
                 <tr>
@@ -6529,21 +6524,21 @@
         `;
 
         const docs = [
-            { label: 'Surat Permintaan', tgl: t.permintaan, no: s.permintaan },
-            ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', tgl: t.penawaran, no: s.penawaran }] : []),
-            { label: 'BA Pemeriksaan', tgl: t.baPemeriksaan, no: s.baPemeriksaan },
-            { label: 'BA Serah Terima', tgl: t.baSerahTerima, no: s.baSerahTerima },
-            { label: 'BA Pembayaran', tgl: t.baPembayaran, no: s.baPembayaran }
+          { label: 'Surat Permintaan', tgl: t.permintaan, no: s.permintaan },
+          ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', tgl: t.penawaran, no: s.penawaran }] : []),
+          { label: 'BA Pemeriksaan', tgl: t.baPemeriksaan, no: s.baPemeriksaan },
+          { label: 'BA Serah Terima', tgl: t.baSerahTerima, no: s.baSerahTerima },
+          { label: 'BA Pembayaran', tgl: t.baPembayaran, no: s.baPembayaran }
         ];
 
         docs.forEach(doc => {
-            htmlContent += `
-                <tr>
-                    <td class="fw-bold text-secondary text-start ps-3">${doc.label}</td>
-                    <td class="text-center bg-light px-3">${fmtDate(doc.tgl)}</td>
-                    <td class="text-start ps-3 font-monospace text-dark fw-bold">${fmtNo(doc.no)}</td>
-                </tr>
-            `;
+          htmlContent += `
+            <tr>
+              <td class="fw-bold text-secondary text-start ps-3">${doc.label}</td>
+              <td class="text-center bg-light px-3">${fmtDate(doc.tgl)}</td>
+              <td class="text-start ps-3 font-monospace text-dark fw-bold">${fmtNo(doc.no)}</td>
+            </tr>
+          `;
         });
 
         htmlContent += `
@@ -6556,7 +6551,7 @@
         Swal.fire({
           title: 'Rincian & Dokumen',
           html: htmlContent,
-          width: '750px', 
+          width: '750px',
           showCloseButton: true,
           showConfirmButton: false,
           focusConfirm: false,
