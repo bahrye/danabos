@@ -12202,83 +12202,116 @@
         }
       }
 
-      /* --- PERBAIKAN FUNGSI IMPORT FILE (CLIENT) --- */
+      /* --- PERBAIKAN LOGIKA IMPORT & REFRESH DATA OTOMATIS --- */
+
       function handleImportFile() {
+        // 1. Ambil Elemen Input
         const fileInput = document.getElementById('fileImportInput');
-        const type = document.getElementById('importTypeTarget').value; // Tipe: TOKO/TUKANG/GURU
-        const token = localStorage.getItem('userToken'); // ID Database Sekolah
+        const typeEl = document.getElementById('importTypeTarget');
         
-        // 1. Validasi File Belum Dipilih
+        if (!fileInput || !typeEl) return;
+        
+        const type = typeEl.value; // Tipe: 'TRANSAKSI', 'TOKO', dll
+        const token = localStorage.getItem('userToken');
+
+        // 2. Validasi File
         if (fileInput.files.length === 0) {
           Swal.fire('Peringatan', 'Silakan pilih file Excel (.xlsx) terlebih dahulu.', 'warning');
           return;
         }
-        
+
         const file = fileInput.files[0];
         
-        // 2. Validasi Ekstensi (.xlsx atau .xls)
-        if (!file.name.match(/\.(xlsx|xls)$/i)) { 
-          Swal.fire('Format Salah', 'Harap upload file Excel dengan format .xlsx atau .xls', 'error');
-          return;
-        }
+        // 3. Tampilkan Loading Bar
+        const progressEl = document.getElementById('importProgress');
+        if(progressEl) progressEl.classList.remove('hidden');
 
-        // 3. Tampilkan Loading UI
-        document.getElementById('importProgress').classList.remove('hidden'); // Bar loading
-        const btnUpload = document.querySelector('button[onclick="handleImportFile()"]');
-        const oriText = btnUpload.innerHTML;
-        btnUpload.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        btnUpload.disabled = true;
-
-        // 4. Baca File -> Base64 -> Kirim ke Server
+        // 4. Baca File Excel
         const reader = new FileReader();
-        reader.readAsDataURL(file);
-        
         reader.onload = function(e) {
-          const rawBase64 = reader.result.split(',')[1]; // Ambil string base64 bersih
+          const rawBase64 = e.target.result.split(',')[1]; // Ambil konten base64 murni
           
+          // 5. Kirim ke Backend (Google Apps Script)
           google.script.run
-            .withSuccessHandler(function(res) {
-              // Reset UI
-              document.getElementById('importProgress').classList.add('hidden');
-              btnUpload.innerHTML = oriText;
-              btnUpload.disabled = false;
-              fileInput.value = ""; // Reset input file
-
-              if (res.status === 'success') {
-                  Swal.fire({
-                    icon: 'success', 
-                    title: 'Import Berhasil', 
-                    html: res.message
-                  }).then(() => {
-                    // Refresh Tabel sesuai Tipe
-                    if(type === 'TOKO' && typeof loadTokoData === 'function') loadTokoData(true);
-                    if(type === 'TUKANG' && typeof loadTukangData === 'function') loadTukangData(true);
-                    if(type === 'GURU' && typeof loadGuruData === 'function') loadGuruData(true);
-                    
-                    // Tutup Modal
-                    const elModal = document.getElementById('modalImport');
-                    const modal = bootstrap.Modal.getInstance(elModal);
-                    if(modal) modal.hide();
-                  });
-              } else {
-                  Swal.fire({ icon: 'error', title: 'Gagal Import', html: res.message });
-              }
-            })
             .withFailureHandler(function(err) {
-              // Handle Error Server (misal Drive API belum aktif)
-              document.getElementById('importProgress').classList.add('hidden');
-              btnUpload.innerHTML = oriText;
-              btnUpload.disabled = false;
-              console.error(err);
+              if(progressEl) progressEl.classList.add('hidden');
+              Swal.fire('Error Server', err.message, 'error');
+            })
+            .withSuccessHandler(function(res) {
+              if(progressEl) progressEl.classList.add('hidden');
               
-              let msg = err.message;
-              if(msg.includes("Drive is not defined")) {
-                msg = "<b>Service Drive API belum aktif!</b><br>Hubungi pengembang untuk mengaktifkan layanan Drive API di editor script.";
+              if (res.status === 'success') {
+                // A. Reset Input File agar bersih
+                fileInput.value = '';
+
+                // B. [PENTING] HAPUS CACHE LAMA AGAR DATA TERBARU MUNCUL
+                invalidateCacheByType(type);
+
+                // C. Tutup Modal Import
+                const elModal = document.getElementById('modalImport');
+                if(typeof bootstrap !== 'undefined' && elModal) {
+                  const modal = bootstrap.Modal.getInstance(elModal);
+                  if(modal) modal.hide();
+                }
+
+                // D. Tampilkan Pesan Sukses
+                Swal.fire({ 
+                  icon: 'success', 
+                  title: 'Import Berhasil!', 
+                  html: res.message || `Data ${type} berhasil disimpan ke database.`,
+                  timer: 2000,
+                  showConfirmButton: false
+                }).then(() => {
+                  // E. Opsional: Jika Transaksi, langsung refresh Dashboard angka-angkanya
+                  if(type === 'TRANSAKSI') {
+                      loadDashboardStats(true); // true = paksa ambil dari server
+                  }
+                });
+
+              } else {
+                Swal.fire({ icon: 'error', title: 'Gagal Import', html: res.message });
               }
-              Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', html: msg });
             })
             .processExcelData(token, rawBase64, file.name, type);
         };
+        
+        reader.readAsDataURL(file);
+      }
+
+      /* --- FUNGSI BARU: PENGHAPUS CACHE CERDAS --- */
+      // Fungsi ini bertugas mengosongkan variabel penyimpanan sementara
+      // sehingga saat menu diklik, aplikasi terpaksa mengambil data baru dari server.
+      function invalidateCacheByType(type) {
+        // 1. Dashboard selalu direfresh karena jumlah data/anggaran pasti berubah
+        DATA_CACHE.dashboard = null; 
+
+        // 2. Refresh Sesuai Tipe yang Diupload
+        if (type === 'TOKO') {
+          DATA_CACHE.toko = null;           // List Toko Master
+          DATA_CACHE.transaksi_toko = null; // Riwayat Transaksi Toko (karena nama toko mungkin update)
+        } 
+        else if (type === 'TUKANG') {
+          DATA_CACHE.tukang = null;
+          DATA_CACHE.transaksi_tukang = null;
+        } 
+        else if (type === 'GURU') {
+          DATA_CACHE.guru = null;
+          DATA_CACHE.transaksi_guru = null;
+          cacheDataGuru = []; // Reset variabel global legacy (jika masih dipakai)
+        }
+        else if (type === 'URAIAN') {
+          DATA_CACHE.uraian = null;
+          cacheUserUraian = []; // Reset autocomplete uraian
+        }
+        else if (type === 'TRANSAKSI') {
+          // Jika import Transaksi, maka SEMUA riwayat belanja berubah
+          DATA_CACHE.transaksi_toko = null;
+          DATA_CACHE.transaksi_tukang = null;
+          DATA_CACHE.transaksi_guru = null;
+          
+          // Surat & Tanggal juga ikut berubah karena data transaksi bertambah
+          // (Asumsi: Anda mungkin ingin reset ini juga jika ada cache-nya)
+        }
       }
 
     </script>
