@@ -4536,12 +4536,42 @@ function simpanOutputId(ss, key, val) {
   if(!found) sheet.appendRow([key, val]);
 }
 
-/* --- FUNGSI IMPORT DATA (BATCH) --- */
+/* --- FUNGSI IMPORT DATA (BATCH) - DIPERBAIKI --- */
 function importDataBatch(token, type, data) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheetName = '';
     let mapFunc = null;
+
+    // --- HELPER KHUSUS LOKAL ---
+    
+    // 1. Parsing Angka Format Indonesia (Titik = Ribuan, Koma = Desimal)
+    // Contoh: "89.000" -> 89000 | "1,5" -> 1.5
+    const parseIndo = (val) => {
+      if (!val) return 0;
+      const str = String(val);
+      // Hapus semua titik, lalu ganti koma dengan titik (untuk JS float)
+      const clean = str.replace(/\./g, '').replace(',', '.');
+      return parseFloat(clean) || 0;
+    };
+
+    // 2. Format Tanggal ke YYYY-MM-DD (Untuk Database)
+    // Menerima input "dd/MM/yyyy" dari Excel (Locale ID)
+    const formatDateISO = (val) => {
+      if (!val) return "";
+      const s = String(val).trim();
+      // Cek jika formatnya dd/MM/yyyy
+      if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length === 3) {
+          // Balik menjadi YYYY-MM-DD
+          return parts[2] + "-" + parts[1] + "-" + parts[0];
+        }
+      }
+      return s; // Fallback jika format sudah benar atau text lain
+    };
+
+    // ---------------------------
 
     // A. LOGIKA IMPORT MASTER DATA
     if (type === 'URAIAN') {
@@ -4564,7 +4594,7 @@ function importDataBatch(token, type, data) {
       mapFunc = (row) => [Utilities.getUuid(), row['Nama Lengkap'] || '', "'" + (row['NIP'] || '')];
     }
     
-    // B. LOGIKA IMPORT TRANSAKSI (UPDATE: SUPPORT GURU CUSTOM COLUMN)
+    // B. LOGIKA IMPORT TRANSAKSI (UPDATE FIX: TANGGAL & HARGA)
     else if (type === 'TRANSAKSI') {
       sheetName = 'DataTransaksi';
       
@@ -4578,9 +4608,12 @@ function importDataBatch(token, type, data) {
         for (let i = 1; i <= 32; i++) {
            const name = row['Nama Barang ' + i] || row['Nama Tukang ' + i] || row['Nama Guru / Penerima ' + i];
            if (name && String(name).trim() !== "") {
-              const vol = parseFloat(row['Volume ' + i]) || 0;
+              
+              // [FIX HARGA] Gunakan parseIndo agar 89.000 terbaca 89000
+              const vol = parseIndo(row['Volume ' + i]);
               const sat = row['Satuan ' + i] || '';
-              const harga = parseFloat(row['Harga Satuan ' + i]) || 0;
+              const harga = parseIndo(row['Harga Satuan ' + i]);
+              
               const jumlah = vol * harga;
               items.push({ nama: name, vol: vol, sat: sat, harga: harga, jumlah: jumlah });
               total += jumlah;
@@ -4605,20 +4638,21 @@ function importDataBatch(token, type, data) {
           baPembayaran: row['Tanggal BA Pembayaran'] || ''
         };
 
-        // --- UPDATE MAPPING UNTUK GURU & TOKO ---
-        // Pihak Ketiga: Bisa kolom 'Pihak Ketiga / Keterangan' ATAU 'Keterangan' (untuk Guru)
+        // [FIX TANGGAL] Ambil dari 'Tanggal Surat Permintaan' & Format ulang
+        // Kolom di Excel: "Tanggal Surat Permintaan" -> value: "31/01/2025"
+        // Masuk DB harus: "2025-01-31" (String Text)
+        const tglUtama = formatDateISO(row['Tanggal Surat Permintaan']);
+
         const pihakKetiga = row['Pihak Ketiga / Keterangan'] || row['Keterangan'] || '';
-        
-        // Pemesan: Bisa kolom 'Pemesan / Penanggung Jawab' ATAU Kosong (untuk Guru)
         const pemesan = row['Pemesan / Penanggung Jawab'] || '';
 
         return [
           id,
-          "'" + (row['Tanggal (YYYY-MM-DD)'] || ''), 
+          "'" + tglUtama, // Kolom B: Tanggal Transaksi (Sekarang Sinkron dengan Permintaan)
           row['Tipe (TOKO/TUKANG/GURU)'] || 'TOKO',
           row['Uraian Pekerjaan'] || '',
-          pihakKetiga, // <--- Sudah disesuaikan
-          pemesan,     // <--- Sudah disesuaikan
+          pihakKetiga, 
+          pemesan,     
           JSON.stringify(items),
           total,
           new Date(),
@@ -5504,67 +5538,104 @@ function processExcelData(token, data, filename, type) {
     if (!token) return { status: 'error', message: 'Sesi tidak valid. Silakan login ulang.' };
 
     // 3. Deteksi Otomatis MimeType (.xlsx vs .xls)
-    // .xlsx membutuhkan mime type khusus agar konversi berhasil
-    var mimeType = MimeType.MICROSOFT_EXCEL; // Default untuk .xls
+    var mimeType = MimeType.MICROSOFT_EXCEL; 
     if (filename.toLowerCase().endsWith('.xlsx')) {
       mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     }
 
-    // 4. Konversi Base64 ke Blob dengan MimeType yang Tepat
+    // 4. Konversi Base64 ke Blob
     var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, filename);
 
     // 5. Konversi ke Google Sheet (Temp) via Drive API
     var resource = {
       title: "[TEMP_IMPORT] " + filename,
-      mimeType: MimeType.GOOGLE_SHEETS // Ini memicu konversi otomatis
+      mimeType: MimeType.GOOGLE_SHEETS 
     };
     
     var newFile = Drive.Files.insert(resource, blob);
     newFileId = newFile.id; // Simpan ID untuk dihapus nanti
 
-    // 6. Baca Data dari File Temp
+    // 6. Buka File Temp
     var ssTemp = SpreadsheetApp.openById(newFileId);
-    var sheetTemp = ssTemp.getSheets()[0];
-    var rows = sheetTemp.getDataRange().getDisplayValues(); // Ambil data sbg string (aman)
+    
+    // --- [PERBAIKAN UTAMA] LOGIKA EKSTRAKSI DATA BERDASARKAN TIPE ---
+    var allDataObjs = [];    // Wadah untuk Transaksi (Array of Objects)
+    var singleSheetRows = []; // Wadah untuk Master Data (Array of Arrays)
+
+    if (type === 'TRANSAKSI') {
+        // KHUSUS TRANSAKSI: Baca 3 sheet spesifik (TOKO, TUKANG, GURU)
+        const targetSheets = ['TOKO', 'TUKANG', 'GURU'];
+        
+        targetSheets.forEach(name => {
+            const s = ssTemp.getSheetByName(name);
+            if (s) {
+                const vals = s.getDataRange().getDisplayValues();
+                // Pastikan ada data (Header + minimal 1 baris)
+                if (vals.length > 1) {
+                    const headers = vals[0];
+                    // Loop mulai baris ke-2
+                    for (let i = 1; i < vals.length; i++) {
+                        let obj = {};
+                        let hasData = false;
+                        // Mapping Header ke Value
+                        headers.forEach((h, idx) => {
+                            obj[h] = vals[i][idx];
+                            if(vals[i][idx] !== "") hasData = true;
+                        });
+                        // Hanya masukkan jika baris tidak kosong
+                        if(hasData) allDataObjs.push(obj);
+                    }
+                }
+            }
+        });
+    } else {
+        // TIPE LAIN (TOKO/TUKANG/GURU/URAIAN): Baca Sheet Pertama Saja
+        var sheetTemp = ssTemp.getSheets()[0];
+        singleSheetRows = sheetTemp.getDataRange().getDisplayValues();
+    }
 
     // 7. Hapus file temp SEGERA (Agar Drive bersih)
-    Drive.Files.remove(newFileId);
-    newFileId = null; // Reset flag
+    try { Drive.Files.remove(newFileId); } catch(e) {}
+    newFileId = null; 
 
+    // --- CABANG PROSES INSERT KE DATABASE ---
+
+    // A. JIKA TIPE TRANSAKSI (Gunakan importDataBatch yang sudah ada)
+    if (type === 'TRANSAKSI') {
+        if (allDataObjs.length === 0) {
+             return { status: 'error', message: 'Tidak ada data transaksi yang ditemukan di sheet TOKO/TUKANG/GURU.' };
+        }
+        // Panggil fungsi batch processing (pastikan fungsi importDataBatch ada di file Kode.gs)
+        return importDataBatch(token, 'TRANSAKSI', allDataObjs);
+    }
+
+    // B. JIKA TIPE MASTER DATA (Insert Manual Baris per Baris)
+    
     // Cek Kekosongan Data
-    if (rows.length < 2) {
+    if (singleSheetRows.length < 2) {
       return { status: 'error', message: 'File Excel kosong atau tidak ada data isian (baris ke-2).' };
     }
 
-    // 8. Proses Insert ke Database Sekolah
     var ssDB = SpreadsheetApp.openById(token);
-    var targetSheet;
     var count = 0;
+    var rows = singleSheetRows; // Alias agar kode bawah tidak perlu diubah banyak
 
     if (type === 'TOKO') {
-      targetSheet = ssDB.getSheetByName('DataToko');
+      let targetSheet = ssDB.getSheetByName('DataToko');
       if (!targetSheet) {
         targetSheet = ssDB.insertSheet('DataToko');
         targetSheet.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]);
       }
       for (var i = 1; i < rows.length; i++) {
         var r = rows[i];
-        if (r[0] && r[0] !== "") { // Cek Nama Toko tidak kosong
-          targetSheet.appendRow([
-            Utilities.getUuid(),
-            r[0], // Nama
-            r[1], // Jenis
-            r[2], // Alamat
-            "'" + r[3], // Telp (Pakai kutip satu)
-            r[4], // Pemilik
-            r[5]  // Tempat TTD
-          ]);
+        if (r[0] && r[0] !== "") { 
+          targetSheet.appendRow([Utilities.getUuid(), r[0], r[1], r[2], "'" + r[3], r[4], r[5]]);
           count++;
         }
       }
     } 
     else if (type === 'TUKANG') {
-      targetSheet = ssDB.getSheetByName('DataTukang');
+      let targetSheet = ssDB.getSheetByName('DataTukang');
       if (!targetSheet) {
         targetSheet = ssDB.insertSheet('DataTukang');
         targetSheet.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]);
@@ -5572,17 +5643,13 @@ function processExcelData(token, data, filename, type) {
       for (var i = 1; i < rows.length; i++) {
         var r = rows[i];
         if (r[0] && r[0] !== "") {
-          targetSheet.appendRow([
-            Utilities.getUuid(),
-            r[0], // Nama
-            r[1]  // Alamat
-          ]);
+          targetSheet.appendRow([Utilities.getUuid(), r[0], r[1]]);
           count++;
         }
       }
     } 
     else if (type === 'GURU') {
-      targetSheet = ssDB.getSheetByName('DataGuru');
+      let targetSheet = ssDB.getSheetByName('DataGuru');
       if (!targetSheet) {
         targetSheet = ssDB.insertSheet('DataGuru');
         targetSheet.appendRow(["ID", "Nama Lengkap", "NIP"]);
@@ -5590,16 +5657,27 @@ function processExcelData(token, data, filename, type) {
       for (var i = 1; i < rows.length; i++) {
         var r = rows[i];
         if (r[0] && r[0] !== "") {
-          targetSheet.appendRow([
-            Utilities.getUuid(),
-            r[0], // Nama
-            "'" + r[1] // NIP
-          ]);
+          targetSheet.appendRow([Utilities.getUuid(), r[0], "'" + r[1]]);
           count++;
         }
       }
     }
-    // Tambahkan blok else if (type === 'TRANSAKSI') jika diperlukan di sini
+    // Tambahan URAIAN (Jaga-jaga jika diimport via Excel Manual)
+    else if (type === 'URAIAN') {
+       let targetSheet = ssDB.getSheetByName('DataUraian');
+       if (!targetSheet) { 
+         targetSheet = ssDB.insertSheet('DataUraian'); 
+         targetSheet.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); 
+       }
+       for (var i = 1; i < rows.length; i++) {
+         var r = rows[i];
+         // r[0] = No Bukti, r[1] = Uraian
+         if (r[1] && r[1] !== "") { 
+           targetSheet.appendRow([Utilities.getUuid(), "'" + r[0], r[1]]);
+           count++;
+         }
+       }
+    }
 
     return { 
       status: 'success', 
