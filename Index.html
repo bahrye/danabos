@@ -12195,10 +12195,70 @@
         }
       }
 
+      /* --- FUNGSI DOWNLOAD TEMPLATE OFFLINE (EXCEL) --- */
       function handleDownloadTemplate() {
-        if(currentTemplateId) {
-          window.open("https://docs.google.com/spreadsheets/d/" + currentTemplateId + "/export?format=xlsx", "_blank");
+        var type = document.getElementById('importTypeTarget').value;
+        var token = localStorage.getItem('userToken');
+        
+        // Cari tombol di dalam modal
+        var btn = document.querySelector('#areaViewBtn button:last-child'); 
+        // Jika selector di atas meleset, gunakan ID spesifik jika Anda punya, atau biarkan fallback ini:
+        if (!btn) { 
+          // Coba cari tombol yang mengandung teks "Download"
+          var allBtns = document.querySelectorAll('button');
+          for(var i=0; i<allBtns.length; i++){
+            if(allBtns[i].textContent.includes('Download') && allBtns[i].offsetParent !== null) {
+              btn = allBtns[i]; break;
+            }
+          }
         }
+        
+        var originalText = btn ? btn.innerHTML : "Download";
+        if(btn) {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyiapkan...';
+          btn.disabled = true;
+        }
+
+        // 1. Ambil Data Referensi Terbaru (Agar Dropdown di Excel Uptodate)
+        google.script.run
+          .withFailureHandler(function(err) {
+            if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+            Swal.fire('Gagal', 'Koneksi error: ' + err.message, 'error');
+          })
+          .withSuccessHandler(function(resRef) {
+            if (resRef.status === 'success') {
+              var refData = resRef.data;
+              
+              // 2. Request Server: Generate Template Instan (Copy Master)
+              google.script.run
+                .withFailureHandler(function(err) {
+                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                    Swal.fire('Gagal', 'Gagal generate: ' + err.message, 'error');
+                })
+                .withSuccessHandler(function(resGen) {
+                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                    
+                    if (resGen.status === 'success') {
+                      // 3. Download File
+                      // Format export=xlsx memaksa download sebagai Excel
+                      var downloadUrl = "https://docs.google.com/spreadsheets/d/" + resGen.id + "/export?format=xlsx";
+                      
+                      // Buka di tab baru
+                      window.open(downloadUrl, "_blank");
+                      
+                      // Opsional: Hapus file temp setelah beberapa saat (butuh trigger terpisah, abaikan untuk sekarang)
+                    } else {
+                      Swal.fire('Gagal', resGen.message, 'error');
+                    }
+                })
+                .createExcelTemplateFromServer(type, refData);
+                
+            } else {
+              if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+              Swal.fire('Gagal', resRef.message, 'error');
+            }
+          })
+          .getTemplateRefData(token);
       }
 
       /* --- PERBAIKAN IMPORT ONLINE (SINKRONISASI & REFRESH) --- */
