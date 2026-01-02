@@ -5855,80 +5855,75 @@
         tbody.innerHTML = ''; // Kosongkan tabel dulu
 
         if (data.items && data.items.length > 0) {
+          // GANTI BAGIAN LOOPING ITEMS (data.items.forEach) DENGAN INI:
           data.items.forEach(item => {
             const rowId = new Date().getTime() + Math.random();
             let colNamaInput = '';
 
-            // --- LOGIKA KOLOM NAMA (Dropdown Guru vs Input Biasa) ---
-            if (tipe === 'guru') {
-              let isManual = true; 
-              // Cek apakah nama guru ada di cache data sekolah
-              if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
-                  cacheDataGuru.forEach(g => {
-                      if (g.nama.trim() === item.nama.trim()) isManual = false;
-                  });
+            // --- LOGIKA KOLOM NAMA (Dropdown Guru & Tukang) ---
+            if (tipe === 'guru' || tipe === 'tukang') {
+              let isManual = true;
+              let dataList = (tipe === 'guru') ? (DATA_CACHE.guru || []) : (DATA_CACHE.tukang || []);
+              let placeholder = (tipe === 'guru') ? "Pilih Guru" : "Pilih Tukang";
+
+              // Cek apakah nama item ada di database master?
+              if (dataList.some(d => d.nama.trim() === item.nama.trim())) {
+                isManual = false;
               }
 
               if (isManual) {
-                  // Jika nama manual (tidak ada di master data guru)
-                  const val = String(item.nama).replace(/"/g, '&quot;');
-                  colNamaInput = `
-                    <div class="input-group">
-                      <input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Guru (Manual)">
-                      <button class="btn btn-outline-secondary" type="button" onclick="resetKeDropdown(this)" title="Kembali ke Pilihan">
-                        <i class="fas fa-times"></i>
-                      </button>
-                    </div>
-                  `;
+                // Jika tidak ada di master, tampilkan mode Input Manual
+                const val = String(item.nama).replace(/"/g, '&quot;');
+                colNamaInput = `
+                  <div class="input-group">
+                    <input type="text" class="form-control item-nama" value="${val}" placeholder="Nama ${tipe === 'guru' ? 'Guru' : 'Tukang'} (Manual)">
+                    <button class="btn btn-outline-secondary" type="button" onclick="resetKeDropdown(this)" title="Kembali ke Pilihan">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                `;
               } else {
-                  // Jika nama ada di master data, tampilkan sebagai dropdown
-                  let opts = '<option value="">-- Pilih Guru --</option>';
-                  opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
-                  
-                  if (typeof cacheDataGuru !== 'undefined') {
-                    cacheDataGuru.forEach(g => {
-                        const isSelected = (g.nama.trim() === item.nama.trim()) ? 'selected' : '';
-                        const val = String(g.nama).replace(/"/g, '&quot;');
-                        opts += `<option value="${val}" ${isSelected}>${g.nama}</option>`;
-                    });
-                  }
-                  colNamaInput = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
+                // Jika ada di master, tampilkan Dropdown
+                let opts = `<option value="">-- ${placeholder} --</option>`;
+                opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+                
+                dataList.forEach(d => {
+                  const isSelected = (d.nama.trim() === item.nama.trim()) ? 'selected' : '';
+                  const val = String(d.nama).replace(/"/g, '&quot;');
+                  opts += `<option value="${val}" ${isSelected}>${d.nama}</option>`;
+                });
+                
+                colNamaInput = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
               }
             } else {
-              // Input Biasa (Untuk Toko & Tukang)
+              // Input Biasa (Untuk Toko)
               const val = String(item.nama).replace(/"/g, '&quot;');
               colNamaInput = `<input type="text" class="form-control item-nama" value="${val}" placeholder="Nama Barang">`;
             }
 
-            // --- LOGIKA FORMAT HARGA (Titik Ribuan) ---
+            // --- LOGIKA FORMAT HARGA ---
             const hargaTampil = formatRibuanInput(item.harga);
 
-            // --- TEMPLATE BARIS TABEL (UPDATE PERBAIKAN) ---
+            // --- TEMPLATE BARIS TABEL ---
             const row = `
               <tr id="row-${rowId}">
                 <td>${colNamaInput}</td>
-                
                 <td>
                   <input type="number" class="form-control item-vol" value="${item.vol}" min="1" oninput="hitungBaris(this, '${tipe}')">
                 </td>
-                
-                <td style="position: relative;"> <div class="autocomplete-wrapper">
-                      <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan"
-                        oninput="handleInputSatuan(this)" 
-                        onfocus="handleInputSatuan(this)" 
-                        autocomplete="off">
-                      <div class="suggestion-list" style="display:none; min-width: 150px;"></div>
-                    </div>
+                <td style="position: relative;">
+                  <div class="autocomplete-wrapper">
+                    <input type="text" class="form-control item-sat" value="${item.sat || ''}" placeholder="Satuan" oninput="handleInputSatuan(this)" onfocus="handleInputSatuan(this)" autocomplete="off">
+                    <div class="suggestion-list" style="display:none; min-width: 150px;"></div>
+                  </div>
                 </td>
                 <td>
                   <input type="text" class="form-control item-harga" value="${hargaTampil}" oninput="hitungBaris(this, '${tipe}')">
                 </td>
-                
                 <td>
                   <input type="text" class="form-control item-jumlah-display" readonly value="${formatRupiahJS(item.jumlah)}">
                   <input type="hidden" class="item-jumlah-value" value="${item.jumlah}">
                 </td>
-                
                 <td class="text-center">
                   <button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusBaris(this, '${tipe}')">
                     <i class="fas fa-trash"></i>
@@ -5936,7 +5931,6 @@
                 </td>
               </tr>
             `;
-            
             tbody.insertAdjacentHTML('beforeend', row);
           });
         } else {
@@ -6173,43 +6167,38 @@
 
       // --- HELPER: ISI DROPDOWN TRANSAKSI ---
       function isiDropdownTransaksi() {
-          const d = DATA_CACHE; // Pakai data dari cache
-          
-          // Helper isi select
-          const isiSelect = (id, dataList, valueKey='nama') => {
-            const el = document.getElementById(id);
-            if(!el) return;
-            const currentVal = el.value; 
-            
-            el.innerHTML = '<option value="">-- Pilih --</option>';
-            if(dataList && dataList.length > 0) {
-              dataList.forEach(item => {
-                // Handle struktur uraian yang menggunakan key 'uraian', lainnya 'nama'
-                const text = item[valueKey] || item.uraian || item.nama; 
-                const val = String(text).replace(/"/g, '&quot;'); 
-                el.innerHTML += `<option value="${val}">${text}</option>`;
-              });
-            }
-            
-            if(currentVal) el.value = currentVal;
-          };
-          
-          // Uraian ops biasanya list object {id, uraian...}
-          const uraianOps = d.uraian; 
+        const d = DATA_CACHE; 
+        
+        // Helper isi select (Kode lama Anda)
+        const isiSelect = (id, dataList, valueKey='nama') => {
+          const el = document.getElementById(id);
+          if(!el) return;
+          const currentVal = el.value;
+          el.innerHTML = '<option value="">-- Pilih --</option>';
+          if(dataList && dataList.length > 0) {
+            dataList.forEach(item => {
+              const text = item[valueKey] || item.uraian || item.nama;
+              const val = String(text).replace(/"/g, '&quot;');
+              el.innerHTML += `<option value="${val}">${text}</option>`;
+            });
+          }
+          if(currentVal) el.value = currentVal;
+        };
 
-          // Isi Dropdown Header
-          isiSelect('trTokoUraian', uraianOps, 'uraian');
-          isiSelect('trTokoNama', d.toko);
-          isiSelect('trTokoPemesan', d.guru);
+        // Isi Dropdown Header
+        isiSelect('trTokoUraian', d.uraian, 'uraian');
+        isiSelect('trTokoNama', d.toko);
+        isiSelect('trTokoPemesan', d.guru);
+        
+        isiSelect('trTukangUraian', d.uraian, 'uraian');
+        isiSelect('trTukangNama', d.tukang);
+        isiSelect('trTukangPemesan', d.guru);
+        
+        isiSelect('trGuruUraian', d.uraian, 'uraian');
 
-          isiSelect('trTukangUraian', uraianOps, 'uraian');
-          isiSelect('trTukangNama', d.tukang);
-          isiSelect('trTukangPemesan', d.guru);
-          
-          isiSelect('trGuruUraian', uraianOps, 'uraian'); 
-
-          // Update Dropdown di Tabel Rincian Guru (Jika ada baris)
-          updateDropdownTabelGuru();
+        // Update Dropdown di Tabel Rincian
+        updateDropdownTabelGuru();
+        updateDropdownTabelTukang(); // <--- TAMBAHKAN BARIS INI
       }
 
       // --- HELPER: UPDATE DROPDOWN DI TABEL GURU ---
@@ -6237,6 +6226,29 @@
           });
       }
 
+      // --- HELPER: UPDATE DROPDOWN DI TABEL TUKANG ---
+      function updateDropdownTabelTukang() {
+        const dropdownsDiTabel = document.querySelectorAll('#tabelItemTukang .item-nama');
+        dropdownsDiTabel.forEach(select => {
+          // Pastikan elemennya SELECT (bukan input manual)
+          if (select.tagName === 'SELECT') {
+            const valSebelumnya = select.value;
+            let opts = '<option value="">-- Pilih Tukang --</option>';
+            opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+            
+            if (DATA_CACHE.tukang) {
+              DATA_CACHE.tukang.forEach(t => {
+                const val = String(t.nama).replace(/"/g, '&quot;');
+                opts += `<option value="${val}">${t.nama}</option>`;
+              });
+            }
+            select.innerHTML = opts;
+            // Kembalikan nilai yang terpilih sebelumnya (jika masih valid)
+            if(valSebelumnya) select.value = valSebelumnya;
+          }
+        });
+      }
+
       // --- FUNGSI GANTI DROPDOWN JADI INPUT TEXT (DENGAN TOMBOL X) ---
       function cekInputManual(selectElement) {
         if (selectElement.value === 'MANUAL_INPUT') {
@@ -6260,70 +6272,77 @@
         }
       }
 
-      // --- FUNGSI KEMBALIKAN KE DROPDOWN ---
+      // --- FUNGSI KEMBALIKAN KE DROPDOWN (UPDATED) ---
       function resetKeDropdown(btnElement) {
         // Cari elemen TD pembungkusnya
         const parentTd = btnElement.closest('td');
+        // Cari tabel pembungkus untuk tahu ini Guru atau Tukang
+        const tableId = btnElement.closest('table').id;
         
-        // Susun Ulang Option Dropdown dari Cache
-        let opts = '<option value="">-- Pilih Guru --</option>';
+        let dataList = [];
+        let placeholder = "Pilih";
+
+        if (tableId === 'tabelItemGuru') {
+          dataList = DATA_CACHE.guru || [];
+          placeholder = "Pilih Guru";
+        } else if (tableId === 'tabelItemTukang') {
+          dataList = DATA_CACHE.tukang || [];
+          placeholder = "Pilih Tukang";
+        }
+
+        let opts = `<option value="">-- ${placeholder} --</option>`;
         opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
-        
-        if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
-          cacheDataGuru.forEach(g => {
-            const val = String(g.nama).replace(/"/g, '&quot;');
-            opts += `<option value="${val}">${g.nama}</option>`;
+
+        if (dataList.length > 0) {
+          dataList.forEach(item => {
+            const val = String(item.nama).replace(/"/g, '&quot;');
+            opts += `<option value="${val}">${item.nama}</option>`;
           });
         }
-        
+
         // Kembalikan ke bentuk Select
         const selectHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
         parentTd.innerHTML = selectHtml;
       }
 
-      // 3. Tambah Baris Dinamis
+      // 3. Tambah Baris Dinamis (UPDATED untuk Tukang Dropdown)
       function tambahBaris(tipe) {
-        const tableId = (tipe === 'toko') ? 'tabelItemToko' : 
-                        (tipe === 'tukang') ? 'tabelItemTukang' : 'tabelItemGuru';
-        
+        const tableId = (tipe === 'toko') ? 'tabelItemToko' : (tipe === 'tukang') ? 'tabelItemTukang' : 'tabelItemGuru';
         const tbody = document.getElementById(tableId).querySelector('tbody');
         const rowId = new Date().getTime() + Math.random();
         
         let colPertamaHtml = '';
 
-        if (tipe === 'guru') {
-          // 1. Susun Opsi Default
-          let optionsGuru = '<option value="">-- Pilih Guru --</option>';
-          // 2. Tambah Opsi Lainnya
-          optionsGuru += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
-          
-          // 3. Isi Data Guru (jika cache sudah ready)
-          if (typeof cacheDataGuru !== 'undefined' && cacheDataGuru.length > 0) {
-            cacheDataGuru.forEach(g => {
-              const val = String(g.nama).replace(/"/g, '&quot;');
-              optionsGuru += `<option value="${val}">${g.nama}</option>`;
+        // LOGIKA BARU: Terapkan Dropdown untuk GURU dan TUKANG
+        if (tipe === 'guru' || tipe === 'tukang') {
+          let placeholder = (tipe === 'guru') ? "Pilih Guru" : "Pilih Tukang";
+          // Ambil data dari Cache
+          let dataList = (tipe === 'guru') ? (DATA_CACHE.guru || []) : (DATA_CACHE.tukang || []);
+
+          let opts = `<option value="">-- ${placeholder} --</option>`;
+          opts += '<option value="MANUAL_INPUT" class="fw-bold text-primary">-- Lainnya (Input Manual) --</option>';
+
+          if (dataList.length > 0) {
+            dataList.forEach(item => {
+              const val = String(item.nama).replace(/"/g, '&quot;');
+              opts += `<option value="${val}">${item.nama}</option>`;
             });
           }
           
-          // 4. Tambahkan event onchange="cekInputManual(this)"
-          colPertamaHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${optionsGuru}</select>`;
+          // Select dengan event onchange untuk deteksi input manual
+          colPertamaHtml = `<select class="form-select item-nama" onchange="cekInputManual(this)">${opts}</select>`;
         } else {
+          // Untuk Toko, tetap Input Text biasa
           colPertamaHtml = `<input type="text" class="form-control item-nama" placeholder="Nama Barang/Jasa">`;
         }
-        
-        // GANTI BAGIAN ROW DI BAWAH INI:
+
         const row = `
           <tr id="row-${rowId}">
             <td>${colPertamaHtml}</td>
             <td><input type="number" class="form-control item-vol" value="1" min="1" oninput="hitungBaris(this, '${tipe}')"></td>
-            
-            <td> 
+            <td>
               <div class="autocomplete-wrapper">
-                <input type="text" class="form-control item-sat" placeholder="Satuan" 
-                  oninput="handleInputSatuan(this)" 
-                  onfocus="handleInputSatuan(this)" 
-                  autocomplete="off">
-
+                <input type="text" class="form-control item-sat" placeholder="Satuan" oninput="handleInputSatuan(this)" onfocus="handleInputSatuan(this)" autocomplete="off">
               </div>
             </td>
             <td><input type="text" class="form-control item-harga" placeholder="0" oninput="hitungBaris(this, '${tipe}')"></td>
@@ -6336,7 +6355,6 @@
             </td>
           </tr>
         `;
-        
         tbody.insertAdjacentHTML('beforeend', row);
       }
 
