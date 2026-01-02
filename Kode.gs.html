@@ -4552,51 +4552,57 @@ function importDataBatch(token, type, data) {
       return parseFloat(clean) || 0;
     };
 
-    // --- HELPER 2: Parsing Tanggal Super Robust (Serial & Teks) ---
+    /* --- HELPER 2: Parsing Tanggal Super Robust (Fix: Serial Desimal & Teks) --- */
     const formatDateISO = (val) => {
       if (!val) return "";
       
-      // 1. Jika input sudah berupa Object Date
+      // 1. Jika input sudah berupa Object Date (Hasil getValues)
       if (val instanceof Date) {
-         return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
+        // Validasi tanggal valid
+        if (isNaN(val.getTime())) return "";
+        return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
       }
 
       const s = String(val).trim();
       if (s === "") return "";
 
-      // 2. Cek apakah ini Angka Serial Excel (Contoh: "45462")
-      // Angka > 10000 diasumsikan sebagai tanggal Excel (bukan volume/harga)
-      if (s.match(/^\d+$/) && parseInt(s) > 10000) {
-         // Konversi Serial Excel ke JS Date
-         // Rumus: (Serial - 25569) * 86400 * 1000
-         const serial = parseInt(s);
-         const jsDate = new Date((serial - 25569) * 86400 * 1000);
-         return Utilities.formatDate(jsDate, "GMT+7", "yyyy-MM-dd");
+      // 2. Cek apakah ini Angka Serial Excel (Contoh: "45462" atau "45462.54")
+      // Update: Regex sekarang menerima titik/koma desimal
+      if (s.match(/^[\d]+([.,]\d+)?$/)) {
+        // Ganti koma jadi titik biar bisa diparse float
+        const num = parseFloat(s.replace(',', '.'));
+        if (num > 10000) {
+            // Rumus Excel ke JS Date: (Serial - 25569) * 86400 * 1000
+            const jsDate = new Date((num - 25569) * 86400 * 1000);
+            return Utilities.formatDate(jsDate, "GMT+7", "yyyy-MM-dd");
+        }
       }
 
-      // 3. Cek Format Teks Indonesia (dd/mm/yyyy atau dd-mm-yyyy atau dd.mm.yyyy)
+      // 3. Cek Format Teks Indonesia (dd/mm/yyyy atau dd-mm-yyyy)
       const matchIndo = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
       if (matchIndo) {
-         const dd = matchIndo[1].padStart(2, '0');
-         const mm = matchIndo[2].padStart(2, '0');
-         const yyyy = matchIndo[3];
-         return `${yyyy}-${mm}-${dd}`;
+        const dd = matchIndo[1].padStart(2, '0');
+        const mm = matchIndo[2].padStart(2, '0');
+        const yyyy = matchIndo[3];
+        return `${yyyy}-${mm}-${dd}`;
       }
 
       // 4. Cek Format ISO (yyyy-mm-dd)
       const matchIso = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
       if (matchIso) {
-         const yyyy = matchIso[1];
-         const mm = matchIso[2].padStart(2, '0');
-         const dd = matchIso[3].padStart(2, '0');
-         return `${yyyy}-${mm}-${dd}`;
+        const yyyy = matchIso[1];
+        const mm = matchIso[2].padStart(2, '0');
+        const dd = matchIso[3].padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
       }
       
       // 5. Fallback: Coba parse tanggal standar
-      const d = new Date(s);
-      if (!isNaN(d.getTime())) {
-         return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
-      }
+      try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
+        }
+      } catch(e) {}
       
       return ""; // Jika gagal total
     };
@@ -5542,7 +5548,7 @@ function switchFiscalYear(dbId, targetYear) {
   }
 }
 
-/* 3. UPDATE FUNGSI processExcelData (Trim Header agar kolom terbaca meski ada spasi) */
+/* 3. UPDATE FUNGSI processExcelData (Hybrid: Raw Date + Display Text) */
 function processExcelData(token, data, filename, type) {
   var tempFileId = null; 
   
@@ -5555,12 +5561,11 @@ function processExcelData(token, data, filename, type) {
       try {
         ssSource = SpreadsheetApp.openById(filename); 
       } catch(e) {
-        return { status: 'error', message: 'Tidak dapat membuka Template Online. Pastikan ID benar.' };
+        return { status: 'error', message: 'Tidak dapat membuka Template Online.' };
       }
     } 
     else {
-      if (typeof Drive === 'undefined') throw new Error("Drive API belum aktif.");
-      
+      // PROSES UPLOAD EXCEL OFFLINE
       var mimeType = MimeType.MICROSOFT_EXCEL;
       if (filename.toLowerCase().endsWith('.xlsx')) {
         mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -5571,7 +5576,7 @@ function processExcelData(token, data, filename, type) {
       var newFile = Drive.Files.insert(resource, blob);
       tempFileId = newFile.id; 
       ssSource = SpreadsheetApp.openById(tempFileId);
-      ssSource.setSpreadsheetLocale('id_ID');
+      ssSource.setSpreadsheetLocale('id_ID'); // Pastikan locale Indonesia
     }
 
     var allDataObjs = [];
@@ -5582,18 +5587,28 @@ function processExcelData(token, data, filename, type) {
         targetSheets.forEach(name => {
             const s = ssSource.getSheetByName(name);
             if (s) {
-                const vals = s.getDataRange().getDisplayValues();
-                if (vals.length > 1) {
-                    // --- FIX: TRIM HEADER ---
-                    // Membersihkan spasi di awal/akhir header kolom
-                    const headers = vals[0].map(function(h) { return String(h).trim(); });
+                // --- STRATEGI HYBRID ---
+                // Ambil Display Values (Teks) untuk data umum (agar '001' tidak jadi 1)
+                const displayVals = s.getDataRange().getDisplayValues();
+                // Ambil Raw Values (Objek) khusus untuk Tanggal (agar Date Object terbaca)
+                const rawVals = s.getDataRange().getValues();
+
+                if (displayVals.length > 1) {
+                    const headers = displayVals[0].map(function(h) { return String(h).trim(); });
                     
-                    for (let i = 1; i < vals.length; i++) {
+                    for (let i = 1; i < displayVals.length; i++) {
                         let obj = {};
                         let hasData = false;
                         headers.forEach((h, idx) => {
-                            obj[h] = vals[i][idx];
-                            if(vals[i][idx] !== "") hasData = true;
+                            // JIKA KOLOM TANGGAL -> AMBIL RAW VALUE (Date Object / Serial Number)
+                            if (h.toLowerCase().includes('tanggal')) {
+                                obj[h] = rawVals[i][idx];
+                            } else {
+                                // SELAIN TANGGAL -> AMBIL DISPLAY VALUE (Teks Aman)
+                                obj[h] = displayVals[i][idx];
+                            }
+
+                            if(String(displayVals[i][idx]).trim() !== "") hasData = true;
                         });
                         if(hasData) allDataObjs.push(obj);
                     }
@@ -5601,6 +5616,7 @@ function processExcelData(token, data, filename, type) {
             }
         });
     } else {
+        // Untuk Master Data (Selain Transaksi), cukup DisplayValues biasanya aman
         var sheetTemp = ssSource.getSheets()[0];
         singleSheetRows = sheetTemp.getDataRange().getDisplayValues();
     }
@@ -5629,7 +5645,6 @@ function processExcelData(token, data, filename, type) {
         }
       }
     } 
-    // ... dst (kode DataTukang, DataGuru, DataUraian tetap sama) ...
     else if (type === 'TUKANG') {
       let t = ssDB.getSheetByName('DataTukang');
       if (!t) { t = ssDB.insertSheet('DataTukang'); t.appendRow(["ID", "Nama Tukang", "Alamat Lengkap"]); }
