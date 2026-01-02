@@ -4631,11 +4631,11 @@ function importDataBatch(token, type, data) {
 
         // Data Tanggal
         const dataTanggal = {
-          permintaan: row['Tanggal Surat Permintaan'] || '',
-          penawaran: row['Tanggal Surat Penawaran'] || '',
-          baPemeriksaan: row['Tanggal BA Pemeriksaan'] || '',
-          baSerahTerima: row['Tanggal BA Serah Terima'] || '',
-          baPembayaran: row['Tanggal BA Pembayaran'] || ''
+          permintaan: formatDateISO(row['Tanggal Surat Permintaan']),
+          penawaran: formatDateISO(row['Tanggal Surat Penawaran']),
+          baPemeriksaan: formatDateISO(row['Tanggal BA Pemeriksaan']),
+          baSerahTerima: formatDateISO(row['Tanggal BA Serah Terima']),
+          baPembayaran: formatDateISO(row['Tanggal BA Pembayaran'])
         };
 
         // [FIX TANGGAL] Ambil dari 'Tanggal Surat Permintaan' & Format ulang
@@ -5113,11 +5113,10 @@ function generateSpreadsheetTemplate(token, type) {
           }
           
           // Tanggal (FIX: Locale ID + Format)
-          const dateRule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText("Masukkan tanggal yang valid (Tgl/Bln/Thn)").build();
           suratHeaders.forEach((h, idx) => {
             if (h.includes("Tanggal")) {
                var dateRange = sheet.getRange(2, startColSurat + idx, maxRows, 1);
-               dateRange.setDataValidation(dateRule);
+               dateRange.clearDataValidations();
                dateRange.setNumberFormat("dd/MM/yyyy"); // Paksa format tampilan
             }
           });
