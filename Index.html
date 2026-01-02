@@ -5733,14 +5733,15 @@
       }
 
       // 1. Fungsi Unified Render (Gunakan ini untuk menggantikan renderRiwayatTransaksi & renderTabelRiwayat)
+      // GANTI SELURUH FUNGSI renderRiwayatTransaksi DI FILE Index.html DENGAN INI
       function renderRiwayatTransaksi(data, tipeRaw, tbodyOrId) {
-        // Normalisasi Input
+        // 1. Normalisasi Input
         const tipe = tipeRaw.toLowerCase(); // toko/guru/tukang
         const tbody = (typeof tbodyOrId === 'string') ? document.getElementById(tbodyOrId) : tbodyOrId;
         
         if (!tbody) return;
 
-        // Ambil State Hapus Global
+        // 2. Ambil State Mode Hapus (Untuk Checkbox)
         const isModeHapus = (typeof STATE_HAPUS !== 'undefined' && STATE_HAPUS[tipe] === true);
         const selectedSet = (typeof SELECTED_IDS !== 'undefined') ? SELECTED_IDS[tipe] : new Set();
 
@@ -5748,40 +5749,35 @@
         const table = tbody.parentElement;
         let thead = table.querySelector('thead');
         
-        // Jika thead belum ada, buat baru
         if (!thead) {
           thead = document.createElement('thead');
           thead.className = "table-light";
           table.insertBefore(thead, tbody);
         }
 
-        // Definisi Kolom Header Berdasarkan Tipe
+        // Definisi Kolom Header
         let cols = [];
         
-        // [Kolom 1] Checkbox (Hanya muncul jika Mode Hapus Aktif)
+        // [Kolom 1] Checkbox
         if (isModeHapus) {
-          cols.push({ 
-            title: `<input type="checkbox" class="form-check-input border-secondary" onclick="toggleSelectAll('${tipe}', this)" title="Pilih Semua">`, 
-            width: '5%', 
-            align: 'center' 
-          });
+          cols.push({ title: `<input type="checkbox" class="form-check-input border-secondary" onclick="toggleSelectAll('${tipe}', this)" title="Pilih Semua">`, width: '5%', align: 'center' });
         }
-
+        
         // [Kolom Standar]
         cols.push({ title: 'Tanggal', width: '' });
         
         if (tipe === 'guru') {
           cols.push({ title: 'Uraian Kegiatan', width: '' });
-          cols.push({ title: 'Keterangan', width: '' }); // Pengganti Pihak Ketiga untuk Guru
+          cols.push({ title: 'Keterangan', width: '' });
         } else {
           cols.push({ title: 'Uraian', width: '' });
           const labelPihak = (tipe === 'toko') ? 'Toko' : 'Tukang';
           cols.push({ title: labelPihak, width: '' });
         }
-
+        
         cols.push({ title: 'Total', width: '' });
 
-        // [Kolom Status] (Guru biasanya tidak butuh status kelengkapan dokumen)
+        // [Kolom Status] (Kecuali Guru)
         if (tipe !== 'guru') {
           cols.push({ title: 'Status', width: '10%', align: 'center' });
         }
@@ -5800,81 +5796,114 @@
 
         // --- B. RENDER BODY (TBODY) ---
         tbody.innerHTML = '';
-        
+
         if (!data || data.length === 0) {
           tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>`;
           return;
         }
 
         data.forEach(item => {
-          // Encode data untuk tombol aksi
+          // Encode data untuk parameter onclick
           const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
           
           let rowHtml = '<tr>';
 
           // 1. Sel Checkbox
           if (isModeHapus) {
-              const isChecked = selectedSet.has(item.id) ? 'checked' : '';
-              rowHtml += `
-                <td class="text-center">
-                  <input type="checkbox" class="form-check-input" style="cursor:pointer;"
-                    onchange="handleCheck('${tipe}', '${item.id}')" ${isChecked}>
-                </td>`;
+            const isChecked = selectedSet.has(item.id) ? 'checked' : '';
+            rowHtml += `
+              <td class="text-center">
+                <input type="checkbox" class="form-check-input" style="cursor:pointer;" onchange="handleCheck('${tipe}', '${item.id}')" ${isChecked}>
+              </td>`;
           }
 
           // 2. Sel Tanggal
           rowHtml += `<td>${item.tanggalDisplay || '-'}</td>`;
 
-          // 3. Sel Uraian
-          rowHtml += `<td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>`;
-
-          // 4. Sel Pihak Ketiga / Keterangan
-          let displayPihak = item.pihakKetiga || '-';
+          // 3. Sel Uraian & Pihak
           if (tipe === 'guru') {
-            // Untuk Guru, jika pihakKetiga kosong, coba ambil nama penerima pertama
-            if ((!displayPihak || displayPihak==='-' || displayPihak==='Honorarium Guru') && item.items && item.items.length > 0) {
-                displayPihak = item.items[0].nama;
-            }
+              rowHtml += `<td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>`;
+              rowHtml += `<td>${escapeHtml(item.pihakKetiga || '-')}</td>`;
+          } else {
+              rowHtml += `<td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>`;
+              rowHtml += `<td>${escapeHtml(item.pihakKetiga || '-')}</td>`;
           }
-          rowHtml += `<td>${escapeHtml(displayPihak)}</td>`;
 
-          // 5. Sel Total
-          rowHtml += `<td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>`;
+          // 4. Sel Total
+          rowHtml += `<td class="fw-bold">${formatRupiahJS(item.total)}</td>`;
 
-          // 6. Sel Status (Non-Guru)
+          // 5. SEL STATUS (ICON KOTAK)
           if (tipe !== 'guru') {
-            // Logika Status Kelengkapan Dokumen
             const s = item.dataSurat || {};
             const t = item.dataTanggal || {};
+            
             let keys = ['permintaan', 'baPemeriksaan', 'baSerahTerima', 'baPembayaran'];
-            if (tipe === 'toko') keys.push('penawaran');
+            if (tipe === 'toko') keys.push('penawaran'); 
             
             let filled = 0;
-            let totalTarget = keys.length * 2;
+            let totalTarget = keys.length * 2; 
+            
             keys.forEach(k => { 
-              if (s[k] && s[k].trim() !== '') filled++; 
-              if (t[k] && t[k].trim() !== '') filled++; 
+              if (s[k] && String(s[k]).trim() !== '') filled++; 
+              if (t[k] && String(t[k]).trim() !== '') filled++; 
             });
 
-            let icon = '';
-            if (filled === 0) icon = '<i class="fas fa-times-circle text-secondary opacity-25" title="Belum Dilengkapi"></i>';
-            else if (filled === totalTarget) icon = '<i class="fas fa-check-circle text-success" title="Lengkap"></i>';
-            else icon = `<i class="fas fa-exclamation-circle text-warning" title="Sebagian (${filled}/${totalTarget})"></i>`;
-            
-            rowHtml += `<td class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')">${icon}</td>`;
+            let btnClass = 'btn-outline-warning'; 
+            let iconClass = 'fa-exclamation-circle';
+            let tooltip = `Status: Sebagian (${filled}/${totalTarget})`;
+
+            if (filled === 0) {
+                btnClass = 'btn-outline-secondary'; 
+                iconClass = 'fa-file-contract';
+                tooltip = 'Status: Belum Dilengkapi';
+            } else if (filled === totalTarget) {
+                btnClass = 'btn-outline-success'; 
+                iconClass = 'fa-check-circle';
+                tooltip = 'Status: Lengkap';
+            }
+
+            rowHtml += `
+              <td class="text-center">
+                <button class="btn btn-sm ${btnClass}" onclick="lihatStatusDokumen('${dataJson}')" title="${tooltip}">
+                  <i class="fas ${iconClass}"></i>
+                </button>
+              </td>
+            `;
           }
 
-          // 7. Sel Aksi
-          const btnDetail = `<button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')"><i class="fas fa-eye"></i></button>`;
-          const btnEdit = `<button class="btn btn-sm btn-outline-warning me-1" onclick="modeEditTransaksi('${tipe}', '${dataJson}')"><i class="fas fa-pencil-alt"></i></button>`;
-          const btnHapus = `<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi('${item.id}', '${tipe}')"><i class="fas fa-trash-alt"></i></button>`;
+          // 6. SEL AKSI (Detail, Edit, Hapus)
           
-          // Jika Mode Hapus aktif, sembunyikan tombol aksi agar tidak penuh (Opsional, tapi lebih rapi)
-          if (isModeHapus) {
-              rowHtml += `<td class="text-center text-muted"><small>Pilih di kiri</small></td>`;
-          } else {
-              rowHtml += `<td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>`;
+          // Tombol Lihat Detail
+          const btnDetail = `
+            <button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+
+          // Tombol Edit (SUDAH DITAMBAHKAN KEMBALI)
+          const btnEdit = `
+            <button class="btn btn-sm btn-outline-warning me-1" onclick="modeEditTransaksi('${tipe}', '${dataJson}')" title="Edit Transaksi">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          `;
+          
+          // Tombol Hapus (Hanya muncul jika TIDAK mode hapus massal)
+          let btnHapus = '';
+          if (!isModeHapus) {
+              btnHapus = `
+                <button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi('${item.id}', '${tipe}')" title="Hapus Item Ini">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              `;
           }
+
+          rowHtml += `
+            <td>
+              <div class="d-flex align-items-center">
+                  ${btnDetail} ${btnEdit} ${btnHapus}
+              </div>
+            </td>
+          `;
 
           rowHtml += '</tr>';
           tbody.innerHTML += rowHtml;
@@ -7707,66 +7736,113 @@
       function renderTabelCetak(data, tipeRaw) {
         const tbody = document.getElementById('tbody-cetak-' + tipeRaw);
         tbody.innerHTML = '';
-
+        
         if(data.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada data transaksi.</td></tr>';
           return;
         }
 
         data.forEach(item => {
-          // Encode data
+          // Encode data untuk parameter onclick
           const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
           
           let displayPihak = item.pihakKetiga;
           if (tipeRaw === 'guru' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
-              displayPihak = "-"; 
+            displayPihak = "-";
           }
 
-          // --- LOGIKA TOMBOL ---
-          const btnLihat = `
-            <button class="btn btn-sm btn-outline-info me-1" 
-              onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
-              <i class="fas fa-eye"></i>
+          // --- 1. LOGIKA STATUS DOKUMEN (ICON DINAMIS) ---
+          // Menghitung kelengkapan dokumen (Surat & Tanggal)
+          const s = item.dataSurat || {};
+          const t = item.dataTanggal || {};
+          
+          let keys = ['permintaan', 'baPemeriksaan', 'baSerahTerima', 'baPembayaran'];
+          if (tipeRaw === 'toko') keys.push('penawaran'); // Toko ada Penawaran
+          
+          let filled = 0;
+          let totalTarget = keys.length * 2; // Dikali 2 karena ada Nomor & Tanggal
+          
+          // Hitung yang terisi
+          keys.forEach(k => { 
+            if (s[k] && String(s[k]).trim() !== '') filled++; 
+            if (t[k] && String(t[k]).trim() !== '') filled++; 
+          });
+
+          // Tentukan Warna & Icon Tombol Status
+          let btnStatusClass = 'btn-outline-warning'; // Default Sebagian (Kuning)
+          let iconStatusClass = 'fa-exclamation-circle';
+          let tooltipStatus = `Status: Sebagian (${filled}/${totalTarget})`;
+
+          if (filled === 0) {
+            // Kosong
+            btnStatusClass = 'btn-outline-secondary';
+            iconStatusClass = 'fa-file-contract'; // Icon dokumen netral
+            tooltipStatus = 'Status: Belum Dilengkapi';
+          } else if (filled === totalTarget) {
+            // Lengkap
+            btnStatusClass = 'btn-outline-success';
+            iconStatusClass = 'fa-check-circle';
+            tooltipStatus = 'Status: Lengkap';
+          }
+
+          // Khusus Guru: Gunakan style standar (karena item dokumennya mungkin berbeda/sedikit)
+          if (tipeRaw === 'guru') {
+            btnStatusClass = 'btn-outline-secondary';
+            iconStatusClass = 'fa-file-contract';
+            tooltipStatus = 'Cek Status Dokumen';
+          }
+
+          // Buat HTML Tombol Status
+          const btnStatus = `
+            <button class="btn btn-sm ${btnStatusClass} me-1" onclick="lihatStatusDokumen('${dataJson}')" title="${tooltipStatus}">
+              <i class="fas ${iconStatusClass}"></i>
             </button>
           `;
 
+          // --- 2. TOMBOL LIHAT DETAIL (MATA) ---
+          const btnLihat = `
+            <button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+              <i class="fas fa-eye"></i>
+            </button>
+          `;
+          
+          // --- 3. TOMBOL GENERATE/CETAK PDF ---
           let btnGenerate = '';
           let btnCetak = '';
 
-          // Cek apakah PDF ID sudah ada
+          // Cek apakah PDF ID sudah ada di database
           if (item.pdfId && item.pdfId !== "") {
             const linkPdf = `https://drive.google.com/file/d/${item.pdfId}/view?usp=sharing`;
             
             btnCetak = `
-                <button class="btn btn-sm btn-dark me-1" 
-                  onclick="window.open('${linkPdf}', '_blank')" title="Cetak / Buka PDF">
-                  <i class="fas fa-print"></i>
-                </button>
+              <button class="btn btn-sm btn-dark me-1" onclick="window.open('${linkPdf}', '_blank')" title="Cetak / Buka PDF">
+                <i class="fas fa-print"></i>
+              </button>
             `;
-
+            
             btnGenerate = `
-              <button class="btn btn-sm btn-outline-danger" 
-                onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate Ulang">
+              <button class="btn btn-sm btn-outline-danger" onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate Ulang">
                 <i class="fas fa-sync-alt"></i>
               </button>
             `;
-
           } else {
             btnGenerate = `
-              <button class="btn btn-sm btn-warning" 
-                onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate PDF Baru">
+              <button class="btn btn-sm btn-warning" onclick="prosesCetakPDF('${item.id}', '${dataJson}', '${tipeRaw}')" title="Generate PDF Baru">
                 <i class="fas fa-cog"></i>
               </button>
             `;
           }
 
+          // --- RENDER BARIS TABEL ---
           const row = `
             <tr>
               <td>${item.tanggalDisplay}</td>
               <td><div class="text-truncate" style="max-width: 250px;">${item.uraian}</div></td>
               <td>${displayPihak}</td>
               <td class="fw-bold">${formatRupiahJS(item.total)}</td>
-              <td style="white-space: nowrap;">${btnLihat} ${btnCetak} ${btnGenerate}</td>
+              <td style="white-space: nowrap;">
+                  ${btnStatus} ${btnLihat} ${btnCetak} ${btnGenerate}
+              </td>
             </tr>
           `;
           tbody.innerHTML += row;
