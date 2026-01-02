@@ -12202,79 +12202,83 @@
         }
       }
 
-      /* --- PERBAIKAN FUNGSI IMPORT FILE --- */
+      /* --- PERBAIKAN FUNGSI IMPORT FILE (CLIENT) --- */
       function handleImportFile() {
         const fileInput = document.getElementById('fileImportInput');
-        const type = document.getElementById('importTypeTarget').value; // Ambil tipe (TOKO/TUKANG/GURU)
-        const token = localStorage.getItem('userToken'); // Ambil ID Database
-
-        // 1. Validasi Input
+        const type = document.getElementById('importTypeTarget').value; // Tipe: TOKO/TUKANG/GURU
+        const token = localStorage.getItem('userToken'); // ID Database Sekolah
+        
+        // 1. Validasi File Belum Dipilih
         if (fileInput.files.length === 0) {
           Swal.fire('Peringatan', 'Silakan pilih file Excel (.xlsx) terlebih dahulu.', 'warning');
           return;
         }
-
+        
         const file = fileInput.files[0];
         
-        // Validasi Ekstensi
-        if (!file.name.match(/\.(xlsx|xls)$/)) {
-          Swal.fire('Format Salah', 'Harap upload file Excel dengan format .xlsx', 'error');
+        // 2. Validasi Ekstensi (.xlsx atau .xls)
+        if (!file.name.match(/\.(xlsx|xls)$/i)) { 
+          Swal.fire('Format Salah', 'Harap upload file Excel dengan format .xlsx atau .xls', 'error');
           return;
         }
 
-        // 2. Tampilan Loading
-        document.getElementById('importProgress').classList.remove('hidden');
-        
-        // Kunci tombol agar tidak diklik 2x
+        // 3. Tampilkan Loading UI
+        document.getElementById('importProgress').classList.remove('hidden'); // Bar loading
         const btnUpload = document.querySelector('button[onclick="handleImportFile()"]');
-        if(btnUpload) btnUpload.disabled = true;
+        const oriText = btnUpload.innerHTML;
+        btnUpload.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btnUpload.disabled = true;
 
-        // 3. Baca File & Kirim ke Server
+        // 4. Baca File -> Base64 -> Kirim ke Server
         const reader = new FileReader();
+        reader.readAsDataURL(file);
+        
         reader.onload = function(e) {
-          const content = e.target.result.split(',')[1]; // Ambil data Base64
+          const rawBase64 = reader.result.split(',')[1]; // Ambil string base64 bersih
           
           google.script.run
             .withSuccessHandler(function(res) {
-              // Matikan Loading
+              // Reset UI
               document.getElementById('importProgress').classList.add('hidden');
-              if(btnUpload) btnUpload.disabled = false;
+              btnUpload.innerHTML = oriText;
+              btnUpload.disabled = false;
+              fileInput.value = ""; // Reset input file
 
               if (res.status === 'success') {
-                Swal.fire({ 
-                  icon: 'success', 
-                  title: 'Import Berhasil', 
-                  text: res.message,
-                  timer: 2000,
-                  showConfirmButton: false
-                });
-                
-                // Refresh Tabel Data sesuai Tipe agar data langsung muncul
-                if(type === 'TOKO') loadTokoData(true);
-                if(type === 'TUKANG') loadTukangData(true);
-                if(type === 'GURU') loadGuruData(true);
-                
-                // Tutup Modal Import
-                const modalEl = document.getElementById('modalImport');
-                const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                if(modalInstance) modalInstance.hide();
-                
-                // Reset Input File
-                fileInput.value = '';
+                  Swal.fire({
+                    icon: 'success', 
+                    title: 'Import Berhasil', 
+                    html: res.message
+                  }).then(() => {
+                    // Refresh Tabel sesuai Tipe
+                    if(type === 'TOKO' && typeof loadTokoData === 'function') loadTokoData(true);
+                    if(type === 'TUKANG' && typeof loadTukangData === 'function') loadTukangData(true);
+                    if(type === 'GURU' && typeof loadGuruData === 'function') loadGuruData(true);
+                    
+                    // Tutup Modal
+                    const elModal = document.getElementById('modalImport');
+                    const modal = bootstrap.Modal.getInstance(elModal);
+                    if(modal) modal.hide();
+                  });
               } else {
-                Swal.fire({ icon: 'error', title: 'Gagal Import', html: res.message });
+                  Swal.fire({ icon: 'error', title: 'Gagal Import', html: res.message });
               }
             })
             .withFailureHandler(function(err) {
+              // Handle Error Server (misal Drive API belum aktif)
               document.getElementById('importProgress').classList.add('hidden');
-              if(btnUpload) btnUpload.disabled = false;
-              Swal.fire('Error Sistem', err.message, 'error');
+              btnUpload.innerHTML = oriText;
+              btnUpload.disabled = false;
+              console.error(err);
+              
+              let msg = err.message;
+              if(msg.includes("Drive is not defined")) {
+                msg = "<b>Service Drive API belum aktif!</b><br>Hubungi pengembang untuk mengaktifkan layanan Drive API di editor script.";
+              }
+              Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', html: msg });
             })
-            // PENTING: Kirim parameter lengkap (token, content, nama file, tipe)
-            .processExcelData(token, content, file.name, type); 
+            .processExcelData(token, rawBase64, file.name, type);
         };
-        
-        reader.readAsDataURL(file);
       }
 
     </script>
