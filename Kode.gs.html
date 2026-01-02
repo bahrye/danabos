@@ -2069,64 +2069,66 @@ function simpanTransaksiBaru(token, data) {
 
 /* --- TAMBAHAN UPDATE: FUNGSI CRUD TRANSAKSI --- */
 
-/* --- UPDATE: GET TRANSAKSI LIST (DYNAMIC COLUMNS) --- */
+/* 1. UPDATE FUNGSI getTransaksiList (Mencegah tampilan 1970 di tabel) */
 function getTransaksiList(token, tipe) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
     if (!sheet) return { status: 'success', data: [] };
 
-    // [FIX C] PETA HEADER
     const h = getHeaderMap(sheet);
-    
-    // Cek kolom wajib, jika tidak ada berarti sheet kosong/rusak
     if (h['ID_Transaksi'] === undefined) return { status: 'success', data: [] };
 
     const data = sheet.getDataRange().getValues();
     const result = [];
     
+    // --- FIX: Helper Format Tanggal Lebih Aman ---
     const formatDate = (dateObj) => {
       if(!dateObj) return "";
-      return Utilities.formatDate(new Date(dateObj), "GMT+7", "yyyy-MM-dd");
+      try {
+        const d = new Date(dateObj);
+        // Validasi: Jika Invalid Date atau Tahun < 2000 (mencegah 1970), return kosong
+        if (isNaN(d.getTime()) || d.getFullYear() < 2000) return ""; 
+        return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
+      } catch (e) {
+        return "";
+      }
     };
+    
     const formatDateDisplay = (dateObj) => {
       if(!dateObj) return "";
-      return Utilities.formatDate(new Date(dateObj), "GMT+7", "dd-MM-yyyy");
+      try {
+        const d = new Date(dateObj);
+        if (isNaN(d.getTime()) || d.getFullYear() < 2000) return "";
+        return Utilities.formatDate(d, "GMT+7", "dd-MM-yyyy");
+      } catch(e) {
+        return "";
+      }
     };
+    // ----------------------------------------------
 
     // Loop data mulai dari baris 2 (index 1)
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      
-      // Ambil data menggunakan Map Index
       const rowTipe = row[h['Tipe']];
       
       if (rowTipe === tipe) {
         let items = [], surat = null, tglSurat = null;
         
-        // Ambil JSON Items dengan aman
         if (h['Items_JSON'] !== undefined) {
            try { items = JSON.parse(row[h['Items_JSON']]); } catch (err) { items = []; }
         }
-
-        // Ambil Data Surat
-        // Header "Data_Surat_JSON" mungkin belum ada di file lama, jadi cek undefined
         if (h['Data_Surat_JSON'] !== undefined && row[h['Data_Surat_JSON']]) { 
             try { surat = JSON.parse(row[h['Data_Surat_JSON']]); } catch (err) { surat = null; } 
         }
-
-        // Ambil Data Tanggal
         if (h['Data_Tanggal_JSON'] !== undefined && row[h['Data_Tanggal_JSON']]) { 
             try { tglSurat = JSON.parse(row[h['Data_Tanggal_JSON']]); } catch (err) { tglSurat = null; } 
         }
 
-        // Ambil PDF ID (Header mungkin "File_PDF_ID" atau kolom ke-12 manual sebelumnya)
-        // Kita standarkan nama kolom PDF menjadi "File_PDF_ID"
         let pdfId = null;
         if (h['File_PDF_ID'] !== undefined) {
            pdfId = row[h['File_PDF_ID']];
         } else if (row.length > 11) { 
-           // Fallback untuk data lama yang belum punya header File_PDF_ID (kolom L / index 11)
            pdfId = row[11]; 
         }
 
@@ -2147,7 +2149,6 @@ function getTransaksiList(token, tipe) {
       }
     }
     
-    // Sort Date Ascending
     result.sort((a, b) => {
       if (a.tanggal < b.tanggal) return -1;
       if (a.tanggal > b.tanggal) return 1;
@@ -4536,62 +4537,71 @@ function simpanOutputId(ss, key, val) {
   if(!found) sheet.appendRow([key, val]);
 }
 
-/* --- FUNGSI IMPORT DATA (BATCH) - DIPERBAIKI --- */
+/* --- UPDATE FUNGSI importDataBatch (DENGAN PENANGANAN TANGGAL EXCEL SERIAL) --- */
 function importDataBatch(token, type, data) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheetName = '';
     let mapFunc = null;
 
-    // --- HELPER KHUSUS LOKAL ---
-    
-    // 1. Parsing Angka Format Indonesia (Titik = Ribuan, Koma = Desimal)
-    // Contoh: "89.000" -> 89000 | "1,5" -> 1.5
+    // --- HELPER 1: Parsing Angka (Rupiah/Desimal) ---
     const parseIndo = (val) => {
       if (!val) return 0;
       const str = String(val);
-      // Hapus semua titik, lalu ganti koma dengan titik (untuk JS float)
       const clean = str.replace(/\./g, '').replace(',', '.');
       return parseFloat(clean) || 0;
     };
 
-    // 2. Format Tanggal ke YYYY-MM-DD (Untuk Database)
+    // --- HELPER 2: Parsing Tanggal Super Robust (Serial & Teks) ---
     const formatDateISO = (val) => {
       if (!val) return "";
       
-      // Jaga-jaga jika input terbaca sebagai Date Object (bukan text)
+      // 1. Jika input sudah berupa Object Date
       if (val instanceof Date) {
          return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
       }
 
       const s = String(val).trim();
-      
-      // Handle format dd/mm/yyyy (Standard Excel Indo)
-      if (s.includes('/')) {
-        const parts = s.split('/');
-        if (parts.length === 3) {
-          // Asumsi: part[0]=dd, part[1]=mm, part[2]=yyyy
-          return parts[2] + "-" + parts[1] + "-" + parts[0];
-        }
+      if (s === "") return "";
+
+      // 2. Cek apakah ini Angka Serial Excel (Contoh: "45462")
+      // Angka > 10000 diasumsikan sebagai tanggal Excel (bukan volume/harga)
+      if (s.match(/^\d+$/) && parseInt(s) > 10000) {
+         // Konversi Serial Excel ke JS Date
+         // Rumus: (Serial - 25569) * 86400 * 1000
+         const serial = parseInt(s);
+         const jsDate = new Date((serial - 25569) * 86400 * 1000);
+         return Utilities.formatDate(jsDate, "GMT+7", "yyyy-MM-dd");
+      }
+
+      // 3. Cek Format Teks Indonesia (dd/mm/yyyy atau dd-mm-yyyy atau dd.mm.yyyy)
+      const matchIndo = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+      if (matchIndo) {
+         const dd = matchIndo[1].padStart(2, '0');
+         const mm = matchIndo[2].padStart(2, '0');
+         const yyyy = matchIndo[3];
+         return `${yyyy}-${mm}-${dd}`;
+      }
+
+      // 4. Cek Format ISO (yyyy-mm-dd)
+      const matchIso = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+      if (matchIso) {
+         const yyyy = matchIso[1];
+         const mm = matchIso[2].padStart(2, '0');
+         const dd = matchIso[3].padStart(2, '0');
+         return `${yyyy}-${mm}-${dd}`;
       }
       
-      // Handle format dd-mm-yyyy (Kadang user pake strip)
-      if (s.includes('-')) {
-         const parts = s.split('-');
-         if (parts.length === 3) {
-            // Jika formatnya sudah yyyy-mm-dd (ISO), kembalikan langsung
-            if (parts[0].length === 4) return s; 
-            // Jika formatnya dd-mm-yyyy, balik jadi yyyy-mm-dd
-            return parts[2] + "-" + parts[1] + "-" + parts[0];
-         }
+      // 5. Fallback: Coba parse tanggal standar
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+         return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
       }
       
-      return s; // Fallback
+      return ""; // Jika gagal total
     };
 
-    // ---------------------------
-
-    // A. LOGIKA IMPORT MASTER DATA
+    // A. LOGIKA IMPORT MASTER DATA (Tetap Sama)
     if (type === 'URAIAN') {
       sheetName = 'DataUraian';
       mapFunc = (row) => [Utilities.getUuid(), "'" + (row['Nomor Bukti'] || ''), row['Uraian Pekerjaan'] || ''];
@@ -4612,33 +4622,28 @@ function importDataBatch(token, type, data) {
       mapFunc = (row) => [Utilities.getUuid(), row['Nama Lengkap'] || '', "'" + (row['NIP'] || '')];
     }
     
-    // B. LOGIKA IMPORT TRANSAKSI (UPDATE FIX: TANGGAL & HARGA)
+    // B. LOGIKA IMPORT TRANSAKSI (Updated)
     else if (type === 'TRANSAKSI') {
       sheetName = 'DataTransaksi';
       
       mapFunc = (row) => {
         const id = Utilities.getUuid();
-        
-        // 1. Loop 1-32 untuk ambil Items
         const items = [];
         let total = 0;
 
         for (let i = 1; i <= 32; i++) {
            const name = row['Nama Barang ' + i] || row['Nama Tukang ' + i] || row['Nama Guru / Penerima ' + i];
            if (name && String(name).trim() !== "") {
-              
-              // [FIX HARGA] Gunakan parseIndo agar 89.000 terbaca 89000
               const vol = parseIndo(row['Volume ' + i]);
               const sat = row['Satuan ' + i] || '';
               const harga = parseIndo(row['Harga Satuan ' + i]);
-              
               const jumlah = vol * harga;
               items.push({ nama: name, vol: vol, sat: sat, harga: harga, jumlah: jumlah });
               total += jumlah;
            }
         }
         
-        // Data Surat
+        // Data Surat & Tanggal (Gunakan formatDateISO yang baru)
         const dataSurat = {
           permintaan: row['Nomor Surat Permintaan'] || '',
           penawaran: row['Nomor Surat Penawaran'] || '',
@@ -4647,7 +4652,6 @@ function importDataBatch(token, type, data) {
           baPembayaran: row['Nomor BA Pembayaran'] || ''
         };
 
-        // Data Tanggal
         const dataTanggal = {
           permintaan: formatDateISO(row['Tanggal Surat Permintaan']),
           penawaran: formatDateISO(row['Tanggal Surat Penawaran']),
@@ -4656,17 +4660,13 @@ function importDataBatch(token, type, data) {
           baPembayaran: formatDateISO(row['Tanggal BA Pembayaran'])
         };
 
-        // [FIX TANGGAL] Ambil dari 'Tanggal Surat Permintaan' & Format ulang
-        // Kolom di Excel: "Tanggal Surat Permintaan" -> value: "31/01/2025"
-        // Masuk DB harus: "2025-01-31" (String Text)
         const tglUtama = formatDateISO(row['Tanggal Surat Permintaan']);
-
         const pihakKetiga = row['Pihak Ketiga / Keterangan'] || row['Keterangan'] || '';
         const pemesan = row['Pemesan / Penanggung Jawab'] || '';
 
         return [
           id,
-          "'" + tglUtama, // Kolom B: Tanggal Transaksi (Sekarang Sinkron dengan Permintaan)
+          "'" + tglUtama, // Tanggal Utama
           row['Tipe (TOKO/TUKANG/GURU)'] || 'TOKO',
           row['Uraian Pekerjaan'] || '',
           pihakKetiga, 
@@ -5542,26 +5542,22 @@ function switchFiscalYear(dbId, targetYear) {
   }
 }
 
-/* --- FUNGSI PROCESS DATA (HYBRID: UPLOAD & ONLINE) --- */
+/* 3. UPDATE FUNGSI processExcelData (Trim Header agar kolom terbaca meski ada spasi) */
 function processExcelData(token, data, filename, type) {
-  var tempFileId = null; // ID file sementara (hanya untuk upload manual)
+  var tempFileId = null; 
   
   try {
-    // 1. Validasi Token
     if (!token) return { status: 'error', message: 'Sesi tidak valid.' };
 
-    var ssSource; // Spreadsheet Sumber
+    var ssSource; 
 
-    // --- CABANG 1: SUMBER DARI TEMPLATE ONLINE ---
     if (data === "ONLINE_TEMPLATE") {
-      // Jika mode online, 'filename' berisi ID Spreadsheet Template
       try {
         ssSource = SpreadsheetApp.openById(filename); 
       } catch(e) {
         return { status: 'error', message: 'Tidak dapat membuka Template Online. Pastikan ID benar.' };
       }
     } 
-    // --- CABANG 2: SUMBER DARI UPLOAD FILE ---
     else {
       if (typeof Drive === 'undefined') throw new Error("Drive API belum aktif.");
       
@@ -5573,12 +5569,11 @@ function processExcelData(token, data, filename, type) {
       var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, filename);
       var resource = { title: "[TEMP] " + filename, mimeType: MimeType.GOOGLE_SHEETS };
       var newFile = Drive.Files.insert(resource, blob);
-      tempFileId = newFile.id; // Tandai untuk dihapus nanti
+      tempFileId = newFile.id; 
       ssSource = SpreadsheetApp.openById(tempFileId);
       ssSource.setSpreadsheetLocale('id_ID');
     }
 
-    // --- PROSES EKSTRAKSI DATA (SAMA UNTUK KEDUANYA) ---
     var allDataObjs = [];
     var singleSheetRows = [];
 
@@ -5589,7 +5584,10 @@ function processExcelData(token, data, filename, type) {
             if (s) {
                 const vals = s.getDataRange().getDisplayValues();
                 if (vals.length > 1) {
-                    const headers = vals[0];
+                    // --- FIX: TRIM HEADER ---
+                    // Membersihkan spasi di awal/akhir header kolom
+                    const headers = vals[0].map(function(h) { return String(h).trim(); });
+                    
                     for (let i = 1; i < vals.length; i++) {
                         let obj = {};
                         let hasData = false;
@@ -5603,24 +5601,19 @@ function processExcelData(token, data, filename, type) {
             }
         });
     } else {
-        // Master Data (Baca Sheet Pertama)
         var sheetTemp = ssSource.getSheets()[0];
         singleSheetRows = sheetTemp.getDataRange().getDisplayValues();
     }
 
-    // --- BERSIHKAN FILE TEMP (HANYA JIKA UPLOAD MANUAL) ---
     if (tempFileId) {
       try { Drive.Files.remove(tempFileId); } catch(e) {}
     }
 
-    // --- INSERT KE DATABASE ---
-    // A. TRANSAKSI
     if (type === 'TRANSAKSI') {
         if (allDataObjs.length === 0) return { status: 'error', message: 'Data transaksi kosong/tidak ditemukan.' };
         return importDataBatch(token, 'TRANSAKSI', allDataObjs);
     }
 
-    // B. MASTER DATA (Manual Loop)
     if (singleSheetRows.length < 2) return { status: 'error', message: 'Data kosong.' };
     
     var ssDB = SpreadsheetApp.openById(token);
@@ -5636,9 +5629,10 @@ function processExcelData(token, data, filename, type) {
         }
       }
     } 
+    // ... dst (kode DataTukang, DataGuru, DataUraian tetap sama) ...
     else if (type === 'TUKANG') {
       let t = ssDB.getSheetByName('DataTukang');
-      if (!t) { t = ssDB.insertSheet('DataTukang'); t.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]); }
+      if (!t) { t = ssDB.insertSheet('DataTukang'); t.appendRow(["ID", "Nama Tukang", "Alamat Lengkap"]); }
       for (let i = 1; i < rows.length; i++) {
         if (rows[i][0]) { t.appendRow([Utilities.getUuid(), rows[i][0], rows[i][1]]); count++; }
       }
