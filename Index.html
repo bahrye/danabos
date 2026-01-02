@@ -12195,66 +12195,65 @@
         }
       }
 
-      /* --- FUNGSI DOWNLOAD TEMPLATE OFFLINE (EXCEL) --- */
       function handleDownloadTemplate() {
         var type = document.getElementById('importTypeTarget').value;
         var token = localStorage.getItem('userToken');
-        
-        // Cari tombol di dalam modal
-        var btn = document.querySelector('#areaViewBtn button:last-child'); 
-        // Jika selector di atas meleset, gunakan ID spesifik jika Anda punya, atau biarkan fallback ini:
-        if (!btn) { 
-          // Coba cari tombol yang mengandung teks "Download"
-          var allBtns = document.querySelectorAll('button');
-          for(var i=0; i<allBtns.length; i++){
-            if(allBtns[i].textContent.includes('Download') && allBtns[i].offsetParent !== null) {
-              btn = allBtns[i]; break;
-            }
+
+        // Tampilkan Pop-up Loading (Menggantikan status sinkronisasi)
+        Swal.fire({
+          title: 'Proses Download',
+          html: 'Sedang menyiapkan file template Excel...<br>Mohon tunggu sebentar.',
+          icon: 'info',
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
           }
-        }
-        
-        var originalText = btn ? btn.innerHTML : "Download";
-        if(btn) {
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyiapkan...';
-          btn.disabled = true;
-        }
+        });
 
         // 1. Ambil Data Referensi Terbaru (Agar Dropdown di Excel Uptodate)
         google.script.run
           .withFailureHandler(function(err) {
-            if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
             Swal.fire('Gagal', 'Koneksi error: ' + err.message, 'error');
           })
           .withSuccessHandler(function(resRef) {
             if (resRef.status === 'success') {
               var refData = resRef.data;
-              
-              // 2. Request Server: Generate Template Instan (Copy Master)
+
+              // 2. Request Server: Generate Template Instan
               google.script.run
                 .withFailureHandler(function(err) {
-                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
-                    Swal.fire('Gagal', 'Gagal generate: ' + err.message, 'error');
+                  Swal.fire('Gagal', 'Gagal generate: ' + err.message, 'error');
                 })
                 .withSuccessHandler(function(resGen) {
-                    if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                  if (resGen.status === 'success') {
                     
-                    if (resGen.status === 'success') {
-                      // 3. Download File
-                      // Format export=xlsx memaksa download sebagai Excel
-                      var downloadUrl = "https://docs.google.com/spreadsheets/d/" + resGen.id + "/export?format=xlsx";
-                      
-                      // Buka di tab baru
-                      window.open(downloadUrl, "_blank");
-                      
-                      // Opsional: Hapus file temp setelah beberapa saat (butuh trigger terpisah, abaikan untuk sekarang)
-                    } else {
-                      Swal.fire('Gagal', resGen.message, 'error');
-                    }
+                    // 3. Download File (Buka URL Export Excel)
+                    var downloadUrl = "https://docs.google.com/spreadsheets/d/" + resGen.id + "/export?format=xlsx";
+                    window.open(downloadUrl, "_blank");
+
+                    // 4. Update Pop-up Menjadi Sukses
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'Download Dimulai',
+                      text: 'File Excel sedang didownload. File sementara akan dihapus otomatis.',
+                      timer: 2500,
+                      showConfirmButton: false
+                    });
+
+                    // 5. Hapus File Temp di Server (Delay 5-8 detik agar download jalan dulu)
+                    setTimeout(function() {
+                      console.log("Menghapus file temp: " + resGen.id);
+                      google.script.run.hapusFileTemp(resGen.id);
+                    }, 8000); 
+
+                  } else {
+                    Swal.fire('Gagal', resGen.message, 'error');
+                  }
                 })
                 .createExcelTemplateFromServer(type, refData);
                 
             } else {
-              if(btn) { btn.innerHTML = originalText; btn.disabled = false; }
               Swal.fire('Gagal', resRef.message, 'error');
             }
           })
