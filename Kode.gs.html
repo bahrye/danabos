@@ -4556,19 +4556,37 @@ function importDataBatch(token, type, data) {
     };
 
     // 2. Format Tanggal ke YYYY-MM-DD (Untuk Database)
-    // Menerima input "dd/MM/yyyy" dari Excel (Locale ID)
     const formatDateISO = (val) => {
       if (!val) return "";
+      
+      // Jaga-jaga jika input terbaca sebagai Date Object (bukan text)
+      if (val instanceof Date) {
+         return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
+      }
+
       const s = String(val).trim();
-      // Cek jika formatnya dd/MM/yyyy
+      
+      // Handle format dd/mm/yyyy (Standard Excel Indo)
       if (s.includes('/')) {
         const parts = s.split('/');
         if (parts.length === 3) {
-          // Balik menjadi YYYY-MM-DD
+          // Asumsi: part[0]=dd, part[1]=mm, part[2]=yyyy
           return parts[2] + "-" + parts[1] + "-" + parts[0];
         }
       }
-      return s; // Fallback jika format sudah benar atau text lain
+      
+      // Handle format dd-mm-yyyy (Kadang user pake strip)
+      if (s.includes('-')) {
+         const parts = s.split('-');
+         if (parts.length === 3) {
+            // Jika formatnya sudah yyyy-mm-dd (ISO), kembalikan langsung
+            if (parts[0].length === 4) return s; 
+            // Jika formatnya dd-mm-yyyy, balik jadi yyyy-mm-dd
+            return parts[2] + "-" + parts[1] + "-" + parts[0];
+         }
+      }
+      
+      return s; // Fallback
     };
 
     // ---------------------------
@@ -5557,6 +5575,7 @@ function processExcelData(token, data, filename, type) {
       var newFile = Drive.Files.insert(resource, blob);
       tempFileId = newFile.id; // Tandai untuk dihapus nanti
       ssSource = SpreadsheetApp.openById(tempFileId);
+      ssSource.setSpreadsheetLocale('id_ID');
     }
 
     // --- PROSES EKSTRAKSI DATA (SAMA UNTUK KEDUANYA) ---
