@@ -2258,7 +2258,7 @@
                           <i class="fas fa-times me-1"></i> Batal
                         </button>
                         <button type="button" id="btnSimpanTokoTrans" class="btn btn-success" onclick="simpanTransaksi('toko')">
-                          <i class="fas fa-save me-1"></i> Simpan
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
                         </button>
                       </div>
                     </div>
@@ -2344,7 +2344,7 @@
                       <table class="table table-bordered align-middle text-nowrap table-input-scroll" id="tabelItemGuru">
                         <thead class="table-light text-center">
                           <tr>
-                            <th width="31%">Nama Guru</th>
+                            <th width="31%">Nama Guru/Penerima</th>
                             <th width="10%">Vol</th>
                             <th width="11%">Satuan</th>
                             <th width="20%">Honor/Upah (Rp)</th>
@@ -2474,7 +2474,7 @@
                       <table class="table table-bordered align-middle text-nowrap table-input-scroll" id="tabelItemTukang">
                         <thead class="table-light text-center">
                           <tr>
-                            <th width="31%">Jenis Pekerjaan/Item</th>
+                            <th width="31%">Nama Tukang/Penerima</th>
                             <th width="10%">Vol</th>
                             <th width="11%">Satuan</th>
                             <th width="20%">Upah/Harga (Rp)</th>
@@ -2519,7 +2519,7 @@
                         </button>
                         
                         <button type="button" id="btnSimpanTukangTrans" class="btn btn-success" onclick="simpanTransaksi('tukang')">
-                          <i class="fas fa-save me-1"></i> Simpan
+                          <i class="fas fa-save me-1"></i> Simpan Transaksi
                         </button>
                       </div>
                     </div>
@@ -5978,41 +5978,42 @@
           }
       }
 
-      // 4. Batal Edit (Reset Form & Mode)
+      // --- UPDATE: FUNGSI BATAL EDIT TRANSAKSI (UNIFIED) ---
       function batalEditTransaksi(tipe) {
-        // 1. Reset Isi Form & Tabel
-        resetFormTransaksi(tipe);
-
-        // 2. Mapping ID Elemen berdasarkan Tipe
-        let idHidden, btnSimpanId, btnBatalId;
-
-        if (tipe === 'toko') {
-          idHidden = 'trTokoId';
-          btnSimpanId = 'btnSimpanTokoTrans';
-          btnBatalId = 'btnBatalTokoTrans';
-        } else if (tipe === 'tukang') {
-          idHidden = 'trTukangId';
-          btnSimpanId = 'btnSimpanTukangTrans';
-          btnBatalId = 'btnBatalTukangTrans';
-        } else { // guru
-          idHidden = 'trGuruId';
-          btnSimpanId = 'btnSimpanGuruTrans';
-          btnBatalId = 'btnBatalGuruTrans';
+        // Helper Capitalize (Huruf pertama besar)
+        const capTipe = tipe.charAt(0).toUpperCase() + tipe.slice(1);
+        
+        // 1. Reset Form & ID Hidden
+        document.getElementById('formBelanja' + capTipe).reset();
+        document.getElementById('tr' + capTipe + 'Id').value = '';
+        
+        // 2. Reset Tabel Item (Kosongkan lalu tambah 1 baris baru)
+        const tbody = document.querySelector('#tabelItem' + capTipe + ' tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            tambahBaris(tipe); 
         }
-
-        // 3. Kosongkan ID Hidden (Indikator Mode Edit)
-        document.getElementById(idHidden).value = '';
-
-        // 4. Kembalikan Tombol Simpan ke Awal (Hijau)
-        const btnSimpan = document.getElementById(btnSimpanId);
-        btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Transaksi';
-        btnSimpan.classList.remove('btn-warning');
-        btnSimpan.classList.add('btn-success');
-        btnSimpan.disabled = false;
-
-        // 5. Sembunyikan Tombol Batal
-        const btnBatal = document.getElementById(btnBatalId);
-        btnBatal.classList.add('hidden');
+        
+        // 3. Reset Tampilan Total
+        const dispTotal = document.getElementById('tr' + capTipe + 'TotalDisplay');
+        const valTotal = document.getElementById('tr' + capTipe + 'TotalValue');
+        if (dispTotal) dispTotal.innerText = 'Rp 0';
+        if (valTotal) valTotal.value = '0';
+        
+        // 4. Reset Tombol Simpan & Sembunyikan Tombol Batal
+        const btnSimpan = document.getElementById('btnSimpan' + capTipe + 'Trans');
+        const btnBatal = document.getElementById('btnBatal' + capTipe + 'Trans');
+        
+        // Sembunyikan tombol batal
+        if (btnBatal) btnBatal.classList.add('hidden');
+        
+        // Kembalikan warna & Teks tombol Simpan
+        if (btnSimpan) {
+            btnSimpan.classList.remove('btn-warning');
+            btnSimpan.classList.add('btn-success');
+            // UPDATE: Semua tab menggunakan teks yang sama
+            btnSimpan.innerHTML = '<i class="fas fa-save me-1"></i> Simpan Transaksi';
+        }
       }
 
       // 5. Hapus Transaksi
