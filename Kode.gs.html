@@ -4770,7 +4770,7 @@ function createExcelTemplateFromServer(type, refData) {
   try {
     // 1. Cek Master Template V12 (GANTI KE V12 AGAR RESET MASTER BARU)
     var props = PropertiesService.getScriptProperties();
-    var masterId = props.getProperty('MASTER_TEMPLATE_OFFLINE_ID_V12'); 
+    var masterId = props.getProperty('MASTER_TEMPLATE_OFFLINE_ID_V13');
     var masterFile;
 
     if (masterId) {
@@ -4780,7 +4780,7 @@ function createExcelTemplateFromServer(type, refData) {
     // 2. Jika Master belum ada, Buat Baru
     if (!masterId) {
       masterId = setupMasterTransactionTemplate();
-      props.setProperty('MASTER_TEMPLATE_OFFLINE_ID_V12', masterId);
+      props.setProperty('MASTER_TEMPLATE_OFFLINE_ID_V13', masterId);
       masterFile = DriveApp.getFileById(masterId);
     }
 
@@ -4793,7 +4793,7 @@ function createExcelTemplateFromServer(type, refData) {
     updateRefSheets(ssCopy, refData);
 
     // 5. TERAPKAN PROTEKSI & VALIDASI (KUNCI)
-    applyFinalProtection(ssCopy);
+    // applyFinalProtection(ssCopy);
 
     // 6. FINISHING: URUTAN SHEET & AKTIVASI
     var sheets = ssCopy.getSheets();
@@ -4840,7 +4840,6 @@ function setupMasterTransactionTemplate() {
   setupRef("Uraian"); setupRef("Toko"); setupRef("Tukang");
   setupRef("Guru"); setupRef("Barang"); setupRef("Satuan");
 
-  // ... (Sisa kode setupSheet sama seperti sebelumnya, tidak perlu diubah)
   // Helper Rule
   var getStrictRule = function(rangeName) { return SpreadsheetApp.newDataValidation().requireValueInRange(ss.getRangeByName(rangeName)).setAllowInvalid(false).setHelpText("Wajib dropdown").build(); };
   var getLooseRule = function(rangeName) { return SpreadsheetApp.newDataValidation().requireValueInRange(ss.getRangeByName(rangeName)).setAllowInvalid(true).build(); };
@@ -4913,6 +4912,8 @@ function setupMasterTransactionTemplate() {
 
   var s1 = ss.getSheetByName("Sheet1");
   if(s1) ss.deleteSheet(s1);
+
+  applyFinalProtection(ss);
 
   return ss.getId();
 }
