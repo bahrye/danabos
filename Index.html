@@ -2287,6 +2287,7 @@
                           <th>Uraian</th>
                           <th>Toko</th>
                           <th>Total</th>
+                          <th width="10%" class="text-center">Status</th>
                           <th>Aksi</th>
                         </tr>
                       </thead>
@@ -2539,6 +2540,7 @@
                           <th>Uraian</th>
                           <th>Tukang</th>
                           <th>Total</th>
+                          <th width="10%" class="text-center">Status</th>
                           <th>Aksi</th>
                         </tr>
                       </thead>
@@ -5684,56 +5686,99 @@
           }).getTransaksiList(token, tipe);
       }
 
-      // --- FUNGSI RENDER TABEL TRANSAKSI (DIPISAH) ---
+      // --- UPDATE: FUNGSI RENDER TABEL TRANSAKSI (GURU TANPA STATUS) ---
       function renderRiwayatTransaksi(data, tipe, tbody) {
         tbody.innerHTML = '';
         
+        // Tentukan apakah ini tab Guru
+        const isGuru = (tipe === 'GURU');
+        
+        // Sesuaikan colspan: Guru = 5 kolom, Toko/Tukang = 6 kolom (ada status)
+        const colSpan = isGuru ? 5 : 6;
+
         if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>';
+          tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>`;
           return;
         }
 
         data.forEach(item => {
-          // Encode data agar aman untuk fungsi onclick
+          // Encode data
           const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
           const tipeKecil = tipe.toLowerCase();
 
+          // --- LOGIKA STATUS DOKUMEN (HANYA JIKA BUKAN GURU) ---
+          let statusTd = ''; // Default kosong untuk Guru
+
+          if (!isGuru) {
+            // Ambil data surat & tanggal
+            const s = item.dataSurat || {};
+            const t = item.dataTanggal || {};
+            
+            // Tentukan field wajib
+            let keys = ['permintaan', 'baPemeriksaan', 'baSerahTerima', 'baPembayaran'];
+            if (tipe === 'TOKO') keys.push('penawaran');
+
+            let filled = 0;
+            let totalTarget = keys.length * 2; // Cek Nomor & Tanggal
+
+            keys.forEach(k => {
+              if (s[k] && s[k].trim() !== '') filled++; 
+              if (t[k] && t[k].trim() !== '') filled++; 
+            });
+
+            // Tentukan Ikon Status
+            let statusIcon = '';
+            if (filled === 0) {
+              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Belum Dilengkapi"><i class="fas fa-times-circle text-secondary fa-lg opacity-50"></i></div>`;
+            } else if (filled === totalTarget) {
+              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Lengkap"><i class="fas fa-check-circle text-success fa-lg"></i></div>`;
+            } else {
+              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Terisi Sebagian (${filled}/${totalTarget})"><i class="fas fa-exclamation-circle text-warning fa-lg"></i></div>`;
+            }
+            
+            // Isi kolom status
+            statusTd = `<td>${statusIcon}</td>`;
+          }
+          // -----------------------------
+
           // Tombol Aksi
           const btnDetail = `
-            <button class="btn btn-sm btn-outline-info me-1" 
-              onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
+            <button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
               <i class="fas fa-eye"></i>
             </button>
           `;
-
           const btnEdit = `
-            <button class="btn btn-sm btn-outline-warning me-1" 
-              onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
+            <button class="btn btn-sm btn-outline-warning me-1" onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
               <i class="fas fa-pencil-alt"></i>
             </button>
           `;
-          
           const btnHapus = `
-            <button class="btn btn-sm btn-outline-danger" 
-              onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
+            <button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
               <i class="fas fa-trash-alt"></i>
             </button>
           `;
 
-          // Kolom Pihak Ketiga (Khusus Guru ditampilkan Keterangan/Kosong jika default)
+          // Penyesuaian tampilan nama pihak
           let displayPihak = item.pihakKetiga;
-          if (tipe === 'GURU' && (displayPihak === '-' || displayPihak === 'Honorarium Guru')) {
-              // Jika ingin menampilkan keterangan sebagai pengganti pihak ketiga untuk guru
-              // Pastikan logic ini sesuai dengan keinginan Anda (misal menampilkan Keterangan)
-              displayPihak = "-"; 
+          if (isGuru) {
+            // Jika Guru, coba ambil nama dari item pertama jika pihakKetiga tidak jelas
+            if (item.items && item.items.length > 0) {
+                displayPihak = item.items[0].nama;
+            }
+          } else {
+            // Toko/Tukang
+            if (displayPihak === '-' || !displayPihak) displayPihak = "Pihak Ketiga";
           }
 
+          // Render Row
+          // Perhatikan: variabel ${statusTd} hanya akan terisi jika BUKAN Guru
           const row = `
             <tr>
-              <td>${item.tanggalDisplay}</td> 
+              <td>${item.tanggalDisplay}</td>
               <td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>
-              <td>${escapeHtml(displayPihak)}</td> 
+              <td>${escapeHtml(displayPihak)}</td>
               <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
+              ${statusTd} 
               <td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>
             </tr>
           `;
@@ -6379,30 +6424,10 @@
         tambahBaris(tipe);
       }
 
-      // --- FUNGSI POPUP DETAIL TRANSAKSI (UPDATE: TAMBAH KOLOM HARGA) ---
+      // --- FUNGSI POPUP DETAIL TRANSAKSI (UPDATE: TANPA STATUS DOKUMEN) ---
       function lihatDetailTransaksi(encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
         
-        // Ambil Data Surat & Tanggal
-        const s = data.dataSurat || {};
-        const t = data.dataTanggal || {};
-
-        // Helper Format Tanggal
-        const fmtDate = (dStr) => {
-          if(!dStr) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Kosong -</span>';
-          const d = new Date(dStr);
-          if(isNaN(d.getTime())) return '<span class="text-muted fst-italic small bg-light px-2 rounded">- Error -</span>';
-          const dd = String(d.getDate()).padStart(2, '0');
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const yyyy = d.getFullYear();
-          return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
-        };
-
-        // Helper Format Nomor
-        const fmtNo = (val) => {
-          return val ? val : '<span class="text-muted fst-italic small fw-normal">- Belum diatur -</span>';
-        };
-
         // --- LOGIKA TAMPILAN KHUSUS (GURU vs TOKO/TUKANG) ---
         let labelPihak = "Pihak Ketiga";
         let valPihak = data.pihakKetiga;
@@ -6453,23 +6478,20 @@
                 </tbody>
               </table>
             </div>
-            <div class="text-center text-muted fst-italic mt-1" style="font-size: 0.75rem;">
-              <small><i class="fas fa-arrows-alt-h me-1"></i> Geser tabel ke samping jika teks terpotong</small>
-            </div>
           </div>
         `;
 
-        // 2. Tabel Rincian Barang (UPDATE KOLOM HARGA DISINI)
+        // 2. Tabel Rincian Barang
         htmlContent += `
           <h6 class="fw-bold mb-2 text-secondary" style="font-size: 0.85rem;"><i class="fas fa-box me-1"></i> Rincian Item</h6>
-          <div class="table-responsive mb-4">
-            <table class="table table-bordered table-sm align-middle text-nowrap mb-0" style="font-size: 0.85rem;">
+          <div class="table-responsive mb-0"> <table class="table table-bordered table-sm align-middle text-nowrap mb-0" style="font-size: 0.85rem;">
               <thead class="table-light text-center">
                 <tr>
                   <th>Nama Barang / Item</th>
                   <th width="10%">Vol</th>
                   <th width="10%">Sat</th>
-                  <th width="15%">Harga</th> <th width="20%">Jumlah</th>
+                  <th width="15%">Harga</th>
+                  <th width="20%">Jumlah</th>
                 </tr>
               </thead>
               <tbody>
@@ -6477,20 +6499,18 @@
 
         if (data.items && data.items.length > 0) {
           data.items.forEach(item => {
-            // Pastikan item.harga ada valuenya, jika tidak 0
             const hargaSatuan = item.harga || 0; 
-            
             htmlContent += `
               <tr>
                 <td class="text-start">${item.nama}</td>
                 <td class="text-center">${item.vol}</td>
                 <td class="text-center">${item.sat}</td>
-                <td class="text-end text-muted">${formatRupiahJS(hargaSatuan)}</td> <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
+                <td class="text-end text-muted">${formatRupiahJS(hargaSatuan)}</td>
+                <td class="text-end fw-bold">${formatRupiahJS(item.jumlah)}</td>
               </tr>
             `;
           });
         } else {
-          // Colspan diubah jadi 5 karena ada tambahan kolom harga
           htmlContent += `<tr><td colspan="5" class="text-center text-muted">Tidak ada rincian item.</td></tr>`;
         }
 
@@ -6506,52 +6526,13 @@
           </div>
         `;
 
-        // 3. Status Dokumen Surat & Tanggal
-        htmlContent += `
-          <h6 class="fw-bold mb-2 text-primary" style="font-size: 0.85rem;">
-            <i class="fas fa-file-signature me-1"></i> Status Dokumen & Tanggal
-          </h6>
-          <div class="table-responsive">
-            <table class="table table-bordered table-sm align-middle text-nowrap mb-0" style="font-size: 0.85rem;">
-              <thead class="bg-primary text-white bg-opacity-10">
-                <tr>
-                  <th class="text-start ps-3">Jenis Dokumen</th>
-                  <th class="text-center px-3">Tanggal</th>
-                  <th class="text-start ps-3">Nomor Surat</th>
-                </tr>
-              </thead>
-              <tbody>
-        `;
+        // Bagian "Status Dokumen & Tanggal" SUDAH DIHAPUS dari sini.
 
-        const docs = [
-          { label: 'Surat Permintaan', tgl: t.permintaan, no: s.permintaan },
-          ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', tgl: t.penawaran, no: s.penawaran }] : []),
-          { label: 'BA Pemeriksaan', tgl: t.baPemeriksaan, no: s.baPemeriksaan },
-          { label: 'BA Serah Terima', tgl: t.baSerahTerima, no: s.baSerahTerima },
-          { label: 'BA Pembayaran', tgl: t.baPembayaran, no: s.baPembayaran }
-        ];
-
-        docs.forEach(doc => {
-          htmlContent += `
-            <tr>
-              <td class="fw-bold text-secondary text-start ps-3">${doc.label}</td>
-              <td class="text-center bg-light px-3">${fmtDate(doc.tgl)}</td>
-              <td class="text-start ps-3 font-monospace text-dark fw-bold">${fmtNo(doc.no)}</td>
-            </tr>
-          `;
-        });
-
-        htmlContent += `
-              </tbody>
-            </table>
-          </div>
-        `;
-
-        // 4. Tampilkan Popup
+        // 3. Tampilkan Popup
         Swal.fire({
-          title: 'Rincian & Dokumen',
+          title: 'Rincian Transaksi', // Judul disesuaikan sedikit
           html: htmlContent,
-          width: '750px',
+          width: '700px', // Lebar sedikit dikecilkan karena konten berkurang
           showCloseButton: true,
           showConfirmButton: false,
           focusConfirm: false,
@@ -12341,6 +12322,127 @@
           // Surat & Tanggal juga ikut berubah karena data transaksi bertambah
           // (Asumsi: Anda mungkin ingin reset ini juga jika ada cache-nya)
         }
+      }
+
+      // --- FUNGSI POPUP KHUSUS STATUS DOKUMEN (UPDATE: TOMBOL KELOLA TANGGAL) ---
+      function lihatStatusDokumen(encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        const s = data.dataSurat || {};
+        const t = data.dataTanggal || {};
+
+        // Helper Format Tanggal
+        const fmtDate = (dStr) => {
+          if(!dStr) return '<span class="badge bg-light text-muted fw-normal border">Kosong</span>';
+          const d = new Date(dStr);
+          if(isNaN(d.getTime())) return '-';
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          return `<span class="fw-bold text-dark font-monospace">${dd}-${mm}-${yyyy}</span>`;
+        };
+
+        // Helper Format Nomor
+        const fmtNo = (val) => {
+          return val ? `<span class="fw-bold text-primary font-monospace">${val}</span>` 
+                    : '<span class="badge bg-secondary bg-opacity-10 text-secondary fw-normal border">Belum diisi</span>';
+        };
+
+        // Helper Cek Status Baris (Icon Checklist)
+        const cekIcon = (no, tgl) => {
+          if(no && tgl) return '<i class="fas fa-check-circle text-success"></i>';
+          if(!no && !tgl) return '<i class="fas fa-times-circle text-secondary opacity-25"></i>';
+          return '<i class="fas fa-exclamation-circle text-warning"></i>';
+        };
+
+        // List Dokumen
+        let docs = [
+          { label: 'Surat Permintaan', key: 'permintaan' },
+          ...(data.tipe === 'TOKO' ? [{ label: 'Surat Penawaran', key: 'penawaran' }] : []),
+          { label: 'BA Pemeriksaan', key: 'baPemeriksaan' },
+          { label: 'BA Serah Terima', key: 'baSerahTerima' },
+          { label: 'BA Pembayaran', key: 'baPembayaran' }
+        ];
+
+        let htmlTable = `
+          <div class="mb-2 text-start">
+            <small class="text-muted fw-bold">TRANSAKSI:</small><br>
+            <span class="fw-bold text-dark">${data.uraian}</span>
+          </div>
+          <div class="table-responsive border rounded">
+            <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.85rem;">
+              <thead class="bg-light text-center">
+                <tr>
+                  <th width="5%">Sts</th>
+                  <th class="text-start">Jenis Dokumen</th>
+                  <th>Tanggal</th>
+                  <th>Nomor Surat</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        let totalLengkap = 0;
+
+        docs.forEach(doc => {
+          const noVal = s[doc.key];
+          const tglVal = t[doc.key];
+          const isOk = (noVal && tglVal);
+          if(isOk) totalLengkap++;
+
+          htmlTable += `
+            <tr>
+              <td class="text-center">${cekIcon(noVal, tglVal)}</td>
+              <td class="fw-bold text-secondary text-start">${doc.label}</td>
+              <td class="text-center">${fmtDate(tglVal)}</td>
+              <td class="text-start">${fmtNo(noVal)}</td>
+            </tr>
+          `;
+        });
+
+        htmlTable += `</tbody></table></div>`;
+
+        // Status Summary Alert
+        let alertHtml = '';
+        if (totalLengkap === docs.length) {
+          alertHtml = `<div class="alert alert-success py-2 px-3 mb-3 d-flex align-items-center"><i class="fas fa-check-circle fa-2x me-3"></i><div><strong>Dokumen Lengkap!</strong><br><small>Semua nomor dan tanggal telah terisi.</small></div></div>`;
+        } else if (totalLengkap === 0) {
+          alertHtml = `<div class="alert alert-secondary py-2 px-3 mb-3 d-flex align-items-center"><i class="fas fa-info-circle fa-2x me-3"></i><div><strong>Belum Ada Data</strong><br><small>Silakan atur nomor dan tanggal surat.</small></div></div>`;
+        } else {
+          alertHtml = `<div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center"><i class="fas fa-exclamation-triangle fa-2x me-3"></i><div><strong>Data Belum Lengkap</strong><br><small>${totalLengkap} dari ${docs.length} dokumen terisi.</small></div></div>`;
+        }
+
+        Swal.fire({
+          title: 'Status Dokumen',
+          html: alertHtml + htmlTable,
+          width: '650px',
+          showCloseButton: true,
+          showConfirmButton: true,
+          confirmButtonText: '<i class="fas fa-edit me-1"></i> Kelola Surat', // Tombol 1
+          showDenyButton: true,
+          denyButtonText: '<i class="fas fa-calendar-alt me-1"></i> Kelola Tanggal', // Tombol 2 (Baru)
+          denyButtonColor: '#198754', // Warna Hijau agar beda
+          showCancelButton: true,
+          cancelButtonText: 'Tutup',
+          focusConfirm: false
+        }).then((result) => {
+          // Tentukan Tab Target (Toko/Tukang)
+          const targetTab = (data.tipe === 'TOKO') ? 'toko' : 'tukang';
+
+          if (result.isConfirmed) {
+            // --- AKSI: KELOLA SURAT ---
+            navigasiKe('panel-nomor-surat', document.querySelector("a[onclick*='panel-nomor-surat']"));
+            setTimeout(() => {
+              bukaTabSurat(targetTab);
+            }, 500);
+
+          } else if (result.isDenied) {
+            // --- AKSI: KELOLA TANGGAL (BARU) ---
+            navigasiKe('panel-tanggal-surat', document.querySelector("a[onclick*='panel-tanggal-surat']"));
+            setTimeout(() => {
+              bukaTabTanggal(targetTab);
+            }, 500);
+          }
+        });
       }
 
     </script>
