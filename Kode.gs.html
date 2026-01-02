@@ -5525,170 +5525,125 @@ function switchFiscalYear(dbId, targetYear) {
   }
 }
 
-/* --- PERBAIKAN FUNGSI PROCESS EXCEL DATA (FINAL) --- */
+/* --- FUNGSI PROCESS DATA (HYBRID: UPLOAD & ONLINE) --- */
 function processExcelData(token, data, filename, type) {
-  var newFileId = null;
+  var tempFileId = null; // ID file sementara (hanya untuk upload manual)
+  
   try {
-    // 1. CEK DRIVE API (Pencegahan Error Umum)
-    if (typeof Drive === 'undefined') {
-      throw new Error("Service 'Drive API' belum aktif. Silakan tambahkan di menu Services (tombol + di kiri).");
+    // 1. Validasi Token
+    if (!token) return { status: 'error', message: 'Sesi tidak valid.' };
+
+    var ssSource; // Spreadsheet Sumber
+
+    // --- CABANG 1: SUMBER DARI TEMPLATE ONLINE ---
+    if (data === "ONLINE_TEMPLATE") {
+      // Jika mode online, 'filename' berisi ID Spreadsheet Template
+      try {
+        ssSource = SpreadsheetApp.openById(filename); 
+      } catch(e) {
+        return { status: 'error', message: 'Tidak dapat membuka Template Online. Pastikan ID benar.' };
+      }
+    } 
+    // --- CABANG 2: SUMBER DARI UPLOAD FILE ---
+    else {
+      if (typeof Drive === 'undefined') throw new Error("Drive API belum aktif.");
+      
+      var mimeType = MimeType.MICROSOFT_EXCEL;
+      if (filename.toLowerCase().endsWith('.xlsx')) {
+        mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      }
+      
+      var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, filename);
+      var resource = { title: "[TEMP] " + filename, mimeType: MimeType.GOOGLE_SHEETS };
+      var newFile = Drive.Files.insert(resource, blob);
+      tempFileId = newFile.id; // Tandai untuk dihapus nanti
+      ssSource = SpreadsheetApp.openById(tempFileId);
     }
 
-    // 2. Validasi Token Sesi
-    if (!token) return { status: 'error', message: 'Sesi tidak valid. Silakan login ulang.' };
-
-    // 3. Deteksi Otomatis MimeType (.xlsx vs .xls)
-    var mimeType = MimeType.MICROSOFT_EXCEL; 
-    if (filename.toLowerCase().endsWith('.xlsx')) {
-      mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    }
-
-    // 4. Konversi Base64 ke Blob
-    var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, filename);
-
-    // 5. Konversi ke Google Sheet (Temp) via Drive API
-    var resource = {
-      title: "[TEMP_IMPORT] " + filename,
-      mimeType: MimeType.GOOGLE_SHEETS 
-    };
-    
-    var newFile = Drive.Files.insert(resource, blob);
-    newFileId = newFile.id; // Simpan ID untuk dihapus nanti
-
-    // 6. Buka File Temp
-    var ssTemp = SpreadsheetApp.openById(newFileId);
-    
-    // --- [PERBAIKAN UTAMA] LOGIKA EKSTRAKSI DATA BERDASARKAN TIPE ---
-    var allDataObjs = [];    // Wadah untuk Transaksi (Array of Objects)
-    var singleSheetRows = []; // Wadah untuk Master Data (Array of Arrays)
+    // --- PROSES EKSTRAKSI DATA (SAMA UNTUK KEDUANYA) ---
+    var allDataObjs = [];
+    var singleSheetRows = [];
 
     if (type === 'TRANSAKSI') {
-        // KHUSUS TRANSAKSI: Baca 3 sheet spesifik (TOKO, TUKANG, GURU)
         const targetSheets = ['TOKO', 'TUKANG', 'GURU'];
-        
         targetSheets.forEach(name => {
-            const s = ssTemp.getSheetByName(name);
+            const s = ssSource.getSheetByName(name);
             if (s) {
                 const vals = s.getDataRange().getDisplayValues();
-                // Pastikan ada data (Header + minimal 1 baris)
                 if (vals.length > 1) {
                     const headers = vals[0];
-                    // Loop mulai baris ke-2
                     for (let i = 1; i < vals.length; i++) {
                         let obj = {};
                         let hasData = false;
-                        // Mapping Header ke Value
                         headers.forEach((h, idx) => {
                             obj[h] = vals[i][idx];
                             if(vals[i][idx] !== "") hasData = true;
                         });
-                        // Hanya masukkan jika baris tidak kosong
                         if(hasData) allDataObjs.push(obj);
                     }
                 }
             }
         });
     } else {
-        // TIPE LAIN (TOKO/TUKANG/GURU/URAIAN): Baca Sheet Pertama Saja
-        var sheetTemp = ssTemp.getSheets()[0];
+        // Master Data (Baca Sheet Pertama)
+        var sheetTemp = ssSource.getSheets()[0];
         singleSheetRows = sheetTemp.getDataRange().getDisplayValues();
     }
 
-    // 7. Hapus file temp SEGERA (Agar Drive bersih)
-    try { Drive.Files.remove(newFileId); } catch(e) {}
-    newFileId = null; 
+    // --- BERSIHKAN FILE TEMP (HANYA JIKA UPLOAD MANUAL) ---
+    if (tempFileId) {
+      try { Drive.Files.remove(tempFileId); } catch(e) {}
+    }
 
-    // --- CABANG PROSES INSERT KE DATABASE ---
-
-    // A. JIKA TIPE TRANSAKSI (Gunakan importDataBatch yang sudah ada)
+    // --- INSERT KE DATABASE ---
+    // A. TRANSAKSI
     if (type === 'TRANSAKSI') {
-        if (allDataObjs.length === 0) {
-             return { status: 'error', message: 'Tidak ada data transaksi yang ditemukan di sheet TOKO/TUKANG/GURU.' };
-        }
-        // Panggil fungsi batch processing (pastikan fungsi importDataBatch ada di file Kode.gs)
+        if (allDataObjs.length === 0) return { status: 'error', message: 'Data transaksi kosong/tidak ditemukan.' };
         return importDataBatch(token, 'TRANSAKSI', allDataObjs);
     }
 
-    // B. JIKA TIPE MASTER DATA (Insert Manual Baris per Baris)
+    // B. MASTER DATA (Manual Loop)
+    if (singleSheetRows.length < 2) return { status: 'error', message: 'Data kosong.' };
     
-    // Cek Kekosongan Data
-    if (singleSheetRows.length < 2) {
-      return { status: 'error', message: 'File Excel kosong atau tidak ada data isian (baris ke-2).' };
-    }
-
     var ssDB = SpreadsheetApp.openById(token);
     var count = 0;
-    var rows = singleSheetRows; // Alias agar kode bawah tidak perlu diubah banyak
+    var rows = singleSheetRows;
 
     if (type === 'TOKO') {
-      let targetSheet = ssDB.getSheetByName('DataToko');
-      if (!targetSheet) {
-        targetSheet = ssDB.insertSheet('DataToko');
-        targetSheet.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]);
-      }
-      for (var i = 1; i < rows.length; i++) {
-        var r = rows[i];
-        if (r[0] && r[0] !== "") { 
-          targetSheet.appendRow([Utilities.getUuid(), r[0], r[1], r[2], "'" + r[3], r[4], r[5]]);
-          count++;
+      let t = ssDB.getSheetByName('DataToko');
+      if (!t) { t = ssDB.insertSheet('DataToko'); t.appendRow(["ID", "Nama Toko", "Jenis Toko", "Alamat Lengkap", "No Telp", "Nama Pemilik", "Tempat TTD"]); }
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i][0]) { 
+          t.appendRow([Utilities.getUuid(), rows[i][0], rows[i][1], rows[i][2], "'" + rows[i][3], rows[i][4], rows[i][5]]); count++; 
         }
       }
     } 
     else if (type === 'TUKANG') {
-      let targetSheet = ssDB.getSheetByName('DataTukang');
-      if (!targetSheet) {
-        targetSheet = ssDB.insertSheet('DataTukang');
-        targetSheet.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]);
-      }
-      for (var i = 1; i < rows.length; i++) {
-        var r = rows[i];
-        if (r[0] && r[0] !== "") {
-          targetSheet.appendRow([Utilities.getUuid(), r[0], r[1]]);
-          count++;
-        }
-      }
-    } 
-    else if (type === 'GURU') {
-      let targetSheet = ssDB.getSheetByName('DataGuru');
-      if (!targetSheet) {
-        targetSheet = ssDB.insertSheet('DataGuru');
-        targetSheet.appendRow(["ID", "Nama Lengkap", "NIP"]);
-      }
-      for (var i = 1; i < rows.length; i++) {
-        var r = rows[i];
-        if (r[0] && r[0] !== "") {
-          targetSheet.appendRow([Utilities.getUuid(), r[0], "'" + r[1]]);
-          count++;
-        }
+      let t = ssDB.getSheetByName('DataTukang');
+      if (!t) { t = ssDB.insertSheet('DataTukang'); t.appendRow(["ID", "Nama Lengkap", "Alamat Lengkap"]); }
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i][0]) { t.appendRow([Utilities.getUuid(), rows[i][0], rows[i][1]]); count++; }
       }
     }
-    // Tambahan URAIAN (Jaga-jaga jika diimport via Excel Manual)
+    else if (type === 'GURU') {
+      let t = ssDB.getSheetByName('DataGuru');
+      if (!t) { t = ssDB.insertSheet('DataGuru'); t.appendRow(["ID", "Nama Lengkap", "NIP"]); }
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i][0]) { t.appendRow([Utilities.getUuid(), rows[i][0], "'" + rows[i][1]]); count++; }
+      }
+    }
     else if (type === 'URAIAN') {
-       let targetSheet = ssDB.getSheetByName('DataUraian');
-       if (!targetSheet) { 
-         targetSheet = ssDB.insertSheet('DataUraian'); 
-         targetSheet.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); 
-       }
-       for (var i = 1; i < rows.length; i++) {
-         var r = rows[i];
-         // r[0] = No Bukti, r[1] = Uraian
-         if (r[1] && r[1] !== "") { 
-           targetSheet.appendRow([Utilities.getUuid(), "'" + r[0], r[1]]);
-           count++;
-         }
+       let t = ssDB.getSheetByName('DataUraian');
+       if (!t) { t = ssDB.insertSheet('DataUraian'); t.appendRow(["ID", "Nomor Bukti", "Uraian Pekerjaan"]); }
+       for (let i = 1; i < rows.length; i++) {
+         if (rows[i][1]) { t.appendRow([Utilities.getUuid(), "'" + rows[i][0], rows[i][1]]); count++; }
        }
     }
 
-    return { 
-      status: 'success', 
-      message: 'Berhasil mengimport <b>' + count + '</b> data ' + type + '.' 
-    };
+    return { status: 'success', message: 'Berhasil mengambil <b>' + (type==='TRANSAKSI' ? allDataObjs.length : count) + '</b> data.' };
 
   } catch (e) {
-    // Cleanup: Jika error terjadi sebelum file dihapus, coba hapus sekarang
-    if (newFileId) {
-      try { Drive.Files.remove(newFileId); } catch(ex) {}
-    }
-    return { status: 'error', message: 'Error Import: ' + e.toString() };
+    if (tempFileId) { try { Drive.Files.remove(tempFileId); } catch(ex) {} }
+    return { status: 'error', message: 'Error: ' + e.toString() };
   }
 }
