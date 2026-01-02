@@ -5676,3 +5676,45 @@ function processExcelData(token, data, filename, type) {
     return { status: 'error', message: 'Error: ' + e.toString() };
   }
 }
+
+/* --- FUNGSI HAPUS BANYAK TRANSAKSI (BULK DELETE) --- */
+function hapusBanyakTransaksi(token, idListJson) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000); // Tunggu antrean 10 detik
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('Transaksi');
+    
+    // Parse list ID yang dikirim dari klien
+    const idsToDelete = JSON.parse(idListJson); // Array of ID strings
+    const idSet = new Set(idsToDelete); // Gunakan Set untuk pencarian cepat
+    
+    const data = sheet.getDataRange().getValues();
+    const rowsToDelete = [];
+
+    // Loop data (Mulai dari baris 2/index 1 karena header)
+    // Kita simpan index baris yang mau dihapus
+    for (let i = 1; i < data.length; i++) {
+      if (idSet.has(String(data[i][0]))) { // Kolom A adalah ID
+        rowsToDelete.push(i + 1); // Simpan nomor baris (bukan index)
+      }
+    }
+
+    // PENTING: Hapus dari BAWAH ke ATAS agar nomor baris tidak bergeser
+    rowsToDelete.sort((a, b) => b - a); 
+    
+    rowsToDelete.forEach(rowNum => {
+      sheet.deleteRow(rowNum);
+    });
+
+    return { 
+      status: 'success', 
+      message: `Berhasil menghapus ${rowsToDelete.length} data transaksi.` 
+    };
+
+  } catch (e) {
+    return { status: 'error', message: 'Gagal menghapus: ' + e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
