@@ -5732,103 +5732,152 @@
           }).getTransaksiList(token, tipe);
       }
 
-      // --- UPDATE: FUNGSI RENDER TABEL TRANSAKSI (GURU TANPA STATUS) ---
-      function renderRiwayatTransaksi(data, tipe, tbody) {
+      // 1. Fungsi Unified Render (Gunakan ini untuk menggantikan renderRiwayatTransaksi & renderTabelRiwayat)
+      function renderRiwayatTransaksi(data, tipeRaw, tbodyOrId) {
+        // Normalisasi Input
+        const tipe = tipeRaw.toLowerCase(); // toko/guru/tukang
+        const tbody = (typeof tbodyOrId === 'string') ? document.getElementById(tbodyOrId) : tbodyOrId;
+        
+        if (!tbody) return;
+
+        // Ambil State Hapus Global
+        const isModeHapus = (typeof STATE_HAPUS !== 'undefined' && STATE_HAPUS[tipe] === true);
+        const selectedSet = (typeof SELECTED_IDS !== 'undefined') ? SELECTED_IDS[tipe] : new Set();
+
+        // --- A. UPDATE HEADER (THEAD) SECARA DINAMIS ---
+        const table = tbody.parentElement;
+        let thead = table.querySelector('thead');
+        
+        // Jika thead belum ada, buat baru
+        if (!thead) {
+          thead = document.createElement('thead');
+          thead.className = "table-light";
+          table.insertBefore(thead, tbody);
+        }
+
+        // Definisi Kolom Header Berdasarkan Tipe
+        let cols = [];
+        
+        // [Kolom 1] Checkbox (Hanya muncul jika Mode Hapus Aktif)
+        if (isModeHapus) {
+          cols.push({ 
+            title: `<input type="checkbox" class="form-check-input border-secondary" onclick="toggleSelectAll('${tipe}', this)" title="Pilih Semua">`, 
+            width: '5%', 
+            align: 'center' 
+          });
+        }
+
+        // [Kolom Standar]
+        cols.push({ title: 'Tanggal', width: '' });
+        
+        if (tipe === 'guru') {
+          cols.push({ title: 'Uraian Kegiatan', width: '' });
+          cols.push({ title: 'Keterangan', width: '' }); // Pengganti Pihak Ketiga untuk Guru
+        } else {
+          cols.push({ title: 'Uraian', width: '' });
+          const labelPihak = (tipe === 'toko') ? 'Toko' : 'Tukang';
+          cols.push({ title: labelPihak, width: '' });
+        }
+
+        cols.push({ title: 'Total', width: '' });
+
+        // [Kolom Status] (Guru biasanya tidak butuh status kelengkapan dokumen)
+        if (tipe !== 'guru') {
+          cols.push({ title: 'Status', width: '10%', align: 'center' });
+        }
+
+        cols.push({ title: 'Aksi', width: '15%' });
+
+        // Render HTML Header
+        let headHtml = '<tr>';
+        cols.forEach(c => {
+          const style = c.width ? `width:${c.width};` : '';
+          const cls = c.align ? `text-${c.align}` : '';
+          headHtml += `<th class="${cls}" style="${style}">${c.title}</th>`;
+        });
+        headHtml += '</tr>';
+        thead.innerHTML = headHtml;
+
+        // --- B. RENDER BODY (TBODY) ---
         tbody.innerHTML = '';
         
-        // Tentukan apakah ini tab Guru
-        const isGuru = (tipe === 'GURU');
-        
-        // Sesuaikan colspan: Guru = 5 kolom, Toko/Tukang = 6 kolom (ada status)
-        const colSpan = isGuru ? 5 : 6;
-
-        if (data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>`;
+        if (!data || data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-muted py-3">Belum ada riwayat transaksi.</td></tr>`;
           return;
         }
 
         data.forEach(item => {
-          // Encode data
+          // Encode data untuk tombol aksi
           const dataJson = encodeURIComponent(JSON.stringify(item)).replace(/'/g, "%27");
-          const tipeKecil = tipe.toLowerCase();
+          
+          let rowHtml = '<tr>';
 
-          // --- LOGIKA STATUS DOKUMEN (HANYA JIKA BUKAN GURU) ---
-          let statusTd = ''; // Default kosong untuk Guru
+          // 1. Sel Checkbox
+          if (isModeHapus) {
+              const isChecked = selectedSet.has(item.id) ? 'checked' : '';
+              rowHtml += `
+                <td class="text-center">
+                  <input type="checkbox" class="form-check-input" style="cursor:pointer;"
+                    onchange="handleCheck('${tipe}', '${item.id}')" ${isChecked}>
+                </td>`;
+          }
 
-          if (!isGuru) {
-            // Ambil data surat & tanggal
+          // 2. Sel Tanggal
+          rowHtml += `<td>${item.tanggalDisplay || '-'}</td>`;
+
+          // 3. Sel Uraian
+          rowHtml += `<td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>`;
+
+          // 4. Sel Pihak Ketiga / Keterangan
+          let displayPihak = item.pihakKetiga || '-';
+          if (tipe === 'guru') {
+            // Untuk Guru, jika pihakKetiga kosong, coba ambil nama penerima pertama
+            if ((!displayPihak || displayPihak==='-' || displayPihak==='Honorarium Guru') && item.items && item.items.length > 0) {
+                displayPihak = item.items[0].nama;
+            }
+          }
+          rowHtml += `<td>${escapeHtml(displayPihak)}</td>`;
+
+          // 5. Sel Total
+          rowHtml += `<td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>`;
+
+          // 6. Sel Status (Non-Guru)
+          if (tipe !== 'guru') {
+            // Logika Status Kelengkapan Dokumen
             const s = item.dataSurat || {};
             const t = item.dataTanggal || {};
-            
-            // Tentukan field wajib
             let keys = ['permintaan', 'baPemeriksaan', 'baSerahTerima', 'baPembayaran'];
-            if (tipe === 'TOKO') keys.push('penawaran');
-
+            if (tipe === 'toko') keys.push('penawaran');
+            
             let filled = 0;
-            let totalTarget = keys.length * 2; // Cek Nomor & Tanggal
-
-            keys.forEach(k => {
+            let totalTarget = keys.length * 2;
+            keys.forEach(k => { 
               if (s[k] && s[k].trim() !== '') filled++; 
               if (t[k] && t[k].trim() !== '') filled++; 
             });
 
-            // Tentukan Ikon Status
-            let statusIcon = '';
-            if (filled === 0) {
-              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Belum Dilengkapi"><i class="fas fa-times-circle text-secondary fa-lg opacity-50"></i></div>`;
-            } else if (filled === totalTarget) {
-              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Lengkap"><i class="fas fa-check-circle text-success fa-lg"></i></div>`;
-            } else {
-              statusIcon = `<div class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')" title="Terisi Sebagian (${filled}/${totalTarget})"><i class="fas fa-exclamation-circle text-warning fa-lg"></i></div>`;
-            }
+            let icon = '';
+            if (filled === 0) icon = '<i class="fas fa-times-circle text-secondary opacity-25" title="Belum Dilengkapi"></i>';
+            else if (filled === totalTarget) icon = '<i class="fas fa-check-circle text-success" title="Lengkap"></i>';
+            else icon = `<i class="fas fa-exclamation-circle text-warning" title="Sebagian (${filled}/${totalTarget})"></i>`;
             
-            // Isi kolom status
-            statusTd = `<td>${statusIcon}</td>`;
+            rowHtml += `<td class="text-center cursor-pointer" onclick="lihatStatusDokumen('${dataJson}')">${icon}</td>`;
           }
-          // -----------------------------
 
-          // Tombol Aksi
-          const btnDetail = `
-            <button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')" title="Lihat Rincian">
-              <i class="fas fa-eye"></i>
-            </button>
-          `;
-          const btnEdit = `
-            <button class="btn btn-sm btn-outline-warning me-1" onclick="modeEditTransaksi('${tipeKecil}', '${dataJson}')" title="Edit">
-              <i class="fas fa-pencil-alt"></i>
-            </button>
-          `;
-          const btnHapus = `
-            <button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi('${item.id}', '${tipeKecil}')" title="Hapus">
-              <i class="fas fa-trash-alt"></i>
-            </button>
-          `;
-
-          // Penyesuaian tampilan nama pihak
-          let displayPihak = item.pihakKetiga;
-          if (isGuru) {
-            // Jika Guru, coba ambil nama dari item pertama jika pihakKetiga tidak jelas
-            if (item.items && item.items.length > 0) {
-                displayPihak = item.items[0].nama;
-            }
+          // 7. Sel Aksi
+          const btnDetail = `<button class="btn btn-sm btn-outline-info me-1" onclick="lihatDetailTransaksi('${dataJson}')"><i class="fas fa-eye"></i></button>`;
+          const btnEdit = `<button class="btn btn-sm btn-outline-warning me-1" onclick="modeEditTransaksi('${tipe}', '${dataJson}')"><i class="fas fa-pencil-alt"></i></button>`;
+          const btnHapus = `<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi('${item.id}', '${tipe}')"><i class="fas fa-trash-alt"></i></button>`;
+          
+          // Jika Mode Hapus aktif, sembunyikan tombol aksi agar tidak penuh (Opsional, tapi lebih rapi)
+          if (isModeHapus) {
+              rowHtml += `<td class="text-center text-muted"><small>Pilih di kiri</small></td>`;
           } else {
-            // Toko/Tukang
-            if (displayPihak === '-' || !displayPihak) displayPihak = "Pihak Ketiga";
+              rowHtml += `<td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>`;
           }
 
-          // Render Row
-          // Perhatikan: variabel ${statusTd} hanya akan terisi jika BUKAN Guru
-          const row = `
-            <tr>
-              <td>${item.tanggalDisplay}</td>
-              <td><div class="text-truncate" style="max-width: 200px;" title="${escapeHtml(item.uraian)}">${escapeHtml(item.uraian)}</div></td>
-              <td>${escapeHtml(displayPihak)}</td>
-              <td class="fw-bold text-success">${formatRupiahJS(item.total)}</td>
-              ${statusTd} 
-              <td style="white-space: nowrap;">${btnDetail} ${btnEdit} ${btnHapus}</td>
-            </tr>
-          `;
-          tbody.innerHTML += row;
+          rowHtml += '</tr>';
+          tbody.innerHTML += rowHtml;
         });
       }
 
@@ -12525,27 +12574,59 @@
         });
       }
 
-      // 1. Fungsi Toggle Mode Hapus (Masuk/Keluar Mode Pilih)
+      // 2. Update Fungsi Toggle Mode Hapus
       function toggleModeHapus(tipe) {
         STATE_HAPUS[tipe] = !STATE_HAPUS[tipe];
         
-        // Reset pilihan jika keluar mode
+        // Jika keluar mode hapus, reset pilihan
         if (!STATE_HAPUS[tipe]) {
           SELECTED_IDS[tipe].clear();
           updateTombolHapus(tipe);
         }
 
-        // Render ulang tabel dengan/tanpa checkbox
-        // Menggunakan data yang ada di Cache agar tidak perlu loading server ulang
-        const cacheKey = 'transaksi_' + tipe; 
+        // Render Ulang Tabel menggunakan Cache (Cepat)
+        const cacheKey = 'transaksi_' + tipe;
+        const tbodyId = (tipe === 'toko') ? 'listTransaksiToko' : (tipe === 'tukang') ? 'listTransaksiTukang' : 'listTransaksiGuru';
+        const tbody = document.getElementById(tbodyId);
+
         if (DATA_CACHE[cacheKey]) {
-          renderTabelRiwayat(tipe, DATA_CACHE[cacheKey]);
+          renderRiwayatTransaksi(DATA_CACHE[cacheKey], tipe, tbody);
         } else {
-          // Jika cache kosong, tarik data (fallback)
-          // Anda bisa memanggil jalankanFilter(...) di sini jika diperlukan
-          console.log("Data kosong, silakan filter ulang.");
+          // Jika cache hilang, load ulang dari server
+          loadTransaksiData(tipe.toUpperCase()); 
         }
       }
+
+      // 3. Fungsi Select All (Pilih Semua di Header)
+      function toggleSelectAll(tipe, el) {
+        const isChecked = el.checked;
+        const data = DATA_CACHE['transaksi_' + tipe];
+        
+        if (!data) return;
+        
+        if (isChecked) {
+          data.forEach(item => SELECTED_IDS[tipe].add(item.id));
+        } else {
+          SELECTED_IDS[tipe].clear();
+        }
+        
+        // Refresh UI
+        updateTombolHapus(tipe);
+        
+        // Re-render body saja untuk update centang (Header tidak perlu dirender ulang)
+        const tbodyId = (tipe === 'toko') ? 'listTransaksiToko' : (tipe === 'tukang') ? 'listTransaksiTukang' : 'listTransaksiGuru';
+        const tbody = document.getElementById(tbodyId);
+        renderRiwayatTransaksi(data, tipe, tbody);
+        
+        // Kembalikan status checkbox header (karena re-render akan me-resetnya)
+        setTimeout(() => {
+            const headerCheck = tbody.parentElement.querySelector('thead input[type="checkbox"]');
+            if(headerCheck) headerCheck.checked = isChecked;
+        }, 50);
+      }
+
+      // 4. (Opsional) Mapping fungsi lama agar tidak error jika ada sisa panggilan
+      const renderTabelRiwayat = renderRiwayatTransaksi;
 
       // 2. Fungsi Handle Klik Checkbox
       function handleCheck(tipe, id) {
@@ -12616,106 +12697,6 @@
               })
               .hapusBanyakTransaksi(token, JSON.stringify(listId));
           }
-        });
-      }
-
-      // 5. RENDERER TABEL BARU (MENDUKUNG CHECKBOX)
-      // Ganti logika render di dalam 'jalankanFilter' Anda dengan memanggil fungsi ini
-      function renderTabelRiwayat(tipe, data) {
-        const tbodyId = (tipe === 'toko') ? 'listTransaksiToko' : (tipe === 'tukang') ? 'listTransaksiTukang' : 'listTransaksiGuru';
-        const tbody = document.getElementById(tbodyId);
-        tbody.innerHTML = '';
-
-        // Simpan ke Cache agar bisa di-render ulang saat toggle
-        DATA_CACHE['transaksi_' + tipe] = data;
-
-        if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Tidak ada data.</td></tr>';
-          return;
-        }
-
-        const isModeHapus = STATE_HAPUS[tipe];
-        const selectedSet = SELECTED_IDS[tipe];
-
-        data.forEach(item => {
-          // Tentukan kolom Pihak (Toko/Tukang/Keterangan Guru)
-          let colPihak = '';
-          if (tipe === 'toko') colPihak = item.toko || '-';
-          else if (tipe === 'tukang') colPihak = item.tukang || '-';
-          else colPihak = item.keterangan || '-'; // Guru pakai keterangan
-
-          // Format Rupiah
-          const totalFmt = formatRupiahJS(item.total);
-          
-          // Status (Hanya Toko & Tukang)
-          let colStatus = '';
-          if (tipe !== 'guru') {
-            let badge = '<span class="badge bg-secondary">Draft</span>';
-            if (item.status === 'Lengkap') badge = '<span class="badge bg-success">Lengkap</span>';
-            colStatus = `<td class="text-center">${badge}</td>`;
-          }
-
-          // Tombol Aksi (Edit/Hapus biasa vs Checkbox)
-          let colAksi = '';
-          let colPertama = ''; // Kolom checkbox (ditambah di depan Tanggal)
-
-          if (isModeHapus) {
-            const isChecked = selectedSet.has(item.id) ? 'checked' : '';
-            // Tambahkan checkbox di awal
-            colPertama = `
-              <td class="text-center" style="width: 40px;">
-                <input type="checkbox" class="form-check-input border-danger" 
-                      style="transform: scale(1.2); cursor: pointer;"
-                      onchange="handleCheck('${tipe}', '${item.id}')" ${isChecked}>
-              </td>
-            `;
-            // Kolom aksi kosong saat mode hapus agar bersih
-            colAksi = `<td class="text-center text-muted"><small>-</small></td>`;
-          } else {
-            // Mode Normal
-            const params = `'${item.id}', '${encodeURIComponent(JSON.stringify(item))}'`;
-            
-            // Tombol Edit
-            let btnEdit = `<button class="btn btn-sm btn-outline-warning me-1" onclick="editTransaksi('${tipe}', ${params})"><i class="fas fa-pencil-alt"></i></button>`;
-            
-            // Tombol Nomor Surat
-            let btnSurat = `<button class="btn btn-sm btn-outline-info me-1" onclick="bukaModalSurat('${tipe}', '${encodeURIComponent(JSON.stringify(item))}')"><i class="fas fa-envelope"></i></button>`;
-            
-            // Tombol PDF
-            let btnPdf = '';
-            if(item.filePdfId) {
-              btnPdf = `<a href="https://drive.google.com/open?id=${item.filePdfId}" target="_blank" class="btn btn-sm btn-danger"><i class="fas fa-file-pdf"></i></a>`;
-            } else {
-              btnPdf = `<button class="btn btn-sm btn-outline-secondary" disabled><i class="fas fa-file-pdf"></i></button>`;
-            }
-
-            colAksi = `<td class="text-nowrap">${btnEdit}${btnSurat}${btnPdf}</td>`;
-          }
-
-          const tr = document.createElement('tr');
-          // Jika Checkbox aktif, baris bisa diklik untuk centang
-          if (isModeHapus) {
-            tr.style.cursor = 'pointer';
-            tr.onclick = (e) => {
-              // Mencegah double trigger jika klik pas di checkboxnya
-              if (e.target.type !== 'checkbox') {
-                  const chk = tr.querySelector('input[type="checkbox"]');
-                  chk.checked = !chk.checked;
-                  handleCheck(tipe, item.id);
-              }
-            };
-          }
-
-          tr.innerHTML = `
-            ${colPertama}
-            <td>${formatTanggalIndo(item.tanggal)}</td>
-            <td class="text-wrap">${item.uraian}</td>
-            <td class="text-wrap">${colPihak}</td>
-            <td class="fw-bold">${totalFmt}</td>
-            ${colStatus}
-            ${colAksi}
-          `;
-          tbody.appendChild(tr);
         });
       }
 
