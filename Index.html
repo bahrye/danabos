@@ -4109,6 +4109,10 @@
         pks: null
       };
 
+      // --- STATE GLOBAL MODE HAPUS ---
+      let STATE_HAPUS = { toko: false, guru: false, tukang: false };
+      let SELECTED_IDS = { toko: new Set(), guru: new Set(), tukang: new Set() };
+
       // Variabel untuk menyimpan input mana yang sedang diketik user
       let activeSatuanInput = null;
 
@@ -12520,10 +12524,6 @@
           }
         });
       }
-
-      // --- STATE GLOBAL MODE HAPUS ---
-      let STATE_HAPUS = { toko: false, guru: false, tukang: false };
-      let SELECTED_IDS = { toko: new Set(), guru: new Set(), tukang: new Set() };
 
       // 1. Fungsi Toggle Mode Hapus (Masuk/Keluar Mode Pilih)
       function toggleModeHapus(tipe) {
