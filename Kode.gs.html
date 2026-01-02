@@ -2013,57 +2013,50 @@ function getAllOptions(token) {
   }
 }
 
-/* --- FUNGSI SIMPAN TRANSAKSI --- */
-
+/* --- FUNGSI SIMPAN TRANSAKSI BARU (UPDATE) --- */
 function simpanTransaksiBaru(token, data) {
   try {
     const ss = SpreadsheetApp.openById(token);
     let sheet = ss.getSheetByName('DataTransaksi');
-
-    // 1. Buat Sheet Transaksi jika belum ada
+    
+    // Buat sheet jika belum ada
     if (!sheet) {
       sheet = ss.insertSheet('DataTransaksi');
-      // Header Database
       sheet.appendRow([
-        "ID_Transaksi", 
-        "Tanggal", 
-        "Tipe",         // Toko / Tukang
-        "Uraian", 
-        "Pihak_Ketiga", // Nama Toko / Nama Tukang
-        "Pemesan",      // Nama Guru
-        "Items_JSON",   // Detail Barang (disimpan format JSON text)
-        "Total_Biaya",
-        "Waktu_Input"
+        "ID_Transaksi", "Tanggal", "Tipe", "Uraian", "Pihak_Ketiga", 
+        "Pemesan", "Items_JSON", "Total_Biaya", "Waktu_Input", 
+        "Data_Surat", "Data_Tanggal", "File_PDF_ID"
       ]);
     }
 
-    // 2. Format Data
     const id = Utilities.getUuid();
     const timestamp = new Date();
     
-    // Konversi Object Items menjadi String JSON agar masuk 1 sel
-    const itemsString = JSON.stringify(data.items);
-    
-    // Pastikan data string aman (pakai kutip satu untuk teks)
+    // Inisialisasi Data Tanggal dengan Tanggal Permintaan = Tanggal Transaksi
+    const initialDataTanggal = { 
+      permintaan: data.tanggal 
+    };
+
     const rowData = [
-      id,
-      "'" + data.tanggal, // Format Text agar tanggal tidak berubah format
-      data.tipe,
-      data.uraian,
-      data.pihakKetiga,
-      data.pemesan,
-      itemsString,
-      data.total,
-      timestamp
+      id, 
+      "'" + data.tanggal, // Pakai kutip agar tetap format text
+      data.tipe, 
+      data.uraian, 
+      data.pihakKetiga, 
+      data.pemesan, 
+      JSON.stringify(data.items), 
+      data.total, 
+      timestamp,
+      "{}", // Data_Surat (Default Kosong)
+      JSON.stringify(initialDataTanggal), // Data_Tanggal (Otomatis terisi permintaan)
+      "" // File_PDF_ID
     ];
 
-    // 3. Simpan
     sheet.appendRow(rowData);
-
-    return { status: 'success', message: 'Transaksi berhasil disimpan!' };
-
-  } catch (e) {
-    return { status: 'error', message: 'Gagal menyimpan: ' + e.toString() };
+    
+    return { status: 'success', message: 'Data berhasil disimpan!' };
+  } catch(e) {
+    return { status: 'error', message: e.toString() };
   }
 }
 
@@ -2161,46 +2154,55 @@ function getTransaksiList(token, tipe) {
   }
 }
 
-/* --- UPDATE: EDIT TRANSAKSI (DYNAMIC COLUMNS) --- */
+/* --- FUNGSI EDIT TRANSAKSI (PERBAIKAN: SINKRONISASI TANGGAL PERMINTAAN) --- */
 function editTransaksiItem(token, data) {
   try {
     const ss = SpreadsheetApp.openById(token);
     const sheet = ss.getSheetByName('DataTransaksi');
-    
-    // [FIX C] PETA HEADER
-    const h = getHeaderMap(sheet);
     const allData = sheet.getDataRange().getValues();
-
-    // Pastikan ID ada
-    if (h['ID_Transaksi'] === undefined) return { status: 'error', message: 'Struktur Data Transaksi rusak (ID_Transaksi hilang).' };
-
+    
+    // Loop untuk mencari baris berdasarkan ID (Kolom A / Index 0)
     for (let i = 1; i < allData.length; i++) {
-      // Cek ID menggunakan index dari Map
-      if (allData[i][h['ID_Transaksi']] == data.id) { 
-        const rowIdx = i + 1;
-        const itemsString = JSON.stringify(data.items);
-
-        // Fungsi helper lokal untuk update sel jika kolom ada
-        const updateCell = (headerName, val) => {
-          if (h[headerName] !== undefined) {
-            // index map 0-based, getRange kolom 1-based, jadi +1
-            sheet.getRange(rowIdx, h[headerName] + 1).setValue(val);
-          }
-        };
-
-        updateCell('Tanggal', "'" + data.tanggal);
-        updateCell('Uraian', data.uraian);
-        updateCell('Pihak_Ketiga', data.pihakKetiga);
-        updateCell('Pemesan', data.pemesan);
-        updateCell('Items_JSON', itemsString);
-        updateCell('Total_Biaya', data.total);
+      if (allData[i][0] == data.id) {
+        const rowIdx = i + 1; // Baris Spreadsheet (mulai dari 1)
         
-        return { status: 'success', message: 'Transaksi berhasil diperbarui!' };
+        // 1. Update Kolom Utama Data Transaksi
+        sheet.getRange(rowIdx, 2).setValue("'" + data.tanggal); // Kolom B: Tanggal
+        sheet.getRange(rowIdx, 4).setValue(data.uraian);        // Kolom D: Uraian
+        sheet.getRange(rowIdx, 5).setValue(data.pihakKetiga);   // Kolom E: Pihak Ketiga
+        sheet.getRange(rowIdx, 6).setValue(data.pemesan);       // Kolom F: Pemesan
+        sheet.getRange(rowIdx, 7).setValue(JSON.stringify(data.items)); // Kolom G: Items
+        sheet.getRange(rowIdx, 8).setValue(data.total);         // Kolom H: Total Biaya
+        
+        // ---------------------------------------------------------------------
+        // 2. PERBAIKAN UTAMA: Sinkronisasi ke Kolom Data_Tanggal (Kolom K / Index 10)
+        // ---------------------------------------------------------------------
+        
+        // Ambil data JSON Data_Tanggal yang sudah ada (jika ada)
+        let dataTanggalJson = {};
+        const rawDataTanggal = allData[i][10]; // Mengambil dari index 10 (Kolom K)
+        
+        if (rawDataTanggal && rawDataTanggal !== "") {
+          try {
+            dataTanggalJson = JSON.parse(rawDataTanggal);
+          } catch(e) {
+            dataTanggalJson = {};
+          }
+        }
+        
+        // PENTING: Update properti 'permintaan' agar sama dengan Tanggal Transaksi baru
+        dataTanggalJson.permintaan = data.tanggal;
+        
+        // Simpan kembali ke kolom K
+        sheet.getRange(rowIdx, 11).setValue(JSON.stringify(dataTanggalJson));
+        // ---------------------------------------------------------------------
+
+        return { status: 'success', message: 'Transaksi diperbarui & Tanggal Permintaan disinkronkan!' };
       }
     }
     return { status: 'error', message: 'ID Transaksi tidak ditemukan.' };
   } catch (e) {
-    return { status: 'error', message: e.toString() };
+    return { status: 'error', message: 'Error: ' + e.toString() };
   }
 }
 
