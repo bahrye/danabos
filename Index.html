@@ -12654,43 +12654,54 @@
       }
 
       // 4. Eksekusi Hapus ke Server
+      /* --- FUNGSI EKSEKUSI HAPUS BANYAK (UPDATE) --- */
       function eksekusiHapusBanyak(tipe) {
         const listId = Array.from(SELECTED_IDS[tipe]);
+        
         if (listId.length === 0) return;
 
         Swal.fire({
-          title: 'Hapus ' + listId.length + ' Transaksi?',
+          title: 'Hapus ' + listId.length + ' Data?',
           text: "Data yang dihapus tidak dapat dikembalikan!",
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#d33',
-          confirmButtonText: 'Ya, Hapus Semua'
+          confirmButtonText: 'Ya, Hapus'
         }).then((result) => {
           if (result.isConfirmed) {
             const token = localStorage.getItem('userToken');
             
-            // Loading
-            Swal.fire({title: 'Menghapus...', didOpen: () => Swal.showLoading()});
+            toggleLoading(true, "Menghapus data..."); // Tampilkan loading overlay
 
             google.script.run
-              .withFailureHandler(msg => Swal.fire('Gagal', msg, 'error'))
-              .withSuccessHandler(res => {
+              .withFailureHandler(handleServerError)
+              .withSuccessHandler(function(res) {
+                toggleLoading(false); // Sembunyikan loading
+                
                 if (res.status === 'success') {
-                  // Reset State
+                  // 1. Bersihkan daftar pilihan (Centang)
                   SELECTED_IDS[tipe].clear();
-                  STATE_HAPUS[tipe] = false; 
-                  updateTombolHapus(tipe);
                   
-                  // Refresh Data (Panggil Filter ulang)
-                  // Asumsi fungsi jalankanFilter sudah ada di kode Anda
-                  const filterTahun = document.getElementById('fltTahun_' + tipe).value;
-                  const filterBulan = document.getElementById('fltBulan_' + tipe).value;
-                  const tbodyId = (tipe === 'toko') ? 'listTransaksiToko' : (tipe === 'tukang') ? 'listTransaksiTukang' : 'listTransaksiGuru';
+                  // 2. Matikan mode hapus (Opsional, agar kembali bersih)
+                  STATE_HAPUS[tipe] = false;
+                  updateTombolHapus(tipe); // Sembunyikan tombol hapus merah di header
+
+                  // 3. PENTING: Kosongkan Cache agar sistem tidak memuat data lama
+                  DATA_CACHE['transaksi_' + tipe] = null; 
+
+                  // 4. Tampilkan pesan sukses
+                  Swal.fire('Berhasil', res.message, 'success');
+
+                  // 5. PENTING: Muat Ulang Data Tabel dari Server
+                  // Fungsi ini akan mengambil data terbaru dan merender ulang tabel
+                  if (typeof loadTransaksiData === 'function') {
+                      loadTransaksiData(tipe.toUpperCase()); 
+                  } else {
+                      console.error("Fungsi loadTransaksiData tidak ditemukan");
+                      // Fallback reload halaman jika fungsi tidak ada
+                      location.reload(); 
+                  }
                   
-                  // Jalankan refresh data
-                  jalankanFilter(tbodyId, 'fltTahun_' + tipe, 'fltBulan_' + tipe);
-                  
-                  Swal.fire('Terhapus!', res.message, 'success');
                 } else {
                   Swal.fire('Gagal', res.message, 'error');
                 }
