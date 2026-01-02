@@ -12075,46 +12075,80 @@
         }
       }
 
-      // --- FUNGSI PROSES IMPORT ONLINE ---
+      /* --- PERBAIKAN IMPORT ONLINE (SINKRONISASI & REFRESH) --- */
       function handleImportOnline() {
         var type = document.getElementById('importTypeTarget').value;
         var token = localStorage.getItem('userToken');
-        
+
+        // Validasi ID Template
+        if (!currentTemplateId) {
+          Swal.fire('Error', 'ID Template tidak ditemukan. Silakan klik "Generate Template" atau "Lihat Template" terlebih dahulu.', 'error');
+          return;
+        }
+
         Swal.fire({
-          title: 'Import Data Online?',
+          title: 'Ambil Data Online?',
           text: "Sistem akan membaca data dari Spreadsheet Template Anda dan menyimpannya ke database aplikasi.",
           icon: 'question',
           showCancelButton: true,
           confirmButtonColor: '#0d6efd',
-          confirmButtonText: '<i class="fas fa-cloud-download-alt me-1"></i> Ya, Import Data',
+          confirmButtonText: '<i class="fas fa-cloud-download-alt me-1"></i> Ya, Ambil Data',
           cancelButtonText: 'Batal'
         }).then((result) => {
           if (result.isConfirmed) {
+            // 1. Tampilkan Loading Bar
             document.getElementById('importProgress').classList.remove('hidden');
             document.getElementById('btnImportOnline').disabled = true;
-            
-            google.script.run.withSuccessHandler(function(res) {
-              document.getElementById('importProgress').classList.add('hidden');
-              document.getElementById('btnImportOnline').disabled = false;
-              
-              if(res.status === 'success') {
-                  Swal.fire({ icon: 'success', title: 'Import Berhasil', html: res.message });
+
+            // 2. Panggil Server
+            google.script.run
+              .withFailureHandler(function(err) {
+                document.getElementById('importProgress').classList.add('hidden');
+                document.getElementById('btnImportOnline').disabled = false;
+                Swal.fire('Gagal', err.message, 'error');
+              })
+              .withSuccessHandler(function(res) {
+                document.getElementById('importProgress').classList.add('hidden');
+                document.getElementById('btnImportOnline').disabled = false;
+
+                if(res.status === 'success') {
                   
-                  // Refresh Tabel (Pastikan fungsi loadData tersedia di kode asli Anda)
-                  if(typeof loadTokoData === 'function' && type === 'TOKO') loadTokoData(true);
-                  if(typeof loadTukangData === 'function' && type === 'TUKANG') loadTukangData(true);
-                  if(typeof loadGuruData === 'function' && type === 'GURU') loadGuruData(true);
-                  if(typeof loadUraianData === 'function' && type === 'URAIAN') loadUraianData(true);
-                  if(typeof loadTransaksiData === 'function' && type === 'TRANSAKSI') loadTransaksiData(true);
-                  
+                  // A. [PENTING] Hapus Cache Lama
+                  invalidateCacheByType(type);
+
+                  // B. Tutup Modal
                   var elModal = document.getElementById('modalImport');
-                  var modal = bootstrap.Modal.getInstance(elModal);
-                  if(modal) modal.hide();
-                  
-              } else {
-                  Swal.fire('Gagal Import', res.message, 'error');
-              }
-            }).importDataFromOnline(token, type);
+                  if(typeof bootstrap !== 'undefined' && elModal) {
+                    var modal = bootstrap.Modal.getInstance(elModal);
+                    if(modal) modal.hide();
+                  }
+
+                  // C. Tampilkan Pesan Sukses & Refresh UI
+                  Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Berhasil Diambil!', 
+                    html: res.message || `Data ${type} dari template online berhasil disimpan.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                  }).then(() => {
+                    // D. Refresh Dashboard jika Transaksi
+                    if(type === 'TRANSAKSI') {
+                        loadDashboardStats(true);
+                    }
+                    
+                    // E. Opsional: Jika Anda ingin langsung melihat datanya,
+                    // Anda bisa memanggil navigasiKe('panel-toko') misal, tapi
+                    // membiarkan user tetap di halaman Import biasanya lebih baik.
+                  });
+
+                } else {
+                  Swal.fire({ icon: 'error', title: 'Gagal', html: res.message });
+                }
+              })
+              .processExcelData(token, "ONLINE_TEMPLATE", currentTemplateId, type); 
+              // Catatan: Pastikan di Google Apps Script (Kode.gs), fungsi processExcelData 
+              // sudah mendukung logika jika parameter ke-2 (data) adalah "ONLINE_TEMPLATE".
+              // ATAU gunakan fungsi khusus importDataFromSpreadsheet jika Anda memilikinya.
           }
         });
       }
