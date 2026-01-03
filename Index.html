@@ -1792,6 +1792,39 @@
             </div>
           </div>
 
+          <div class="modal fade" id="modalInputAnggaran" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark bg-gradient">
+                  <h5 class="modal-title fw-bold"><i class="fas fa-coins me-2"></i> Setup Anggaran Awal</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                  <div class="alert alert-light border-warning border-start border-4 text-dark mb-3" style="font-size: 0.95rem;">
+                    <i class="fas fa-info-circle text-warning me-2"></i>
+                    Sistem mendeteksi <strong>Jumlah Anggaran</strong> untuk tahun ini belum diisi atau bernilai <strong>0</strong>. 
+                    <br><br>Mohon masukkan nominal Pagu Anggaran BOS Anda agar sisa saldo dapat terhitung otomatis.
+                  </div>
+                  
+                  <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Total Anggaran (1 Tahun)</label>
+                    <div class="input-group input-group-lg">
+                      <span class="input-group-text bg-light fw-bold">Rp</span>
+                      <input type="text" class="form-control fs-4 fw-bold text-end text-primary" id="inputAnggaranPopup" 
+                            placeholder="0" oninput="this.value = formatRibuanInput(this.value)">
+                    </div>
+                  </div>
+
+                  <div class="d-grid">
+                    <button type="button" id="btnSimpanAnggaranPopup" class="btn btn-primary btn-lg" onclick="submitAnggaranPopup()">
+                      <i class="fas fa-save me-2"></i> Simpan Anggaran
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="modal fade" id="modalSurat" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
             <div class="modal-dialog modal-lg">
               <div class="modal-content">
@@ -4080,6 +4113,9 @@
       let currentImportType = "";
       var currentTemplateId = ""; 
 
+      // Flag untuk menandai apakah user baru saja login
+      let isLoginFlow = false;
+
       // --- GLOBAL CACHE STORAGE (UPDATED) ---
       let DATA_CACHE = {
         toko: null,
@@ -4349,19 +4385,14 @@
               const elName = document.getElementById('schoolNameDisplay');
               if(elName) elName.innerText = "(" + res.namaSekolah + ")";
 
+              isLoginFlow = true;
+
               // 3. PINDAH KE TAMPILAN ADMIN
               switchView('view-admin');
 
-              /* --- PERBAIKAN UTAMA ADA DI SINI --- */
-              // HAPUS atau KOMENTARI baris ini:
-              // loadDashboardStats(true); 
-
-              // GANTI DENGAN INI:
-              // Memaksa navigasi ke Dashboard. Ini akan menyembunyikan panel Transaksi 
-              // yang mungkin terbuka dari sesi sebelumnya.
+              // Navigasi ke Dashboard (ini akan memicu loadDashboardStats)
               const linkDashboard = document.querySelector("a[onclick*='panel-dashboard']");
               navigasiKe('panel-dashboard', linkDashboard);
-              /* ----------------------------------- */
 
               // Mulai Monitor Sesi
               startSessionMonitor();
@@ -7619,6 +7650,7 @@
             
             // Tampilkan Data
             renderDashboardStats(res.data);
+            cekPopUpAnggaran(res.data.anggaran);
           }
         }).getDashboardStats(token);
       }
@@ -13011,6 +13043,77 @@
               .hapusBanyakTransaksi(token, JSON.stringify(listId));
           }
         });
+      }
+
+      // [FUNGSI BARU] Logika Pengecekan Pop-up
+      function cekPopUpAnggaran(nilaiAnggaran) {
+        // Hanya jalankan jika:
+        // 1. User baru saja login (isLoginFlow == true)
+        // 2. Anggaran kosong, null, atau 0
+        if (isLoginFlow && (!nilaiAnggaran || nilaiAnggaran === 0)) {
+          
+          // Tampilkan Modal
+          const modal = new bootstrap.Modal(document.getElementById('modalInputAnggaran'));
+          modal.show();
+          
+          // Reset flag agar pop-up tidak muncul lagi saat reload halaman / pindah menu
+          isLoginFlow = false; 
+        } else {
+          // Jika anggaran sudah ada, pastikan flag dimatikan juga
+          isLoginFlow = false;
+        }
+      }
+
+      // [FUNGSI BARU] Simpan dari Pop-up
+      function submitAnggaranPopup() {
+        const token = localStorage.getItem('userToken');
+        const inputVal = document.getElementById('inputAnggaranPopup').value;
+        const jumlah = cleanRibuan(inputVal); // Menggunakan helper cleanRibuan yg sudah ada
+
+        if (jumlah <= 0) {
+          Swal.fire('Warning', 'Mohon masukkan jumlah anggaran yang valid.', 'warning');
+          return;
+        }
+
+        // Efek Loading Tombol
+        const btn = document.getElementById('btnSimpanAnggaranPopup');
+        const oriHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        google.script.run
+          .withFailureHandler(function(err){
+            btn.innerHTML = oriHtml; btn.disabled = false;
+            Swal.fire('Error', err.message, 'error');
+          })
+          .withSuccessHandler(function(res){
+            btn.innerHTML = oriHtml; btn.disabled = false;
+            
+            if(res.status === 'success') {
+              // 1. Tutup Modal
+              const el = document.getElementById('modalInputAnggaran');
+              const modal = bootstrap.Modal.getInstance(el);
+              if(modal) modal.hide();
+
+              // 2. Refresh Data Dashboard & Data Sekolah (Cache Invalidate)
+              DATA_CACHE.dashboard = null;
+              DATA_CACHE.sekolah = null;
+              
+              // 3. Muat Ulang Dashboard untuk update tampilan angka
+              loadDashboardStats(true);
+              
+              Swal.fire({
+                icon: 'success', 
+                title: 'Berhasil', 
+                text: 'Anggaran berhasil disimpan!',
+                timer: 1500,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .updateAnggaranCepat(token, jumlah);
       }
 
     </script>
