@@ -2594,24 +2594,18 @@ const DB_SCHEMA = {
 };
 
 /**
- * Jalankan fungsi ini sekali-sekali (Manual atau via Menu) 
- * untuk memastikan header di Spreadsheet sinkron dengan Kode.
+ * FUNGSI MAINTENANCE: PERBAIKI STRUKTUR HEADER BERDASARKAN URUTAN (POSISI)
+ * Logika Baru: Memaksa nama header di kolom ke-N sesuai dengan urutan DB_SCHEMA.
+ * Tidak akan membuat kolom baru jika kolom tersebut sudah ada, hanya me-rename.
  */
 function perbaikiSemuaHeader(token) {
   try {
-    // Jika token tidak diberikan (dijalankan manual dari editor), 
-    // ganti string di bawah ini dengan ID Spreadsheet Anda untuk testing.
-    // Atau panggil fungsi ini dari console browser/frontend.
-    if (!token) {
-       // Opsional: Throw error atau gunakan ID default untuk debug
-       // token = "ID_SPREADSHEET_ANDA_DISINI"; 
-       return { status: 'error', message: 'Token/ID Spreadsheet diperlukan.' };
-    }
+    if (!token) return { status: 'error', message: 'Token diperlukan.' };
 
     const ss = SpreadsheetApp.openById(token);
     let logPerbaikan = [];
 
-    // Loop setiap nama sheet yang ada di SCHEMA
+    // Loop setiap nama sheet yang ada di DB_SCHEMA
     for (const [sheetName, requiredHeaders] of Object.entries(DB_SCHEMA)) {
       
       let sheet = ss.getSheetByName(sheetName);
@@ -2622,37 +2616,46 @@ function perbaikiSemuaHeader(token) {
         logPerbaikan.push(`Sheet baru dibuat: ${sheetName}`);
       }
 
-      // 2. Ambil Header yang sudah ada
-      // Jika sheet kosong, existingHeaders adalah array kosong
-      let existingHeaders = [];
-      if (sheet.getLastColumn() > 0) {
-        existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        // Trim spasi agar pencocokan akurat
-        existingHeaders = existingHeaders.map(h => String(h).trim());
-      }
+      // 2. Loop Berdasarkan Index/Urutan di Schema
+      // index 0 -> Kolom 1 (A), index 1 -> Kolom 2 (B), dst.
+      requiredHeaders.forEach((expectedHeader, index) => {
+        const colNum = index + 1; // Konversi ke 1-based index
+        
+        let currentHeader = "";
+        
+        // Cek apakah kolom ini ada di Spreadsheet?
+        if (colNum <= sheet.getLastColumn()) {
+          // Ambil nama header yang sekarang ada (Baris 1)
+          currentHeader = String(sheet.getRange(1, colNum).getValue()).trim();
+        }
 
-      // 3. Cek Header Wajib
-      requiredHeaders.forEach(headerName => {
-        if (!existingHeaders.includes(headerName)) {
-          // Jika header tidak ditemukan, tambahkan di kolom terakhir + 1
-          const newColIndex = sheet.getLastColumn() + 1;
-          sheet.getRange(1, newColIndex).setValue(headerName);
+        // 3. Bandingkan: Jika Nama Header BEDA dengan Schema -> PERBAIKI
+        if (currentHeader !== expectedHeader) {
           
-          // Style Header Baru (Bold & Abu-abu) biar rapi
-          sheet.getRange(1, newColIndex).setFontWeight("bold").setBackground("#efefef");
+          // Timpa nama header di kolom tersebut
+          const cell = sheet.getRange(1, colNum);
+          cell.setValue(expectedHeader);
           
-          logPerbaikan.push(`Header ditambahkan di ${sheetName}: ${headerName}`);
+          // Styling (Opsional: Biar rapi)
+          cell.setFontWeight("bold").setBackground("#efefef");
+
+          // Catat log
+          if (currentHeader === "") {
+             logPerbaikan.push(`[${sheetName}] Kolom ${colNum}: Header Kosong -> Diisi "${expectedHeader}"`);
+          } else {
+             logPerbaikan.push(`[${sheetName}] Kolom ${colNum}: Mengubah "${currentHeader}" menjadi "${expectedHeader}"`);
+          }
         }
       });
 
-      // 4. Opsional: Bekukan Baris 1 (Freeze Top Row)
+      // 4. Bekukan Baris 1
       sheet.setFrozenRows(1);
     }
 
     if (logPerbaikan.length > 0) {
-      return { status: 'success', message: 'Perbaikan Selesai:\n' + logPerbaikan.join('\n') };
+      return { status: 'success', message: 'Perbaikan Header (By Position) Selesai:\n' + logPerbaikan.join('\n') };
     } else {
-      return { status: 'success', message: 'Struktur Database sudah sesuai (Tidak ada perubahan).' };
+      return { status: 'success', message: 'Semua Nama Header sudah sesuai urutan.' };
     }
 
   } catch (e) {
