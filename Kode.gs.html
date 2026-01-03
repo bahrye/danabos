@@ -5817,3 +5817,20 @@ function hapusFileTemp(fileId) {
     return { status: 'error', message: e.toString() };
   }
 }
+
+/* --- FUNGSI UPDATE ANGGARAN CEPAT (UNTUK POPUP LOGIN) --- */
+function updateAnggaranCepat(token, jumlah) {
+  try {
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataSekolah');
+    if (!sheet) return { status: 'error', message: 'Database Sekolah tidak ditemukan.' };
+    
+    // Kolom Q (Index 17) adalah Jumlah Anggaran sesuai struktur DataSekolah
+    // Baris 2 adalah baris data
+    sheet.getRange(2, 17).setValue(jumlah);
+    
+    return { status: 'success', message: 'Anggaran berhasil disimpan!' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
+}
