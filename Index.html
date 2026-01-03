@@ -12301,14 +12301,15 @@
         }
       }
 
+      /* --- UPDATE: DOWNLOAD TEMPLATE (VIA OFFLINE FILE UPDATE) --- */
       function handleDownloadTemplate() {
         var type = document.getElementById('importTypeTarget').value;
         var token = localStorage.getItem('userToken');
 
-        // Tampilkan Pop-up Loading (Menggantikan status sinkronisasi)
+        // Tampilkan Pop-up Loading
         Swal.fire({
-          title: 'Proses Download',
-          html: 'Sedang menyiapkan file template Excel...<br>Mohon tunggu sebentar.',
+          title: 'Menyiapkan Template',
+          html: 'Mengupdate data referensi terbaru ke dalam template Excel...<br>Mohon tunggu sebentar.',
           icon: 'info',
           allowOutsideClick: false,
           showConfirmButton: false,
@@ -12317,7 +12318,7 @@
           }
         });
 
-        // 1. Ambil Data Referensi Terbaru (Agar Dropdown di Excel Uptodate)
+        // 1. Ambil Data Referensi Terbaru
         google.script.run
           .withFailureHandler(function(err) {
             Swal.fire('Gagal', 'Koneksi error: ' + err.message, 'error');
@@ -12326,39 +12327,33 @@
             if (resRef.status === 'success') {
               var refData = resRef.data;
 
-              // 2. Request Server: Generate Template Instan
+              // 2. Request Server: Update File Offline Existing (Bukan Buat Baru)
               google.script.run
                 .withFailureHandler(function(err) {
-                  Swal.fire('Gagal', 'Gagal generate: ' + err.message, 'error');
+                  Swal.fire('Gagal', 'Gagal update template: ' + err.message, 'error');
                 })
                 .withSuccessHandler(function(resGen) {
                   if (resGen.status === 'success') {
                     
-                    // 3. Download File (Buka URL Export Excel)
+                    // 3. Download File (Export URL)
                     var downloadUrl = "https://docs.google.com/spreadsheets/d/" + resGen.id + "/export?format=xlsx";
                     window.open(downloadUrl, "_blank");
 
-                    // 4. Update Pop-up Menjadi Sukses
+                    // 4. Update Pop-up
                     Swal.fire({
                       icon: 'success',
-                      title: 'Download Dimulai',
-                      text: 'File Excel sedang didownload. File sementara akan dihapus otomatis.',
-                      timer: 2500,
+                      title: 'Download Berjalan',
+                      text: 'Template Excel dengan data terbaru sedang didownload.',
+                      timer: 2000,
                       showConfirmButton: false
                     });
-
-                    // 5. Hapus File Temp di Server (Delay 5-8 detik agar download jalan dulu)
-                    setTimeout(function() {
-                      console.log("Menghapus file temp: " + resGen.id);
-                      google.script.run.hapusFileTemp(resGen.id);
-                    }, 8000); 
 
                   } else {
                     Swal.fire('Gagal', resGen.message, 'error');
                   }
                 })
-                .createExcelTemplateFromServer(type, refData);
-                
+                .prepareOfflineTemplate(token, type, refData); // <-- PANGGIL FUNGSI BARU
+
             } else {
               Swal.fire('Gagal', resRef.message, 'error');
             }
