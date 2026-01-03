@@ -4323,58 +4323,51 @@
           .withFailureHandler(handleServerError)
           .withSuccessHandler(function(res){
             toggleLoading(false);
-            
             if(res.status === 'success') {
-              // [PERBAIKAN 1] BERSIHKAN TOTAL DATA LAMA SEBELUM MENYIMPAN YANG BARU
-              // Ini mencegah data User A 'bocor' ke User B
-              localStorage.clear(); 
               
-              // Reset Cache Global Variable ke kondisi awal (KOSONG)
-              DATA_CACHE = {
-                  toko: null, tukang: null, guru: null, uraian: null, satuan: null,
-                  transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null,
-                  sekolah: null, template_settings: null, dashboard: null
+              // 1. BERSIHKAN DATA LAMA (Kode ini sudah benar di file Anda)
+              localStorage.clear();
+              DATA_CACHE = { 
+                  toko: null, tukang: null, guru: null, uraian: null, satuan: null, 
+                  transaksi_toko: null, transaksi_tukang: null, transaksi_guru: null, 
+                  sekolah: null, template_settings: null, dashboard: null 
               };
-              
-              // Reset Variabel Global lain
               cacheDataGuru = [];
               cacheSatuan = [];
-              cacheRefUraian = [];
-              cacheUserUraian = [];
-
-              // Reset Tampilan UI yang mungkin masih nyangkut
+              
               document.getElementById('schoolNameDisplay').innerText = "";
               document.getElementById('dashNamaSekolah').innerText = "-";
-              
-              // [PERBAIKAN 2] BARU SIMPAN DATA USER BARU
+
+              // 2. SIMPAN SESI BARU (Kode ini sudah benar)
               localStorage.setItem('userToken', res.token);
               localStorage.setItem('userName', res.namaSekolah);
               localStorage.setItem('userEmail', emailInput);
               localStorage.setItem('sessionToken', res.sessionToken);
-              
-              // [BARU] Simpan Tahun Anggaran ke Local Storage untuk referensi aplikasi
               localStorage.setItem('userYear', tahunInput);
-
-              updateTampilanTahun();
               
+              updateTampilanTahun();
               const elName = document.getElementById('schoolNameDisplay');
               if(elName) elName.innerText = "(" + res.namaSekolah + ")";
-              
-              // Pindah View ke Admin Panel
+
+              // 3. PINDAH KE TAMPILAN ADMIN
               switchView('view-admin');
-              
-              // Load Data Baru (Fresh dari Server yang sudah diswap sheet-nya oleh server)
-              loadDashboardStats(true); // Gunakan true untuk force refresh
-              
+
+              /* --- PERBAIKAN UTAMA ADA DI SINI --- */
+              // HAPUS atau KOMENTARI baris ini:
+              // loadDashboardStats(true); 
+
+              // GANTI DENGAN INI:
+              // Memaksa navigasi ke Dashboard. Ini akan menyembunyikan panel Transaksi 
+              // yang mungkin terbuka dari sesi sebelumnya.
+              const linkDashboard = document.querySelector("a[onclick*='panel-dashboard']");
+              navigasiKe('panel-dashboard', linkDashboard);
+              /* ----------------------------------- */
+
               // Mulai Monitor Sesi
               startSessionMonitor();
 
             } else {
-              Swal.fire({
-                icon: 'error',
-                title: 'Login Gagal',
-                html: res.message
-              });
+              Swal.fire({ icon: 'error', title: 'Login Gagal', html: res.message });
             }
           })
           .loginUser(form);
@@ -4554,6 +4547,13 @@
             };
             cacheDataGuru = [];
             cacheSatuan = [];
+
+            // --- TAMBAHAN: Bersihkan Tampilan Tabel Transaksi ---
+            // Agar saat login lagi tabel benar-benar bersih sebelum data baru dimuat
+            document.querySelector('#listTransaksiToko').innerHTML = '<tr><td colspan="5" class="text-center">Memuat data...</td></tr>';
+            document.querySelector('#listTransaksiGuru').innerHTML = '<tr><td colspan="5" class="text-center">Memuat data...</td></tr>';
+            document.querySelector('#listTransaksiTukang').innerHTML = '<tr><td colspan="5" class="text-center">Memuat data...</td></tr>';
+            // ----------------------------------------------------
             
             // Hentikan interval cek sesi
             if(sessionInterval) clearInterval(sessionInterval);
