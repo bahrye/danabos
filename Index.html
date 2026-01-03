@@ -12664,6 +12664,7 @@
           // Walaupun maxYear sudah 2026, jika currentYear 2025 maka 2025 yang terpilih.
           if (y === currentYear) {
             opt.selected = true; 
+            opt.defaultSelected = true;
           }
           
           select.appendChild(opt);
