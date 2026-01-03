@@ -7967,30 +7967,101 @@
         });
       }
 
-      /* --- FITUR FILTER TABEL --- */
+      /* --- PERBAIKAN FITUR FILTER TAHUN (FINAL) --- */
 
-      // 1. Inisialisasi Opsi Tahun (Dipanggil saat window.onload)
+      // Mapping ID Filter ke ID Tabel
+      const FILTER_MAP = [
+        { filter: 'fltTahun_toko', table: 'listTransaksiToko' },
+        { filter: 'fltTahun_guru', table: 'listTransaksiGuru' },
+        { filter: 'fltTahun_tukang', table: 'listTransaksiTukang' },
+        { filter: 'fltTahun_surat', table: 'tabelSuratBody' },
+        { filter: 'fltTahun_tgl', table: 'tabelTanggalBody' },
+        { filter: 'fltTahun_cetak_toko', table: 'tbody-cetak-toko' },
+        { filter: 'fltTahun_cetak_guru', table: 'tbody-cetak-guru' },
+        { filter: 'fltTahun_cetak_tukang', table: 'tbody-cetak-tukang' }
+      ];
+
       function initFilterTahun() {
-        const currentYear = new Date().getFullYear();
-        const startYear = currentYear - 2;
-        const endYear = currentYear + 1;
-        
-        // UPDATE ARRAY IDS INI: Tambahkan 3 ID baru di akhir (fltTahun_cetak_...)
-        const ids = [
-          'fltTahun_toko', 'fltTahun_guru', 'fltTahun_tukang', 
-          'fltTahun_surat', 'fltTahun_tgl',
-          'fltTahun_cetak_toko', 'fltTahun_cetak_guru', 'fltTahun_cetak_tukang' // <-- Tambahan Baru
-        ];
-        
-        ids.forEach(id => {
-          const el = document.getElementById(id);
-          if(el) {
-            el.innerHTML = '<option value="">Semua Tahun</option>';
-            for(let y = startYear; y <= endYear; y++) {
-              el.innerHTML += `<option value="${y}">${y}</option>`;
-            }
+        FILTER_MAP.forEach(item => {
+          const tbody = document.getElementById(item.table);
+          const select = document.getElementById(item.filter);
+          
+          if (tbody && select) {
+            // 1. Eksekusi langsung saat halaman dimuat (Tanpa Menunggu)
+            updateOptionsTahun(tbody, select);
+
+            // 2. Pasang Observer untuk memantau perubahan data tabel secara Realtime
+            // Jika Anda input transaksi baru -> Tabel Berubah -> Filter Update otomatis
+            const observer = new MutationObserver(() => {
+              updateOptionsTahun(tbody, select);
+            });
+            
+            observer.observe(tbody, { childList: true, subtree: true });
           }
         });
+      }
+
+      function updateOptionsTahun(tbody, select) {
+        // A. AMBIL TAHUN ANGGARAN (Prioritas: LocalStorage > Cache > Tahun Komputer)
+        // Kita ambil dari localStorage 'userYear' yang diset saat login. Ini pasti ada dan cepat.
+        let tahunAnggaran = localStorage.getItem('userYear'); 
+        
+        if (!tahunAnggaran && typeof DATA_CACHE !== 'undefined' && DATA_CACHE.sekolah) {
+          tahunAnggaran = DATA_CACHE.sekolah.tahunAnggaran;
+        }
+        
+        // Jika masih tidak ketemu (sangat jarang), fallback ke tahun komputer
+        let tahunDefault = tahunAnggaran ? parseInt(tahunAnggaran) : new Date().getFullYear();
+
+        // B. KUMPULKAN TAHUN DARI TABEL
+        const years = new Set();
+        
+        // Wajib masukkan Tahun Anggaran ke dalam list (walaupun tabel kosong)
+        years.add(tahunDefault);
+
+        // Scan baris tabel
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+          // Abaikan baris loading/kosong
+          if (row.innerText.includes('Memuat') || row.cells.length < 2) return;
+
+          // Cek teks di kolom awal (Tanggal biasanya di kolom 1 atau 2)
+          let textCek = "";
+          if(row.cells[0]) textCek += row.cells[0].innerText + " "; 
+          if(row.cells[1]) textCek += row.cells[1].innerText;
+
+          // Cari angka tahun 20xx
+          const match = textCek.match(/\b(20\d{2})\b/);
+          if (match) {
+            years.add(parseInt(match[1]));
+          }
+        });
+
+        // C. URUTKAN TAHUN (Terbaru di atas)
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+        // D. RENDER KE HTML
+        // Simpan pilihan user sekarang agar tidak reset saat update realtime
+        const currentSelection = select.value; 
+
+        let html = '<option value="">Semua Tahun</option>';
+        sortedYears.forEach(y => {
+          html += `<option value="${y}">${y}</option>`;
+        });
+        
+        // Hanya update innerHTML jika ada perubahan (Mencegah kedip/reset)
+        if (select.innerHTML !== html) {
+            select.innerHTML = html;
+            
+            // E. KEMBALIKAN POSISI PILIHAN
+            // Jika user sudah memilih tahun, pertahankan. 
+            // Jika belum (atau awal load), biarkan default "Semua Tahun" (value="").
+            if (currentSelection && years.has(parseInt(currentSelection))) {
+              select.value = currentSelection;
+            } else {
+              select.value = ""; // Default ke Semua Tahun
+            }
+        }
       }
 
       // 2. Fungsi Utama Filter
