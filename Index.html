@@ -8152,46 +8152,72 @@
         }
       }
 
-      /* --- UPDATE di window.onload --- */
       window.onload = function() {
-        populateLoginYears();
-        initFilterTahun(); 
+        // 1. Populasi Tahun (Pastikan fungsi populateLoginYears juga sudah diperbarui)
+        populateLoginYears(); 
+        
+        // 2. Init Filter Tahun (Cek eksistensi fungsi untuk safety)
+        if (typeof initFilterTahun === 'function') {
+          initFilterTahun();
+        }
 
-        const token = localStorage.getItem('userToken');
-        const sessionToken = localStorage.getItem('sessionToken');
-        const email = localStorage.getItem('userEmail');
+        // 3. Ambil Data Sesi dengan Aman (Try-Catch untuk Mode Incognito)
+        let token = null;
+        let sessionToken = null;
+        let email = null;
 
-        if(token && sessionToken && email) {
-          
-          // GUNAKAN TEKS KHUSUS DISINI
-          toggleLoading(true, "Memeriksa Sesi..."); 
+        try {
+          token = localStorage.getItem('userToken');
+          sessionToken = localStorage.getItem('sessionToken');
+          email = localStorage.getItem('userEmail');
+        } catch (e) {
+          console.warn("Akses LocalStorage dibatasi (Mode Incognito):", e);
+          // Jika error, variabel tetap null, otomatis lari ke halaman login
+        }
+
+        // 4. Logika Cek Sesi
+        if (token && sessionToken && email) {
+          // Tampilkan loading saat cek ke server
+          toggleLoading(true, "Memeriksa Sesi...");
 
           google.script.run
             .withSuccessHandler(function(res) {
               toggleLoading(false); // Matikan loading
               
-              if (res.valid) {
-                  switchView('view-admin');
+              if (res && res.valid) {
+                // Sesi Valid -> Masuk ke Admin
+                switchView('view-admin');
+                
+                try {
                   const savedName = localStorage.getItem('userName');
-                  if(savedName) document.getElementById('schoolNameDisplay').innerText = "(" + savedName + ")";
-                  updateTampilanTahun();
-                  loadDashboardStats(); 
-                  startSessionMonitor();
+                  if(savedName) {
+                    const elName = document.getElementById('schoolNameDisplay');
+                    if(elName) elName.innerText = "(" + savedName + ")";
+                  }
+                } catch(e) {}
+
+                updateTampilanTahun();
+                loadDashboardStats();
+                startSessionMonitor();
               } else {
-                  localStorage.clear();
-                  document.getElementById('formLogin').reset();
-                  switchView('view-login');
+                // Sesi Invalid -> Logout
+                try { localStorage.clear(); } catch(e) {}
+                const formLogin = document.getElementById('formLogin');
+                if(formLogin) formLogin.reset();
+                switchView('view-login');
               }
             })
-            .withFailureHandler(function() {
+            .withFailureHandler(function(err) {
+              console.error("Gagal cek sesi:", err);
               toggleLoading(false);
-              localStorage.clear();
+              try { localStorage.clear(); } catch(e) {}
               switchView('view-login');
             })
             .checkSessionStatus(email, sessionToken);
-            
+
         } else {
-          localStorage.clear();
+          // Tidak ada token tersimpan / Mode Incognito -> Tampilkan Login
+          try { localStorage.clear(); } catch(e) {}
           switchView('view-login');
         }
       };
@@ -12631,47 +12657,62 @@
           .sinkronisasiRef(token);
       }
 
-      /* --- FUNGSI BARU: POPULASI TAHUN ANGGARAN (DIPERBAIKI) --- */
+      /* --- FUNGSI BARU: POPULASI TAHUN ANGGARAN (DIPERBAIKI & AMAN INCOGNITO) --- */
       function populateLoginYears() {
         const select = document.getElementById('loginTahun');
-        if(!select) return;
-        
+        if (!select) return;
+
         const now = new Date();
-        const currentYear = now.getFullYear();      // Contoh: 2025
-        const currentMonth = now.getMonth() + 1;    // 1-12
-        
-        // 1. Tentukan batas tahun maksimal yang muncul di dropdown
-        // Logika: Start 2025. Jika masuk bulan 7 ke atas, munculkan opsi tahun depan (RKAM).
+        const currentYear = now.getFullYear(); // Tahun Komputer (misal: 2026)
+        const currentMonth = now.getMonth() + 1; // 1-12
+
+        // 1. Tentukan batas tahun maksimal
+        // Logika: Start 2025. Jika masuk bulan 7 (Juli) ke atas, munculkan opsi tahun depan (RKAM).
         let maxYear = currentYear;
         if (currentMonth >= 7) {
-          maxYear = currentYear + 1; // Contoh: Jadi 2026
+          maxYear = currentYear + 1;
         }
         
         const startYear = 2025;
-        // Validasi agar tidak mundur di bawah tahun start
-        if (maxYear < startYear) maxYear = startYear;
+        if (maxYear < startYear) maxYear = startYear; // Validasi safety
 
+        // 2. Ambil Tahun Terakhir Login dari Cache (Dengan Penanganan Error Incognito)
+        let savedYear = null;
+        try {
+          savedYear = localStorage.getItem('userYear');
+        } catch (e) {
+          console.warn("Akses LocalStorage diblokir (Mode Incognito/Privasi):", e);
+          // Abaikan error, biarkan savedYear null
+        }
+
+        // Bersihkan opsi lama
         select.innerHTML = '';
-        
-        // 2. Loop membuat opsi dropdown (Ascending: 2025, 2026, ...)
+
+        // 3. Loop membuat opsi dropdown (2025, 2026, dst)
         for (let y = startYear; y <= maxYear; y++) {
           const opt = document.createElement('option');
           opt.value = y;
           opt.text = y;
-          
-          // [PERBAIKAN DISINI]
-          // Selalu pilih tahun yang sama dengan Tahun Berjalan (currentYear)
-          // Walaupun maxYear sudah 2026, jika currentYear 2025 maka 2025 yang terpilih.
-          if (y === currentYear) {
-            opt.selected = true; 
-            opt.defaultSelected = true;
+
+          // --- LOGIKA PEMILIHAN (DEFAULT SELECTION) ---
+          // Skenario A: Jika ada data di cache & cocok dengan opsi ini -> Pilih itu
+          if (savedYear && parseInt(savedYear) === y) {
+            opt.selected = true;
+          } 
+          // Skenario B: Jika cache kosong (Incognito/Login Pertama) -> Pilih Tahun Berjalan (currentYear)
+          // Pastikan hanya terset jika savedYear tidak valid/tidak ada
+          else if (!savedYear && y === currentYear) {
+            opt.selected = true;
           }
-          
+
           select.appendChild(opt);
         }
         
-        // Fallback: Jika tahun berjalan belum ada di list (misal komputer user tanggalnya 2024),
-        // otomatis browser akan memilih opsi paling atas (2025).
+        // Fallback Terakhir: Jika tidak ada yang terpilih sama sekali (misal tahun komputer < 2025), 
+        // pilih opsi terakhir (tahun terbaru)
+        if (select.selectedIndex === -1 && select.options.length > 0) {
+          select.selectedIndex = select.options.length - 1;
+        }
       }
 
       /* --- FUNGSI UPDATE TAMPILAN TAHUN DI SIDEBAR --- */
