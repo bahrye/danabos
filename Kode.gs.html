@@ -576,21 +576,30 @@ function checkSessionStatus(email, clientSessionToken) {
 
 function simpanTransaksi(token, dataTransaksi) {
   try {
-    const ss = SpreadsheetApp.openById(token); // Buka DB spesifik milik sekolah
-    const sheet = ss.getSheetByName('Transaksi');
+    const ss = SpreadsheetApp.openById(token);
+    const sheet = ss.getSheetByName('DataTransaksi'); // Pastikan nama sheet sesuai
     
-    // Generate ID Unik
     const id = Utilities.getUuid();
     
-    sheet.appendRow([
-      id,
-      new Date(),
-      dataTransaksi.nomorSurat,
-      dataTransaksi.toko,
-      JSON.stringify(dataTransaksi.items), // Item barang disimpan sbg JSON string
-      dataTransaksi.total,
-      dataTransaksi.terbilang
-    ]);
+    // Perbaikan: Mapping sesuai DB_SCHEMA (12 Kolom)
+    // Urutan: ID, Tanggal, Tipe, Uraian, Pihak Ketiga, Pemesan, Items, Total, Terbilang, Surat, TanggalData, PDF
+    
+    const rowData = [
+      id,                                      // 1. ID Transaksi
+      new Date(dataTransaksi.tanggal),         // 2. Tanggal
+      dataTransaksi.tipe,                      // 3. Tipe (TOKO/GURU/TUKANG)
+      dataTransaksi.uraian,                    // 4. Uraian
+      dataTransaksi.pihakKetiga,               // 5. Pihak Ketiga
+      dataTransaksi.pemesan,                   // 6. Pemesan
+      JSON.stringify(dataTransaksi.items),     // 7. Items (JSON)
+      dataTransaksi.total,                     // 8. Total Biaya
+      dataTransaksi.terbilang || "",           // 9. Terbilang
+      "{}",                                    // 10. Data Surat (JSON) - Default kosong
+      "{}",                                    // 11. Data Tanggal (JSON) - Default kosong
+      ""                                       // 12. File PDF ID - Default kosong
+    ];
+    
+    sheet.appendRow(rowData);
     
     return { status: 'success', message: 'Data Transaksi Tersimpan!' };
   } catch (e) {
