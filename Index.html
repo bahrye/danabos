@@ -12631,34 +12631,46 @@
           .sinkronisasiRef(token);
       }
 
-      /* --- FUNGSI BARU: POPULASI TAHUN ANGGARAN --- */
+      /* --- FUNGSI BARU: POPULASI TAHUN ANGGARAN (DIPERBAIKI) --- */
       function populateLoginYears() {
         const select = document.getElementById('loginTahun');
         if(!select) return;
         
         const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentYear = now.getFullYear();      // Contoh: 2025
+        const currentMonth = now.getMonth() + 1;    // 1-12
         
-        // Logika: Start 2025. Jika masuk bulan 7, munculkan tahun depan.
+        // 1. Tentukan batas tahun maksimal yang muncul di dropdown
+        // Logika: Start 2025. Jika masuk bulan 7 ke atas, munculkan opsi tahun depan (RKAM).
         let maxYear = currentYear;
         if (currentMonth >= 7) {
-          maxYear = currentYear + 1;
+          maxYear = currentYear + 1; // Contoh: Jadi 2026
         }
         
         const startYear = 2025;
-        // Validasi agar tidak mundur
+        // Validasi agar tidak mundur di bawah tahun start
         if (maxYear < startYear) maxYear = startYear;
 
         select.innerHTML = '';
+        
+        // 2. Loop membuat opsi dropdown (Ascending: 2025, 2026, ...)
         for (let y = startYear; y <= maxYear; y++) {
           const opt = document.createElement('option');
           opt.value = y;
           opt.text = y;
-          // Default pilih tahun saat ini (atau tahun depan jika bulan > 7 disesuaikan kebutuhan)
-          if (y === maxYear) opt.selected = true; 
+          
+          // [PERBAIKAN DISINI]
+          // Selalu pilih tahun yang sama dengan Tahun Berjalan (currentYear)
+          // Walaupun maxYear sudah 2026, jika currentYear 2025 maka 2025 yang terpilih.
+          if (y === currentYear) {
+            opt.selected = true; 
+          }
+          
           select.appendChild(opt);
         }
+        
+        // Fallback: Jika tahun berjalan belum ada di list (misal komputer user tanggalnya 2024),
+        // otomatis browser akan memilih opsi paling atas (2025).
       }
 
       /* --- FUNGSI UPDATE TAMPILAN TAHUN DI SIDEBAR --- */
