@@ -6578,47 +6578,40 @@
         tambahBaris(tipe);
       }
 
-      // --- FUNGSI POPUP DETAIL TRANSAKSI (UPDATE: TANPA STATUS DOKUMEN) ---
-      // GANTI FUNGSI lihatDetailTransaksi DI FILE Index.html DENGAN INI
+      // --- FUNGSI POPUP DETAIL TRANSAKSI (PERBAIKAN TAMPILAN) ---
       function lihatDetailTransaksi(encodedData) {
         const data = JSON.parse(decodeURIComponent(encodedData));
-        const tipe = (data.tipe || '').toUpperCase(); // Normalisasi tipe ke Huruf Besar
-        
+        const tipe = (data.tipe || '').toUpperCase();
+
         // --- LOGIKA TAMPILAN KHUSUS ---
         let labelPihak = "Pihak Ketiga";
-        let valPihak = escapeHtml(data.pihakKetiga || '-'); // Default: Nama Toko (Aman dari kode HTML)
+        let valPihak = escapeHtml(data.pihakKetiga || '-');
+        
         let labelBawah = "Pemesan";
         let valBawah = escapeHtml(data.pemesan || '-');
 
         // 1. KONDISI KHUSUS GURU
         if (tipe === 'GURU') {
-          // Untuk Guru, nama penerima ada di rincian item pertama
           if (data.items && data.items.length > 0) {
-            valPihak = escapeHtml(data.items[0].nama); 
+            valPihak = escapeHtml(data.items[0].nama);
           }
           labelPihak = "Penerima / Guru";
           labelBawah = "Keterangan";
-          valBawah = escapeHtml(data.pihakKetiga); // Di Guru, kolom pihakKetiga dipakai utk Keterangan
+          valBawah = escapeHtml(data.pihakKetiga);
         } 
-        // 2. KONDISI KHUSUS TOKO (CARI NAMA PEMILIK)
+        // 2. KONDISI KHUSUS TOKO
         else if (tipe === 'TOKO') {
           labelPihak = "Toko / Rekanan";
-          
-          // Cek apakah data toko tersedia di Cache Aplikasi?
           if (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.toko) {
-              // Cari data toko yang namanya cocok
-              const tokoInfo = DATA_CACHE.toko.find(t => t.nama === data.pihakKetiga);
-              
-              // Jika ketemu dan ada nama pemiliknya
-              if (tokoInfo && tokoInfo.pemilik) {
-                // Tampilkan: Nama Toko (atas) + Nama Pemilik (bawah, kecil, miring)
-                valPihak = `
-                  <div class="fw-bold">${escapeHtml(data.pihakKetiga)}</div>
-                  <div class="text-muted small fst-italic mt-1">
-                    <i class="fas fa-user-tie me-1"></i>${escapeHtml(tokoInfo.pemilik)}
-                  </div>
-                `;
-              }
+            const tokoInfo = DATA_CACHE.toko.find(t => t.nama === data.pihakKetiga);
+            if (tokoInfo && tokoInfo.pemilik) {
+              valPihak = `
+                <div class="fw-bold">${escapeHtml(data.pihakKetiga)}</div>
+                <div class="text-muted small fst-italic mt-1">
+                  <i class="fas fa-user-tie me-1"></i>${escapeHtml(tokoInfo.pemilik)}
+                </div>
+              `;
+            }
           }
         }
 
@@ -6640,7 +6633,7 @@
                     <td class="bg-light fw-bold text-secondary">
                       <i class="fas fa-clipboard-list text-primary me-2"></i>Uraian
                     </td>
-                    <td class="fw-bold text-dark text-wrap" style="max-width: 300px;">
+                    <td class="fw-bold text-dark">
                       ${escapeHtml(data.uraian)}
                     </td>
                   </tr>
@@ -6649,14 +6642,14 @@
                       <i class="fas fa-store text-primary me-2"></i>${labelPihak}
                     </td>
                     <td class="text-dark align-middle">
-                      ${valPihak} 
+                      ${valPihak}
                     </td>
                   </tr>
                   <tr>
                     <td class="bg-light fw-bold text-secondary">
                       <i class="fas fa-user-check text-primary me-2"></i>${labelBawah}
                     </td>
-                    <td class="text-dark text-wrap" style="max-width: 300px;">
+                    <td class="text-dark">
                       ${valBawah}
                     </td>
                   </tr>
@@ -6666,14 +6659,16 @@
           </div>
 
           <div class="table-responsive border rounded" style="max-height: 300px; overflow-y: auto;">
-            <table class="table table-sm table-striped mb-0" style="font-size: 0.85rem;">
-              <thead class="table-dark sticky-top">
+            
+            <table class="table table-sm table-striped table-bordered text-nowrap mb-0" style="font-size: 0.85rem;">
+              
+              <thead class="sticky-top text-white" style="background-color: #0dcaf0;"> 
                 <tr>
-                  <th>Item / Uraian</th>
-                  <th class="text-center">Vol</th>
-                  <th class="text-center">Sat</th>
-                  <th class="text-end">Harga</th>
-                  <th class="text-end">Jumlah</th>
+                  <th class="text-center p-2">Item / Uraian</th>
+                  <th class="text-center p-2">Vol</th>
+                  <th class="text-center p-2">Sat</th>
+                  <th class="text-end p-2">Harga</th>
+                  <th class="text-end p-2">Jumlah</th>
                 </tr>
               </thead>
               <tbody>
@@ -6685,27 +6680,27 @@
             const vol = parseFloat(item.vol) || 0;
             const harga = parseFloat(item.harga) || 0;
             const jumlah = parseFloat(item.jumlah) || 0;
-            
+
             htmlContent += `
               <tr>
-                <td class="text-start">${escapeHtml(item.nama)}</td>
-                <td class="text-center">${vol}</td>
-                <td class="text-center">${escapeHtml(item.sat)}</td>
-                <td class="text-end text-muted">${formatRupiahJS(harga)}</td>
-                <td class="text-end fw-bold">${formatRupiahJS(jumlah)}</td>
+                <td class="text-start px-2">${escapeHtml(item.nama)}</td>
+                <td class="text-center px-2">${vol}</td>
+                <td class="text-center px-2">${escapeHtml(item.sat)}</td>
+                <td class="text-end text-muted px-2">${formatRupiahJS(harga)}</td>
+                <td class="text-end fw-bold px-2">${formatRupiahJS(jumlah)}</td>
               </tr>
             `;
           });
         } else {
-          htmlContent += `<tr><td colspan="5" class="text-center text-muted fst-italic">Tidak ada rincian item.</td></tr>`;
+          htmlContent += `<tr><td colspan="5" class="text-center text-muted fst-italic p-3">Tidak ada rincian item.</td></tr>`;
         }
 
         htmlContent += `
               </tbody>
               <tfoot class="table-light sticky-bottom">
                 <tr>
-                  <td colspan="4" class="text-end fw-bold">TOTAL TRANSAKSI:</td>
-                  <td class="text-end fw-bold fs-6 text-success">${formatRupiahJS(data.total)}</td>
+                  <td colspan="4" class="text-end fw-bold p-2">TOTAL TRANSAKSI:</td>
+                  <td class="text-end fw-bold fs-6 text-success p-2">${formatRupiahJS(data.total)}</td>
                 </tr>
               </tfoot>
             </table>
