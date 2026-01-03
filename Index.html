@@ -11379,40 +11379,65 @@
       }
 
       // 1. Tambahkan Fungsi Simpan Manual
+      // Cari fungsi simpanPermohonan() dan GANTI dengan kode ini:
       function simpanPermohonan() {
-        const btn = document.getElementById('btnSimpanPermohonan');
-        const orgHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-        const formData = {
+        const token = localStorage.getItem('userToken');
+        
+        // 1. Ambil Data dari Form
+        const form = {
           nomorSurat: document.getElementById('pmNomorSurat').value,
           tempat: document.getElementById('pmTempat').value,
           tanggal: document.getElementById('pmTanggal').value
         };
 
-        const token = localStorage.getItem('userToken');
+        // 2. Validasi Sederhana
+        if (!form.nomorSurat || !form.tempat || !form.tanggal) {
+          Swal.fire('Peringatan', 'Mohon lengkapi Nomor Surat, Tempat, dan Tanggal.', 'warning');
+          return;
+        }
 
+        // 3. Efek Loading Tombol (Menampilkan "Menyimpan...")
+        const btn = document.getElementById('btnSimpanPermohonan');
+        const txtAsli = btn.innerHTML; // Simpan teks asli ("Simpan Data")
+        
+        // Ubah jadi Spinner + Teks Menyimpan
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true; // Matikan tombol agar tidak bisa diklik lagi
+
+        // 4. Kirim ke Server
         google.script.run
-          .withSuccessHandler(function(res) {
+          .withFailureHandler(function(err) {
+            // Jika Gagal: Kembalikan tombol & Munculkan Error
+            btn.innerHTML = txtAsli;
             btn.disabled = false;
-            btn.innerHTML = orgHtml;
-            if(res.status === 'success') {
+            Swal.fire('Gagal', err.message, 'error');
+          })
+          .withSuccessHandler(function(res) {
+            // Jika Sukses: Kembalikan tombol & Munculkan Notifikasi
+            btn.innerHTML = txtAsli;
+            btn.disabled = false;
+            
+            if (res.status === 'success') {
+              // Optional: Update Cache jika diperlukan
+              if (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.pencairan_lengkap && DATA_CACHE.pencairan_lengkap.permohonan) {
+                  DATA_CACHE.pencairan_lengkap.permohonan.nomorSurat = form.nomorSurat;
+                  DATA_CACHE.pencairan_lengkap.permohonan.tempat = form.tempat;
+                  DATA_CACHE.pencairan_lengkap.permohonan.tanggal = form.tanggal;
+              }
+              
               Swal.fire({
-                icon: 'success', title: 'Tersimpan',
-                text: 'Data formulir berhasil disimpan.',
-                timer: 1500, showConfirmButton: false
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Data Permohonan Disimpan',
+                showConfirmButton: false,
+                timer: 1500
               });
             } else {
               Swal.fire('Gagal', res.message, 'error');
             }
           })
-          .withFailureHandler(function(err) {
-            btn.disabled = false;
-            btn.innerHTML = orgHtml;
-            Swal.fire('Error', err.message, 'error');
-          })
-          .simpanDataPermohonan(token, formData);
+          .simpanDataPermohonan(token, form);
       }
 
       // 2. Tambahkan Fungsi Load Data
@@ -11450,23 +11475,63 @@
       }
 
       // 2. Simpan Data Manual
+      // Cari fungsi simpanKuitansi() dan GANTI dengan kode ini:
       function simpanKuitansi() {
-        const btn = document.getElementById('btnSimpanKuitansi');
-        const orgHtml = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-        const formData = {
+        const token = localStorage.getItem('userToken');
+        
+        // 1. Ambil Data dari Form
+        const form = {
           nomorSurat: document.getElementById('kwNomorSurat').value,
           tempat: document.getElementById('kwTempat').value,
           tanggal: document.getElementById('kwTanggal').value
         };
 
-        const token = localStorage.getItem('userToken');
-        google.script.run.withSuccessHandler(function(res) {
-            btn.disabled = false; btn.innerHTML = orgHtml;
-            if(res.status === 'success') Swal.fire({icon: 'success', title: 'Tersimpan', text: 'Data kuitansi disimpan.', timer: 1500, showConfirmButton: false});
-            else Swal.fire('Gagal', res.message, 'error');
-          }).simpanDataKuitansi(token, formData);
+        // 2. Validasi Sederhana
+        if (!form.nomorSurat || !form.tempat || !form.tanggal) {
+          Swal.fire('Peringatan', 'Mohon lengkapi Nomor Kuitansi, Tempat, dan Tanggal.', 'warning');
+          return;
+        }
+
+        // 3. Efek Loading Tombol (Menampilkan "Menyimpan...")
+        const btn = document.getElementById('btnSimpanKuitansi');
+        const txtAsli = btn.innerHTML; // Simpan teks asli
+        
+        // Ubah jadi Spinner + Teks Menyimpan
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+        btn.disabled = true;
+
+        // 4. Kirim ke Server
+        google.script.run
+          .withFailureHandler(function(err) {
+            btn.innerHTML = txtAsli;
+            btn.disabled = false;
+            Swal.fire('Gagal', err.message, 'error');
+          })
+          .withSuccessHandler(function(res) {
+            btn.innerHTML = txtAsli;
+            btn.disabled = false;
+            
+            if (res.status === 'success') {
+              // Optional: Update Cache
+              if (typeof DATA_CACHE !== 'undefined' && DATA_CACHE.pencairan_lengkap && DATA_CACHE.pencairan_lengkap.kuitansi) {
+                  DATA_CACHE.pencairan_lengkap.kuitansi.nomorSurat = form.nomorSurat;
+                  DATA_CACHE.pencairan_lengkap.kuitansi.tempat = form.tempat;
+                  DATA_CACHE.pencairan_lengkap.kuitansi.tanggal = form.tanggal;
+              }
+              
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Data Kuitansi Disimpan',
+                showConfirmButton: false,
+                timer: 1500
+              });
+            } else {
+              Swal.fire('Gagal', res.message, 'error');
+            }
+          })
+          .simpanDataKuitansi(token, form);
       }
 
       /* --- FUNGSI GENERATE KUITANSI (DENGAN KONFIRMASI) --- */
