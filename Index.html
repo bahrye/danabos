@@ -13,30 +13,28 @@
     <style>
       /* --- PERBAIKAN CSS SCROLL MOBILE --- */
       html {
-        /* Hapus height: 100% agar browser menghitung tinggi sesuai konten */
-        height: auto;
-        min-height: 100%;
         width: 100%;
-        /* Hapus overscroll-behavior-y: none; agar efek pantul natural tetap ada (mencegah rasa macet) */
+        height: 100%;
+        /* Mencegah scroll pada html, serahkan ke body */
+        overflow: hidden; 
       }
 
       body {
         margin: 0;
         padding: 0;
         width: 100%;
-        min-height: 100vh; 
-        height: auto;      
+        height: 100%; /* Full height */
         
         background-color: #f4f6f9; 
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         
-        /* --- PERBAIKAN: Ubah hidden menjadi auto --- */
-        overflow-x: auto !important; 
-        overflow-y: auto;
+        /* SETTING SCROLL UTAMA */
+        overflow-y: auto; /* Scroll vertikal aktif */
+        overflow-x: hidden; /* Scroll horizontal dimatikan di level Body (agar tidak goyang) */
         
+        /* PERBAIKAN PENTING: Izinkan semua gerakan jari */
+        touch-action: auto !important; 
         -webkit-overflow-scrolling: touch;
-        /* Ganti pan-y menjadi auto agar bisa geser segala arah */
-        touch-action: auto; 
       }
 
       /* Pastikan container login pas di tengah layar HP */
@@ -47,14 +45,19 @@
         margin: auto;
       }
 
-      /* Tambahan: Pastikan konten utama tidak melebar liar */
       .panel-content {
         width: 100%;
-        max-width: 100vw; /* Batasi lebar maksimal selebar layar */
-        overflow-x: hidden; /* Konten yang meluap disembunyikan/diurus anak elemennya */
-        height: auto;
-        padding-bottom: 100px;
-        touch-action: pan-y;
+        max-width: 100vw; /* Batasi lebar maksimal selebar layar HP */
+        
+        /* Pastikan konten yang melebar dipotong/disembunyikan */
+        overflow-x: hidden; 
+        
+        /* Biarkan tinggi menyesuaikan konten */
+        height: auto; 
+        padding-bottom: 100px; 
+        
+        /* PERBAIKAN PENTING: Hapus pan-y, ganti auto */
+        touch-action: auto !important; 
       }
 
       /* Perbaikan Input agar tidak zoom in otomatis di HP saat diklik */
@@ -442,10 +445,11 @@
       }
 
       .table-responsive {
-        overflow-x: auto !important; /* Wajib auto agar tabel bisa digeser */
-        -webkit-overflow-scrolling: touch;
+        display: block;
         width: 100%;
-        margin-bottom: 1rem;
+        overflow-x: auto; /* Tabel boleh digeser horizontal */
+        -webkit-overflow-scrolling: touch;
+        touch-action: auto; /* Izinkan sentuhan geser */
       }
       
       /* 3. Pastikan Sticky Header tetap jalan tapi tidak menghalangi scroll */
@@ -1007,6 +1011,21 @@
         .verif-sig-nip {
           font-size: 10pt;
         }
+      }
+
+      /* FIX: Paksa tombol turun ke bawah jika layar sempit */
+      .action-container, 
+      .d-flex {
+        flex-wrap: wrap !important; 
+      }
+      
+      /* FIX: Pastikan tombol tidak terpotong di layar kecil */
+      .action-group-right {
+        margin-top: 10px; /* Beri jarak jika tombol turun */
+        width: 100%;
+        display: flex;
+        justify-content: flex-end; /* Rata kanan */
+        gap: 5px;
       }
     </style>
   </head>
