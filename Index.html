@@ -2,10 +2,13 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
     
     <style>
       /* --- PERBAIKAN CSS SCROLL MOBILE --- */
@@ -36,6 +39,14 @@
         
         /* Memberi tahu browser bahwa elemen ini boleh digeser vertikal */
         touch-action: pan-y; 
+      }
+
+      /* Pastikan container login pas di tengah layar HP */
+      .login-container {
+        width: 100%;
+        max-width: 400px; /* Batas lebar di layar besar */
+        padding: 15px;
+        margin: auto;
       }
 
       /* Tambahan: Pastikan konten utama tidak melebar */
@@ -4100,7 +4111,6 @@
         </a>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
 
       let cacheDataGuru = [];
@@ -8152,16 +8162,21 @@
         }
       }
 
-      window.onload = function() {
-        // 1. Populasi Tahun (Pastikan fungsi populateLoginYears juga sudah diperbarui)
-        populateLoginYears(); 
+      /* --- UPDATE: GUNAKAN DOMContentLoaded AGAR LEBIH CEPAT --- */
+      document.addEventListener("DOMContentLoaded", function() {
         
-        // 2. Init Filter Tahun (Cek eksistensi fungsi untuk safety)
-        if (typeof initFilterTahun === 'function') {
-          initFilterTahun();
+        // 1. Pastikan Loading Overlay tertutup dulu agar tidak blank
+        toggleLoading(false); 
+
+        // 2. Jalankan fungsi dasar (dengan pengecekan error)
+        try {
+          if (typeof populateLoginYears === 'function') populateLoginYears();
+          if (typeof initFilterTahun === 'function') initFilterTahun();
+        } catch (e) {
+          console.warn("Init Error:", e);
         }
 
-        // 3. Ambil Data Sesi dengan Aman (Try-Catch untuk Mode Incognito)
+        // 3. Cek Sesi (Aman untuk Incognito)
         let token = null;
         let sessionToken = null;
         let email = null;
@@ -8171,23 +8186,26 @@
           sessionToken = localStorage.getItem('sessionToken');
           email = localStorage.getItem('userEmail');
         } catch (e) {
-          console.warn("Akses LocalStorage dibatasi (Mode Incognito):", e);
-          // Jika error, variabel tetap null, otomatis lari ke halaman login
+          console.log("Mode Incognito / Akses Storage Dibatasi.");
+          // Abaikan error, biarkan variabel null agar lari ke Login
         }
 
-        // 4. Logika Cek Sesi
+        // 4. Logika Routing (Login vs Admin)
         if (token && sessionToken && email) {
-          // Tampilkan loading saat cek ke server
-          toggleLoading(true, "Memeriksa Sesi...");
+          // A. Jika ada data sesi, Cek Validitas ke Server
+          
+          // Tampilkan loading HANYA jika yakin ada sesi
+          toggleLoading(true, "Memeriksa Sesi..."); 
 
           google.script.run
             .withSuccessHandler(function(res) {
-              toggleLoading(false); // Matikan loading
+              toggleLoading(false); 
               
               if (res && res.valid) {
-                // Sesi Valid -> Masuk ke Admin
+                // --- SESI VALID: Masuk ke Admin ---
                 switchView('view-admin');
                 
+                // Restore Nama Sekolah di Header
                 try {
                   const savedName = localStorage.getItem('userName');
                   if(savedName) {
@@ -8196,31 +8214,38 @@
                   }
                 } catch(e) {}
 
-                updateTampilanTahun();
-                loadDashboardStats();
-                startSessionMonitor();
+                // Load Data Dashboard
+                if(typeof updateTampilanTahun === 'function') updateTampilanTahun();
+                if(typeof loadDashboardStats === 'function') loadDashboardStats();
+                if(typeof startSessionMonitor === 'function') startSessionMonitor();
+
               } else {
-                // Sesi Invalid -> Logout
-                try { localStorage.clear(); } catch(e) {}
-                const formLogin = document.getElementById('formLogin');
-                if(formLogin) formLogin.reset();
-                switchView('view-login');
+                // --- SESI INVALID: Lempar ke Login ---
+                forceLogoutLocal();
               }
             })
             .withFailureHandler(function(err) {
+              // Jika Server Error (Koneksi/Incognito Block), Lempar ke Login
               console.error("Gagal cek sesi:", err);
               toggleLoading(false);
-              try { localStorage.clear(); } catch(e) {}
-              switchView('view-login');
+              forceLogoutLocal();
             })
             .checkSessionStatus(email, sessionToken);
 
         } else {
-          // Tidak ada token tersimpan / Mode Incognito -> Tampilkan Login
-          try { localStorage.clear(); } catch(e) {}
+          // B. Jika tidak ada token (Incognito/Baru Buka) -> LANGSUNG TAMPILKAN LOGIN
+          // Jangan pakai toggleLoading() disini agar tampilan instan
           switchView('view-login');
         }
-      };
+      });
+
+      // Helper Kecil untuk Logout Lokal Cepat
+      function forceLogoutLocal() {
+        try { localStorage.clear(); } catch(e) {}
+        const formLogin = document.getElementById('formLogin');
+        if(formLogin) formLogin.reset();
+        switchView('view-login');
+      }
 
       // Load Setting dari Server ke Form
       function loadSettingNomor() {
