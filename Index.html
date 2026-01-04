@@ -54,7 +54,7 @@
         
         /* Biarkan tinggi menyesuaikan konten */
         height: auto; 
-        padding-bottom: 100px; 
+        padding-bottom: 0px; 
         
         /* PERBAIKAN PENTING: Hapus pan-y, ganti auto */
         touch-action: auto !important; 
@@ -1026,6 +1026,14 @@
         display: flex;
         justify-content: flex-end; /* Rata kanan */
         gap: 5px;
+      }
+
+      /* FIX: Sembunyikan Footer/Batas Bawah Putih */
+      footer, .main-footer, .footer {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
       }
     </style>
   </head>
