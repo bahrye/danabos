@@ -24,21 +24,19 @@
         margin: 0;
         padding: 0;
         width: 100%;
-        min-height: 100vh; /* Gunakan min-height viewport */
-        height: auto;      /* Biarkan tinggi tumbuh sesuai konten */
+        min-height: 100vh; 
+        height: auto;      
         
         background-color: #f4f6f9; 
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         
-        /* Mencegah scroll horizontal halaman utama, tapi izinkan scroll vertikal native */
-        overflow-x: hidden; 
+        /* --- PERBAIKAN: Ubah hidden menjadi auto --- */
+        overflow-x: auto !important; 
         overflow-y: auto;
         
-        /* KUNCI: Mengaktifkan momentum scrolling yang mulus di iOS/Android */
         -webkit-overflow-scrolling: touch;
-        
-        /* Memberi tahu browser bahwa elemen ini boleh digeser vertikal */
-        touch-action: pan-y; 
+        /* Ganti pan-y menjadi auto agar bisa geser segala arah */
+        touch-action: auto; 
       }
 
       /* Pastikan container login pas di tengah layar HP */
@@ -49,14 +47,13 @@
         margin: auto;
       }
 
-      /* Tambahan: Pastikan konten utama tidak melebar */
+      /* Tambahan: Pastikan konten utama tidak melebar liar */
       .panel-content {
         width: 100%;
-        overflow: visible; /* Biarkan konten mengalir apa adanya */
+        max-width: 100vw; /* Batasi lebar maksimal selebar layar */
+        overflow-x: hidden; /* Konten yang meluap disembunyikan/diurus anak elemennya */
         height: auto;
-        padding-bottom: 100px; /* Tambah ruang bawah agar tombol paling bawah tidak tertutup browser bar */
-        
-        /* Pastikan sentuhan terdeteksi */
+        padding-bottom: 100px;
         touch-action: pan-y;
       }
 
@@ -442,6 +439,13 @@
       .modal-body .table-responsive {
         overscroll-behavior: auto !important; 
         touch-action: pan-x pan-y !important;
+      }
+
+      .table-responsive {
+        overflow-x: auto !important; /* Wajib auto agar tabel bisa digeser */
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        margin-bottom: 1rem;
       }
       
       /* 3. Pastikan Sticky Header tetap jalan tapi tidak menghalangi scroll */
