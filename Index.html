@@ -17,6 +17,7 @@
         height: 100%;
         /* Mencegah scroll pada html, serahkan ke body */
         overflow: hidden; 
+        background-color: #f4f6f9;
       }
 
       body {
@@ -316,12 +317,19 @@
       .main-footer {
         text-align: center;
         padding: 20px 10px;
-        margin-top: auto; /* Mendorong footer ke bawah jika menggunakan flex column */
-        background-color: #f4f6f9; /* Menyesuaikan background body */
+        
+        /* Perbaikan Margin */
+        margin-top: auto; 
+        margin-bottom: 0 !important; /* Pastikan tidak ada jarak di bawah */
+        
+        background-color: #f4f6f9; 
         border-top: 1px solid #e0e0e0;
         width: 100%;
         font-size: 0.9rem;
         color: #6c757d;
+        
+        /* Perbaikan Khusus HP Poni/Full Screen agar tidak tertutup tombol navigasi */
+        padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
       }
 
       .main-footer a {
@@ -1026,14 +1034,6 @@
         display: flex;
         justify-content: flex-end; /* Rata kanan */
         gap: 5px;
-      }
-
-      /* FIX: Sembunyikan Footer/Batas Bawah Putih */
-      footer, .main-footer, .footer {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-        width: 0 !important;
       }
     </style>
   </head>
